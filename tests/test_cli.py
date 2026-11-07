@@ -75,3 +75,12 @@ def test_service_passes_replay_as_path(monkeypatch):
     service.verdict("abc", horizon=7, replay="/tmp/x")
     assert seen["args"] == ("abc",)
     assert seen["kw"] == {"horizon": 7, "replay": Path("/tmp/x")}
+
+
+def test_unknown_test_error_names_the_id(capsys, tmp_path):
+    for name in ("auth_whoami.json", "products_list.json"):
+        (tmp_path / name).write_text((ONBOARDING / name).read_text())
+    code, out, _ = run(capsys, ["no-such-test-id", "--replay", str(tmp_path)])
+    assert code == 1
+    assert list(out) == ["error"]
+    assert "no-such-test-id" in out["error"]

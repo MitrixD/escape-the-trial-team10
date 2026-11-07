@@ -72,3 +72,12 @@ def test_checker_rejects_outputs_outside_the_contract(confirmed, change):
 
 def test_checker_accepts_a_produced_verdict(confirmed):
     assert errors(confirmed, load_schema()) == []
+
+
+def test_live_run_fixture_matches_schema():
+    import json
+    from pathlib import Path
+
+    live = json.loads((Path(__file__).parent / "fixtures" / "live_run_onboarding.json").read_text())
+    assert errors(live, load_schema()) == []
+    assert live["verdict"] in {"not_enough_data", "confirmed", "tie", "keep_running"}
