@@ -1,0 +1,58 @@
+{
+  "ab_test_id": "AI limit: annual upfront vs weekly trial",
+  "verdict": "confirmed",
+  "leader": "weekly_trial",
+  "p2bb_expected": 0.9976,
+  "p2bb_raw": 0.0,
+  "horizon_days": 60,
+  "horizon_source": "parameter",
+  "maturity": 0.3695,
+  "come_back_on": null,
+  "money_at_stake_usd": 105.72,
+  "arms": [
+    {
+      "title": "annual_upfront",
+      "users": 1400,
+      "revenue_received": 3.77,
+      "revenue_expected_trials": 0.0,
+      "revenue_expected_renewals": -0.04,
+      "warnings": [
+        {
+          "metric": "refund_rate_per_payer",
+          "value": 0.0246,
+          "vs_other": 0.0162,
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "title": "weekly_trial",
+      "users": 1400,
+      "revenue_received": 1.01,
+      "revenue_expected_trials": 1.29,
+      "revenue_expected_renewals": 3.3,
+      "warnings": [
+        {
+          "metric": "refund_rate_per_payer",
+          "value": 0.0162,
+          "vs_other": 0.0246,
+          "status": "ok"
+        }
+      ]
+    }
+  ],
+  "segments_checked": 13,
+  "segments_found": [],
+  "next_step": {
+    "type": "stop_with_winner",
+    "reason": "Stop the test and roll out the leader.",
+    "placement_id": null,
+    "primary_metric": "net revenue per user, 60 days",
+    "watch": [
+      "refund_rate_per_payer"
+    ],
+    "alternative": null
+  },
+  "source": "offline",
+  "calibration_source": "offline"
+}

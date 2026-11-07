@@ -11,6 +11,41 @@
   4. What is the smallest version that proves it by Sunday 15:00?
 - The team talks in Russian. Code, comments, commit messages and this file are in English.
 
+## How to build and change this project
+
+The Verdict Agent is planned as one OpenSpec change: `openspec/changes/add-verdict-agent/` (proposal, specs, design, tasks). Read `docs/2026-11-07-verdict-agent-design.md` for the why, then the change. `tasks.md` is the plan: tasks are grouped into tracks that two people can build in parallel.
+
+**Tooling.** OpenSpec CLI is required: `npm install -g @fission-ai/openspec@latest`, check with `openspec --version`. The `openspec-*` skills are in `.claude/skills/`; run `openspec update` after a CLI upgrade to refresh them.
+
+**Pick a task.**
+1. Read `tasks.md` and choose an unchecked task whose "Needs" are already merged into `main`.
+2. Check open PRs and branches so you don't take a task someone else claimed.
+3. Branch from `main`: `git switch -c feat/<task-number>-<short-name> origin/main`.
+
+**Implement a task.** Use `openspec-apply-change` with change `add-verdict-agent`, limited to the task you claimed.
+- Start every behaviour with a failing test, then make it pass (`openspec/config.yaml` requires it).
+- Build against the names and types in `design.md` → "Interfaces". If a module from another track is not merged yet, stub it with the same signature.
+- Mark the task done in `tasks.md` (`- [x]`) in the same PR.
+
+**Change the plan or the behaviour.** Anything that changes what the system does (verdict rules, thresholds, JSON fields, inputs, data reads) goes through `openspec-update-change` on `add-verdict-agent` while it is not archived; it is not archived while `openspec/changes/add-verdict-agent/` exists. Use `openspec-propose` for a new, unrelated capability or after archive. Never edit change files outside these skills. Typos and doc wording: just edit.
+
+**Before the PR.**
+1. Run the full test suite with `VERDICT_DATASET` exported (the dataset is `data/offline` in `https://github.com/kpotehin/adapty-seed-data-hack`; it is used only by the eval tests, the tool itself reads Adapty only).
+2. `openspec validate add-verdict-agent --strict`.
+3. Run the secret grep on the staged diff (below).
+4. Open one PR per task into `main`, title in English, description in Russian: what changed in behaviour and which task it closes.
+
+**When everything is done:** `openspec-verify-change`, then `openspec-sync-specs` and `openspec-archive-change`.
+
+**Rules.**
+- Commit and push only when the user asks.
+- Secrets only in `.env`; never commit or print them.
+- Adapty is read-only for this project: no start, stop, create or update; never `apps get` (it returns the secret key).
+- The tool's inputs come only from Adapty, through whichever API provides the data: the Developer CLI, the Export Analytics API or the Server-side API. No external datasets at run time; recorded Adapty responses may be replayed with `--replay`.
+- Use synthetic data only. Do not run `seed_adapty.py`. Do not load the API: sequential calls, about 2 per second.
+- Commits in English, Conventional Commits. Add files by name (never `git add .`). Before committing run:
+  `git diff --cached | grep -nEi 'secret_live|secret_test|api[_-]?key|token|password|private key|sk-[a-z0-9]|ghp_|gho_'` — any match stops the commit until a human checks it.
+
 ## Adapty's object model
 
 - An **app** has **placements**. Each placement has a developer ID that is hard-coded in the client app.
@@ -74,7 +109,7 @@ All four are flow tests.
 
 | Test | State | Notes |
 |---|---|---|
-| Onboarding: annual trial vs weekly first | live | Goal: "60-day revenue per install". B shows P2BB 100% (p = 7.7e-9) with $1,528 vs $0. But `trials_finished = 0` and `active_trials_rate = 1`, so B's lead is an artefact of trial timing: no trial has ended yet |
+| Onboarding: annual trial vs weekly first | live | Goal: "60-day revenue per install". B shows P2BB 100% (p = 7.7e-9) with $1,528 vs $0. `trials_finished = 0` and `active_trials_rate = 1`: no trial has ended yet. On the offline data the weekly arm (B) still wins at 60 and 90 days, so the lead is real (see `eval/RESULTS.md`) |
 | Main: 3 plans vs lifetime anchor (NA) | live | No signal: P2BB 33/67 |
 | Settings: upgrade vs lifetime anchor | completed | Ran for 0.8 s, has no data and no winner field |
 | AI limit: Pro vs 3 plans | draft | — |
