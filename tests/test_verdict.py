@@ -255,3 +255,16 @@ def test_schema_rejects_bad_verdict():
     out["verdict"] = "maybe"
     with pytest.raises(AssertionError):
         check(out, SCHEMA)
+
+
+def test_early_come_back_on_never_before_as_of():
+    out = _trial_test({"weekly_trial": 3, "annual_trial": 1}, goal="Maximise 5-day revenue")
+    assert out["verdict"] == "early"
+    assert out["come_back_on"] == date(*AS_OF).isoformat()
+
+
+def test_not_enough_data_come_back_on_is_integer_ceil():
+    out = v(fake(events=[7, 80]))
+    days = (date(*AS_OF) - date(*STARTED_ON)).days
+    needed = -(-(30 - 7) * days // 7)
+    assert out["come_back_on"] == (date(*AS_OF) + timedelta(days=needed)).isoformat()

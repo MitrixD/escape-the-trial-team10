@@ -98,3 +98,21 @@ def fake(p2bb=0.7, maturity=0.5, events=None, users=None, equal=False):
         payer_arm("B", users[1], k_b, received, events[1]),
     ]
     return make_test(arms), cal
+
+
+def offline_rows(dataset_path, spike_users, test_name, horizon=60):
+    import csv
+    import gzip
+
+    attrs = {}
+    with gzip.open(f"{dataset_path}/users.csv.gz", "rt") as fh:
+        for row in csv.DictReader(fh):
+            attrs[row["user_id"]] = {
+                k: row[k] for k in ("platform", "acquisition_channel", "onboarding_goal", "push_opt_in")
+            }
+    spike = load_spike()
+    rows = {}
+    for uid, u in sorted(spike_users.items()):
+        if u["test"] == test_name:
+            rows.setdefault(u["arm"], []).append((attrs[uid], spike.rev(u, horizon)))
+    return dict(sorted(rows.items()))

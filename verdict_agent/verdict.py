@@ -1,4 +1,3 @@
-import math
 import re
 from datetime import timedelta
 
@@ -41,15 +40,16 @@ def _received_values(arm: Arm) -> list[float]:
 
 def _come_back_on(verdict, test, horizon, min_events, trial_days):
     if verdict == "not_enough_data":
-        rate = min_events / max(1, (test.as_of - test.started_on).days)
-        if rate == 0:
+        if min_events == 0:
             return None
-        return test.as_of + timedelta(days=math.ceil((MIN_EVENTS - min_events) / rate))
+        days_since_start = max(1, (test.as_of - test.started_on).days)
+        days_needed = -(-(MIN_EVENTS - min_events) * days_since_start // min_events)
+        return test.as_of + timedelta(days=days_needed)
     if verdict == "early":
         trial_days = trial_days or {}
         products = {g.product for arm in test.arms for g in arm.groups if g.status == "trial"}
         slowest = max((trial_days.get(p, DEFAULT_TRIAL_DAYS) for p in products), default=0)
-        return test.started_on + timedelta(days=min(slowest + RENEWAL_DAYS, horizon))
+        return max(test.as_of, test.started_on + timedelta(days=min(slowest + RENEWAL_DAYS, horizon)))
     return None
 
 
@@ -89,6 +89,9 @@ def build_verdict(
     warnings = warnings or {}
     checked, found = segments or (0, [])
     step_type, reason = NEXT_STEP[verdict]
+    all_warnings = [w for arm in test.arms for w in warnings.get(arm.title, [])]
+    watch = sorted({w["metric"] for w in all_warnings})
+    worse = next((w for w in all_warnings if w["status"] == "worse"), None)
 
     return {
         "ab_test_id": test.ab_test_id,
@@ -118,8 +121,8 @@ def build_verdict(
             "reason": reason,
             "placement_id": test.placement_id,
             "primary_metric": f"net revenue per user, {horizon} days",
-            "watch": [],
-            "alternative": None,
+            "watch": watch,
+            "alternative": {"targets": worse["metric"]} if worse else None,
         },
         "source": test.source,
         "calibration_source": cal.source,
