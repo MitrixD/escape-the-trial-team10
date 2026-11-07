@@ -5,3 +5,4 @@ Team 10 project for the Adapty First Commit hackathon in Belgrade, 7–8 Novembe
 
 - [Adapty: отчёт о продукте, сценариях и API](research/01-adapty-product-report.md) — каталог фич, сценарии по ролям, карта API/CLI/MCP и их пробелов, снимок хакатонного аккаунта, шероховатости CLI.
 - [5 идей расширения Adapty](research/02-extension-ideas.md) — каждая проверена вопросами жюри (для кого, деньги/время/риск, зачем Adapty и AI, минимальная версия к воскресенью 15:00) + рекомендация.
+- [Реальные боли пользователей](research/04-user-pains.md) — GitHub issues Adapty, G2/Capterra (через Wayback), Canny, отзывы на мобильное приложение Adapty, Reddit, форум RevenueCat; карта болей и проверка наших идей на голосах пользователей.
