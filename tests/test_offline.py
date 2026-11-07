@@ -120,3 +120,10 @@ def test_run_offline_horizon_parameter(dataset_path, monkeypatch):
 def test_run_offline_rejects_horizon_before_loading(tmp_path):
     with pytest.raises(ValueError, match="horizon must be between 1 and 120 days"):
         run_offline(tmp_path / "missing", SETTINGS, 14, 100, horizon=121)
+
+
+def test_run_offline_rejects_day_above_horizon(tmp_path):
+    with pytest.raises(ValueError, match=r"day must not exceed the horizon \(30 days\)"):
+        run_offline(tmp_path / "missing", SETTINGS, 31, 100, horizon=30)
+    with pytest.raises(ValueError, match=r"day must not exceed the horizon \(60 days\)"):
+        run_offline(tmp_path / "missing", SETTINGS, 61, 100)

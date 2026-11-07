@@ -225,3 +225,31 @@ def test_run_live_rejects_horizon_before_adapty_calls(tmp_path):
     with pytest.raises(ValueError, match="horizon must be between 1 and 120 days"):
         run_live(ONB_ID, TODAY, cli=fake_cli(runner), env_path=env, horizon=365)
     assert runner.calls == []
+
+
+def test_run_live_trials_past_their_length_become_ended(tmp_path, monkeypatch):
+    env = tmp_path / ".env"
+    env.write_text(f"LUMEN_APP_ID={APP}\nADAPTY_EXPECTED_COMPANY={COMPANY}\nVERDICT_DATASET=/synthetic\n")
+    built = []
+
+    def cal(users, exclude_test, horizon):
+        built.append(Calibration({}, {}, {"trial": 10.0, "ended": 0.0, "active": 0.0, "none": 0.0}, "offline"))
+        return built[-1]
+
+    monkeypatch.setattr(live, "build_offline", cal)
+    monkeypatch.setattr(live, "_cached_users", lambda path, horizon: ({}, {"weekly": 3, "annual_trial": 7}))
+    seen = []
+    real = live.build_verdict
+    monkeypatch.setattr(live, "build_verdict", lambda test, *a, **k: seen.append(test) or real(test, *a, **k))
+    out = run_live(ONB_ID, date(2026, 11, 12), cli=fake_cli(), env_path=env)
+    arms = {a.title: a for a in seen[0].arms}
+    assert {(g.status, g.product): g.n for g in arms["B"].groups} == {
+        ("ended", "weekly"): 71, ("active", "annual"): 35, ("none", "-"): 179,
+    }
+    assert {(g.status, g.product): g.n for g in arms["A"].groups} == {
+        ("trial", "annual_trial"): 47, ("ended", "weekly"): 19, ("none", "-"): 188,
+    }
+    assert all(g.received == 0 for a in arms.values() for g in a.groups if g.status == "ended")
+    expected = {a["title"]: a["revenue_expected_trials"] for a in out["arms"]}
+    assert expected["B"] == 0
+    assert expected["A"] == round(47 * 10.0 / 254, 2)

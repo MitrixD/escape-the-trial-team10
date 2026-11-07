@@ -1,4 +1,5 @@
 import logging
+import math
 import re
 from datetime import timedelta
 
@@ -49,6 +50,10 @@ def resolve_horizon(horizon: int | None, goal: str) -> tuple[int, str]:
     return (DEFAULT_HORIZON, "default") if days is None else (min(days, MAX_HORIZON), "goal")
 
 
+def _floor4(p: float) -> float:
+    return math.floor(p * 1e4) / 1e4
+
+
 def _events(arm: Arm) -> int:
     return arm.purchases + arm.trials if arm.users > 0 else 0
 
@@ -83,6 +88,8 @@ def build_verdict(
     trial_days: dict[str, int] | None = None,
     horizon: int | None = None,
 ) -> dict:
+    if len(test.arms) < 2:
+        raise ValueError("an A/B test needs at least two arms")
     horizon, horizon_source = resolve_horizon(horizon, test.goal)
     if horizon_source == "goal" and _goal_days(test.goal) > MAX_HORIZON:
         log.warning("goal horizon %d days is above %d; clamped to %d", _goal_days(test.goal), MAX_HORIZON, MAX_HORIZON)
@@ -122,8 +129,8 @@ def build_verdict(
         "ab_test_id": test.ab_test_id,
         "verdict": verdict,
         "leader": leader.title,
-        "p2bb_expected": round(p_expected, 4),
-        "p2bb_raw": round(p_raw, 4),
+        "p2bb_expected": _floor4(p_expected),
+        "p2bb_raw": _floor4(p_raw),
         "horizon_days": horizon,
         "horizon_source": horizon_source,
         "maturity": round(maturity, 4),

@@ -164,6 +164,17 @@ def live_test(cli: AdaptyCLI, app_id: str, test_id: str, today: date, cal: Calib
     )
 
 
+def expire_trials(test: TestData, trial_days: dict[str, int]) -> TestData:
+    for arm in test.arms:
+        arm.groups = [
+            Group("ended", g.product, g.age_days, g.n, 0.0)
+            if g.status == "trial" and g.product in trial_days and g.age_days > trial_days[g.product]
+            else g
+            for g in arm.groups
+        ]
+    return test
+
+
 def environment(env_path: Path = ENV_PATH) -> dict[str, str]:
     return {**{k: v for k, v in os.environ.items() if v}, **{k: v for k, v in parse_env(env_path).items() if v}}
 
@@ -190,6 +201,7 @@ def run_live(
     test = live_test(cli, app_id, test_id, today)
     resolved, _ = resolve_horizon(horizon, test.goal)
     users, trial_days = _cached_users(Path(dataset), resolved)
+    test = expire_trials(test, trial_days)
     cal = build_offline(users, test.title, resolved)
     cal.source = "offline_calibration"
     return build_verdict(

@@ -11,6 +11,7 @@ EXPECTED_DESCRIPTION = (
     "Returns JSON only. When you explain it, use only numbers that appear in the JSON, state the verdict "
     "as given in `verdict`, and say whether the data is live or offline."
     " Revenue fields in `arms` are USD per user, not totals; `money_at_stake_usd` is a total."
+    " The renewals part includes expected refunds and can be negative."
 )
 
 
@@ -41,3 +42,7 @@ def test_single_tool_with_exact_description():
 
 def test_description_states_revenue_units():
     assert "USD per user" in DESCRIPTION
+
+
+def test_description_says_renewals_can_be_negative():
+    assert DESCRIPTION.endswith(" The renewals part includes expected refunds and can be negative.")

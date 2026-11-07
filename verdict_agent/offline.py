@@ -194,6 +194,8 @@ def run_offline(
     if traffic < 1:
         raise ValueError("traffic must be at least 1")
     resolved = DEFAULT_HORIZON if horizon is None else horizon
+    if day > resolved:
+        raise ValueError(f"day must not exceed the horizon ({resolved} days)")
     users, trial_days = _cached_users(path, resolved)
     pop = _population(users, test_name)
     cal = build_offline(users, test_name, resolved)

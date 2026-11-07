@@ -171,7 +171,7 @@ def test_three_arms_leader_vs_best_other():
     ]
     out = build_verdict(make_test(arms), cal)
     assert out["leader"] == "B"
-    assert out["p2bb_expected"] == round(p2bb(pseudo_values(arms[2], cal), pseudo_values(arms[1], cal)), 4)
+    assert out["p2bb_expected"] == math.floor(p2bb(pseudo_values(arms[2], cal), pseudo_values(arms[1], cal)) * 1e4) / 1e4
     assert out["p2bb_expected"] < 0.95
 
 
@@ -307,3 +307,18 @@ def test_goal_horizon_above_120_is_clamped(caplog):
         out = build_verdict(test, cal)
     assert out["horizon_days"] == 120 and out["horizon_source"] == "goal"
     assert any("365" in r.getMessage() and "120" in r.getMessage() for r in caplog.records)
+
+
+def test_probabilities_floored_so_unconfirmed_never_shows_095(monkeypatch):
+    import verdict_agent.verdict as verdict_mod
+
+    monkeypatch.setattr(verdict_mod, "p2bb", lambda a, b: 0.949996)
+    out = v(fake(p2bb=0.7, maturity=0.9))
+    assert out["verdict"] != "confirmed"
+    assert out["p2bb_expected"] == 0.9499 and out["p2bb_raw"] == 0.9499
+
+
+def test_build_verdict_needs_two_arms():
+    cal = Calibration({}, {}, {"active": 5.0, "none": 0.0}, "test")
+    with pytest.raises(ValueError, match="an A/B test needs at least two arms"):
+        build_verdict(make_test([payer_arm("A", 1000, 100, 5.0, 100)]), cal)
