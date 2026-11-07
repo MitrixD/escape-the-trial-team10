@@ -11,7 +11,7 @@ from verdict_agent.calibration import Calibration, build_offline
 from verdict_agent.guardrails import warnings_for
 from verdict_agent.model import Arm, Group, TestData
 from verdict_agent.segments import DIMENSIONS, check_segments
-from verdict_agent.verdict import build_verdict
+from verdict_agent.verdict import DEFAULT_HORIZON, build_verdict, check_horizon
 
 DATA_END = datetime.fromisoformat("2026-11-03T00:00:00+00:00")
 AS_OF = date(2026, 11, 3)
@@ -185,15 +185,20 @@ def _cached_users(path: Path, horizon: int) -> tuple[dict[str, dict], dict[str, 
     return _CACHE[key], _TRIAL_DAYS[key]
 
 
-def run_offline(path: Path, test_name: str, day: int, traffic: int, seed: int = 7, horizon: int = 60) -> dict:
-    users, trial_days = _cached_users(path, horizon)
+def run_offline(
+    path: Path, test_name: str, day: int, traffic: int, seed: int = 7, horizon: int | None = None,
+) -> dict:
+    check_horizon(horizon)
+    resolved = DEFAULT_HORIZON if horizon is None else horizon
+    users, trial_days = _cached_users(path, resolved)
     pop = _population(users, test_name)
-    cal = build_offline(users, test_name, horizon)
-    test = _sampled_test(pop, test_name, day, traffic, seed, horizon, cal)
+    cal = build_offline(users, test_name, resolved)
+    test = _sampled_test(pop, test_name, day, traffic, seed, resolved, cal)
     return build_verdict(
         test,
         cal,
         warnings=warnings_for(test),
         segments=check_segments(test.segment_rows),
         trial_days=trial_days,
+        horizon=horizon,
     )

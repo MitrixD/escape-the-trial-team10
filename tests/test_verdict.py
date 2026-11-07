@@ -268,3 +268,31 @@ def test_not_enough_data_come_back_on_is_integer_ceil():
     days = (date(*AS_OF) - date(*STARTED_ON)).days
     needed = -(-(30 - 7) * days // 7)
     assert out["come_back_on"] == (date(*AS_OF) + timedelta(days=needed)).isoformat()
+
+
+def test_caller_horizon_wins_over_goal():
+    test, cal = fake()
+    out = build_verdict(test, cal, horizon=30)
+    assert out["horizon_days"] == 30 and out["horizon_source"] == "parameter"
+    assert out["next_step"]["primary_metric"] == "net revenue per user, 30 days"
+
+
+def test_horizon_source_goal_and_default():
+    test, cal = fake()
+    assert build_verdict(test, cal)["horizon_source"] == "goal"
+    test.goal = "lift annual share in North America"
+    out = build_verdict(test, cal)
+    assert out["horizon_days"] == 60 and out["horizon_source"] == "default"
+
+
+@pytest.mark.parametrize("horizon", [0, 121, 365, -5])
+def test_horizon_out_of_range(horizon):
+    test, cal = fake()
+    with pytest.raises(ValueError, match="horizon must be between 1 and 120 days"):
+        build_verdict(test, cal, horizon=horizon)
+
+
+@pytest.mark.parametrize("horizon", [1, 120])
+def test_horizon_range_edges(horizon):
+    test, cal = fake()
+    assert build_verdict(test, cal, horizon=horizon)["horizon_days"] == horizon

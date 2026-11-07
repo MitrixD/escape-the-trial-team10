@@ -1,0 +1,42 @@
+{
+  "ab_test_id": "995b124f-9075-440d-83bb-20dbdf7d7fbb",
+  "verdict": "confirmed",
+  "leader": "B",
+  "p2bb_expected": 1.0,
+  "p2bb_raw": 1.0,
+  "horizon_days": 60,
+  "horizon_source": "goal",
+  "maturity": 0.1931,
+  "come_back_on": null,
+  "money_at_stake_usd": 0.0,
+  "arms": [
+    {
+      "title": "A",
+      "users": 254,
+      "revenue_received": 0.0,
+      "revenue_expected_trials": 3.77,
+      "revenue_expected_renewals": 0.0,
+      "warnings": []
+    },
+    {
+      "title": "B",
+      "users": 285,
+      "revenue_received": 5.36,
+      "revenue_expected_trials": 3.61,
+      "revenue_expected_renewals": -0.01,
+      "warnings": []
+    }
+  ],
+  "segments_checked": 0,
+  "segments_found": [],
+  "next_step": {
+    "type": "stop_with_winner",
+    "reason": "Stop the test and roll out the leader.",
+    "placement_id": "a0876118-9ad3-4d77-adce-c89f9ee874aa",
+    "primary_metric": "net revenue per user, 60 days",
+    "watch": [],
+    "alternative": null
+  },
+  "source": "live",
+  "calibration_source": "offline_calibration"
+}

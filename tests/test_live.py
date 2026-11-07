@@ -193,3 +193,35 @@ def test_run_live_excludes_offline_test_with_live_title(tmp_path, monkeypatch):
     assert seen == ["Onboarding: annual trial vs weekly first"]
     assert out["calibration_source"] == "offline_calibration"
     assert out["arms"][0]["revenue_expected_renewals"] == 0
+
+
+def test_run_live_horizon_parameter_drives_calibration(tmp_path, monkeypatch):
+    env = tmp_path / ".env"
+    env.write_text(f"LUMEN_APP_ID={APP}\nADAPTY_EXPECTED_COMPANY={COMPANY}\nVERDICT_DATASET=/synthetic\n")
+    horizons = []
+    users = {"u2": {"test": "", "arm": "", "ev": [], "subs": []}}
+
+    def cached(path, horizon):
+        horizons.append(horizon)
+        return users, {}
+
+    def spy(users, exclude_test, horizon):
+        horizons.append(horizon)
+        return Calibration({}, {}, {}, "offline")
+
+    monkeypatch.setattr(live, "_cached_users", cached)
+    monkeypatch.setattr(live, "build_offline", spy)
+    out = run_live(ONB_ID, TODAY, cli=fake_cli(), env_path=env, horizon=30)
+    assert horizons == [30, 30]
+    assert out["horizon_days"] == 30 and out["horizon_source"] == "parameter"
+    out = run_live(ONB_ID, TODAY, cli=fake_cli(), env_path=env)
+    assert horizons[2:] == [60, 60] and out["horizon_source"] == "goal"
+
+
+def test_run_live_rejects_horizon_before_adapty_calls(tmp_path):
+    env = tmp_path / ".env"
+    env.write_text(f"LUMEN_APP_ID={APP}\nADAPTY_EXPECTED_COMPANY={COMPANY}\nVERDICT_DATASET=/synthetic\n")
+    runner = FakeRunner()
+    with pytest.raises(ValueError, match="horizon must be between 1 and 120 days"):
+        run_live(ONB_ID, TODAY, cli=fake_cli(runner), env_path=env, horizon=365)
+    assert runner.calls == []

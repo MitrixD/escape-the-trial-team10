@@ -11,6 +11,7 @@ P_CONFIRM = 0.95
 MATURITY_MIN = 0.80
 DECISION_LIFETIME_DAYS = 180
 DEFAULT_HORIZON = 60
+MAX_HORIZON = 120
 RENEWAL_DAYS = 30
 DEFAULT_TRIAL_DAYS = 7
 
@@ -22,9 +23,27 @@ NEXT_STEP = {
 }
 
 
-def horizon_from_goal(goal: str) -> int:
+def _goal_days(goal: str) -> int | None:
     match = re.search(r"(\d+)[- ]day", goal or "")
-    return int(match.group(1)) if match else DEFAULT_HORIZON
+    return int(match.group(1)) if match else None
+
+
+def horizon_from_goal(goal: str) -> int:
+    days = _goal_days(goal)
+    return DEFAULT_HORIZON if days is None else days
+
+
+def check_horizon(horizon: int | None) -> None:
+    if horizon is not None and not 1 <= horizon <= MAX_HORIZON:
+        raise ValueError(f"horizon must be between 1 and {MAX_HORIZON} days")
+
+
+def resolve_horizon(horizon: int | None, goal: str) -> tuple[int, str]:
+    check_horizon(horizon)
+    if horizon is not None:
+        return horizon, "parameter"
+    days = _goal_days(goal)
+    return (DEFAULT_HORIZON, "default") if days is None else (days, "goal")
 
 
 def _events(arm: Arm) -> int:
@@ -59,8 +78,9 @@ def build_verdict(
     warnings: dict[str, list[dict]] | None = None,
     segments: tuple[int, list[dict]] | None = None,
     trial_days: dict[str, int] | None = None,
+    horizon: int | None = None,
 ) -> dict:
-    horizon = horizon_from_goal(test.goal)
+    horizon, horizon_source = resolve_horizon(horizon, test.goal)
     estimates = [estimate(arm, cal) for arm in test.arms]
     totals = [e.total for e in estimates]
     leader_i = max(range(len(test.arms)), key=lambda i: (totals[i], -i))
@@ -100,6 +120,7 @@ def build_verdict(
         "p2bb_expected": round(p_expected, 4),
         "p2bb_raw": round(p_raw, 4),
         "horizon_days": horizon,
+        "horizon_source": horizon_source,
         "maturity": round(maturity, 4),
         "come_back_on": come_back_on.isoformat() if come_back_on else None,
         "money_at_stake_usd": round(money, 2),

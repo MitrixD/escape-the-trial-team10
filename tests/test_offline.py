@@ -97,3 +97,26 @@ def test_onboarding_weekly_refund_ok(dataset_path):
 def test_unknown_test_names_available(dataset_path):
     with pytest.raises(ValueError, match="Settings: upgrade vs lifetime anchor"):
         run_offline(dataset_path, "No such test", 14, 100)
+
+
+@pytest.mark.dataset
+def test_run_offline_horizon_parameter(dataset_path, monkeypatch):
+    import verdict_agent.offline as offline
+
+    seen = []
+    real = offline.build_offline
+
+    def spy(users, exclude_test, horizon):
+        seen.append(horizon)
+        return real(users, exclude_test, horizon)
+
+    monkeypatch.setattr(offline, "build_offline", spy)
+    out = run_offline(dataset_path, SETTINGS, 14, 100, horizon=90)
+    assert seen == [90]
+    assert out["horizon_days"] == 90 and out["horizon_source"] == "parameter"
+    assert out["next_step"]["primary_metric"] == "net revenue per user, 90 days"
+
+
+def test_run_offline_rejects_horizon_before_loading(tmp_path):
+    with pytest.raises(ValueError, match="horizon must be between 1 and 120 days"):
+        run_offline(tmp_path / "missing", SETTINGS, 14, 100, horizon=121)

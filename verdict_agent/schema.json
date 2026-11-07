@@ -4,9 +4,9 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "ab_test_id", "verdict", "leader", "p2bb_expected", "p2bb_raw", "horizon_days", "maturity",
-    "come_back_on", "money_at_stake_usd", "arms", "segments_checked", "segments_found", "next_step",
-    "source", "calibration_source"
+    "ab_test_id", "verdict", "leader", "p2bb_expected", "p2bb_raw", "horizon_days", "horizon_source",
+    "maturity", "come_back_on", "money_at_stake_usd", "arms", "segments_checked", "segments_found",
+    "next_step", "source", "calibration_source"
   ],
   "properties": {
     "ab_test_id": {"type": "string"},
@@ -15,6 +15,7 @@
     "p2bb_expected": {"type": "number", "minimum": 0, "maximum": 1},
     "p2bb_raw": {"type": "number", "minimum": 0, "maximum": 1},
     "horizon_days": {"type": "integer", "minimum": 1},
+    "horizon_source": {"type": "string", "enum": ["parameter", "goal", "default"]},
     "maturity": {"type": "number", "minimum": 0},
     "come_back_on": {"type": ["string", "null"], "format": "date"},
     "money_at_stake_usd": {"type": "number", "minimum": 0},

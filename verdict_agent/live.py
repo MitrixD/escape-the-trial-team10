@@ -4,12 +4,12 @@ import os
 from datetime import date, datetime
 from pathlib import Path
 
-from verdict_agent.adapty_cli import AdaptyCLI
+from verdict_agent.adapty_cli import AdaptyCLI, CliError
 from verdict_agent.calibration import Calibration, build_offline
 from verdict_agent.guardrails import warnings_for
 from verdict_agent.model import Arm, Group, TestData
 from verdict_agent.offline import _cached_users
-from verdict_agent.verdict import build_verdict, horizon_from_goal
+from verdict_agent.verdict import build_verdict, check_horizon, resolve_horizon
 
 log = logging.getLogger(__name__)
 
@@ -128,7 +128,10 @@ def _live_arm(title: str, row: dict, funnel: dict, age: int) -> Arm:
 
 
 def live_test(cli: AdaptyCLI, app_id: str, test_id: str, today: date, cal: Calibration | None = None) -> TestData:
-    test = cli.run(["ab-tests", "get", test_id, "--app", app_id])
+    try:
+        test = cli.run(["ab-tests", "get", test_id, "--app", app_id])
+    except CliError as exc:
+        raise CliError(exc.exit_code, f"cannot read A/B test {test_id}: {exc.stderr}") from None
     test = test.get("data", test)
     placement_id = (test.get("placement") or {}).get("placement_id")
     started_on = datetime.fromisoformat(test["started_at"].replace("Z", "+00:00")).date()
@@ -161,8 +164,20 @@ def live_test(cli: AdaptyCLI, app_id: str, test_id: str, today: date, cal: Calib
     )
 
 
-def run_live(test_id: str, today: date | None = None, *, cli: AdaptyCLI | None = None, env_path: Path = ENV_PATH) -> dict:
-    env = {**{k: v for k, v in os.environ.items() if v}, **{k: v for k, v in parse_env(env_path).items() if v}}
+def environment(env_path: Path = ENV_PATH) -> dict[str, str]:
+    return {**{k: v for k, v in os.environ.items() if v}, **{k: v for k, v in parse_env(env_path).items() if v}}
+
+
+def run_live(
+    test_id: str,
+    today: date | None = None,
+    *,
+    cli: AdaptyCLI | None = None,
+    env_path: Path = ENV_PATH,
+    horizon: int | None = None,
+) -> dict:
+    check_horizon(horizon)
+    env = environment(env_path)
     today = today or date.today()
     cli = cli or AdaptyCLI()
     cli.check_account(env.get("ADAPTY_EXPECTED_COMPANY", ""))
@@ -173,8 +188,10 @@ def run_live(test_id: str, today: date | None = None, *, cli: AdaptyCLI | None =
     if not dataset:
         raise ValueError("VERDICT_DATASET is not set; it is needed for the offline calibration")
     test = live_test(cli, app_id, test_id, today)
-    horizon = horizon_from_goal(test.goal)
-    users, trial_days = _cached_users(Path(dataset), horizon)
-    cal = build_offline(users, test.title, horizon)
+    resolved, _ = resolve_horizon(horizon, test.goal)
+    users, trial_days = _cached_users(Path(dataset), resolved)
+    cal = build_offline(users, test.title, resolved)
     cal.source = "offline_calibration"
-    return build_verdict(test, cal, warnings=warnings_for(test), segments=(0, []), trial_days=trial_days)
+    return build_verdict(
+        test, cal, warnings=warnings_for(test), segments=(0, []), trial_days=trial_days, horizon=horizon,
+    )

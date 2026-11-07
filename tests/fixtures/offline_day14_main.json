@@ -5,6 +5,7 @@
   "p2bb_expected": 1.0,
   "p2bb_raw": 1.0,
   "horizon_days": 60,
+  "horizon_source": "goal",
   "maturity": 0.7519,
   "come_back_on": null,
   "money_at_stake_usd": 0.0,
