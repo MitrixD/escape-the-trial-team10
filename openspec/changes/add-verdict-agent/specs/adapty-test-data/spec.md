@@ -50,11 +50,19 @@ For each arm and product the system SHALL take trial→paid conversions from the
 - **THEN** the arm has 30 users in `trial` and 15 more in `active` for that product
 
 ### Requirement: Live user ages and expired trials
-The system SHALL treat every user of the test as installed on the test's start day, and SHALL move a `trial` group whose age exceeds its product's trial length to `ended` with no further expected trial revenue.
+The system SHALL assume users arrive uniformly since the test start, without extra Adapty calls. With `D` the days since the start (at least 1), the system SHALL spread a product's active users over ages `d + 0.5` for `d = 0 … D−1`; of a product's unconverted trials with trial length `t`, the share `min(1, t / D)` SHALL stay `trial`, spread over ages `d + 0.5` for `d = 0 … min(D, t)−1`, and the rest SHALL be `ended`. Counts per age SHALL be integers by largest remainder and SHALL still reproduce the test metrics. The system SHALL move a `trial` group whose age exceeds its product's trial length to `ended` with no further expected trial revenue.
 
-#### Scenario: Weekly trials expired
-- **WHEN** the test is 5 days old and a product has a 3-day trial
-- **THEN** that product has no `trial` group and its expected trial revenue is 0
+#### Scenario: Test 10 days old with a 3-day trial
+- **WHEN** the test is 10 days old and a product with a 3-day trial has 100 unconverted trials
+- **THEN** 30 of them are `trial` with ages 0.5, 1.5 and 2.5 (10 each), and the other 70 are `ended`
+
+#### Scenario: Active users spread over the test period
+- **WHEN** the test is 4 days old and a product has 8 active users
+- **THEN** that product has 2 active users at each of the ages 0.5, 1.5, 2.5 and 3.5, each with the same received revenue
+
+#### Scenario: Old trial groups expire
+- **WHEN** a `trial` group is older than its product's 3-day trial
+- **THEN** it becomes `ended` and its expected trial revenue is 0
 
 ### Requirement: Calibration from the app's own history
 The system SHALL build the calibration table from analytics of the same app, read through any Adapty API (Developer CLI, Export Analytics API or Server-side API): trial→paid conversion per product (`conversion`, `trial-paid`, by store product), cumulative revenue per paying subscriber by day since subscription start per product (`ltv` by store product, revenue basis as Adapty returns it) and each product's trial length, taken from the first day its `ltv` curve turns positive. The system SHALL NOT read any dataset outside Adapty at run time.

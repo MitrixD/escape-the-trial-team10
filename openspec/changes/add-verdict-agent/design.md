@@ -118,7 +118,9 @@ replay_runner(dir: Path) -> Callable                                    # return
 ReadOnlyViolation, WrongAccount, CliError, RateLimited(retry_after)
 
 # verdict_agent/live.py
-live_test(cli, app_id, test_id, today, products: dict | None = None) -> TestData   # reads the product catalog to merge store keys unless products (a `products list` response) is passed
+read_test(cli, app_id, test_id) -> dict                                 # the `ab-tests get` response
+live_test(cli, app_id, test_id, today, products: dict | None = None, test: dict | None = None,
+          trial_days: dict[str, int] | None = None) -> TestData   # reuses products / test when passed; trial_days from the calibration
 live_calibration(cli, app_id, products, horizon, until: date) -> Calibration
 run_live(test_id, today=None, horizon=None, replay: Path | None = None) -> dict
 
@@ -133,6 +135,6 @@ MCP tool ab_test_verdict(ab_test_id, horizon, replay)
 - Thresholds: `MIN_EVENTS = 30` (purchases + trials per arm), `P_CONFIRM = 0.95`, `MATURITY_MIN = 0.80`, `MDE_SHARE = 0.05`, `DEFAULT_HORIZON = 60`, `RENEWAL_DAYS = 30`, `DEFAULT_TRIAL_DAYS = 7`.
 - `confirmed` is checked before `keep_running` on purpose: the estimator exists to decide safely before revenue matures.
 - Leader = highest expected total (ties → first arm); P2BB = leader vs best other arm. Maturity = Σ users·received / Σ users·total (1.0 when 0).
-- Live mode: every user of the test is treated as installed on the test's start day; trial groups older than their product's trial length become `ended`; trial→paid conversions move users to `active`; App Store and Play keys of one product are merged through the app's product catalog (`products list`), never through a hard-coded map. The test metrics are the source of truth for per-arm counts: the funnel only splits trials, conversions and purchases by product, scaled by largest remainder to the metrics `trials`, `trials_paid` and `unique_paid_subscribers`, with revenue spread over the active users so it adds up to the metrics revenue.
+- Live mode: users are assumed to arrive uniformly since the test start, with no extra Adapty calls. With `D` = days since the start (at least 1), the active users of a product are spread over ages `d + 0.5` for `d = 0 … D−1`; of a product's unconverted trials with trial length `t` (`t_P`, default 7), the share `min(1, t / D)` is still in trial, spread over ages `d + 0.5` for `d = 0 … min(D, t)−1`, and the rest are `ended`; `none` users are one group. Counts per age are integers by largest remainder. Trial groups older than their product's trial length become `ended` (a guard; no-op on this output); trial→paid conversions move users to `active`; App Store and Play keys of one product are merged through the app's product catalog (`products list`), never through a hard-coded map. The test metrics are the source of truth for per-arm counts: the funnel only splits trials, conversions and purchases by product, scaled by largest remainder to the metrics `trials`, `trials_paid` and `unique_paid_subscribers`, with revenue spread over the active users so it adds up to the metrics revenue.
 - Probabilities are floored to 4 decimals; a test needs at least two arms; errors never echo `.env`, `whoami` or raw Adapty stderr.
 - Tests that need the offline dataset (eval only) are marked `dataset` and skip when `VERDICT_DATASET` is unset.
