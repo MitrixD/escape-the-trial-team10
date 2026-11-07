@@ -181,7 +181,11 @@ Base: `https://api.adapty.io/api/v2/web-api/`.
 - `POST paywall/visit/` with `{variation_id, store, visited_at}` records a view.
 - `POST attribution/` with `{status, channel, campaign, ad_group, ad_set, creative, attribution_user_id}`.
 - Then record the purchase with Server-side `setTransaction` plus the `variation_id`.
-- **Unverified:** whether `paywall/` serves placements of type flow. If it doesn't, use a placement of type paywall.
+- **Flow placements (checked 7 Nov on Lumen `onboarding`).**
+  - `paywall/` answers for a flow placement. The profile must exist first: create it with Server-side `POST profile`, or you get 404 `profile_does_not_exist`.
+  - It returns the A/B test's `ab_test_name`, but **not the test's arm**. All 10 probe profiles got the same `variation_id` (`7395fd16…`) and a `scr_paywall` paywall, while the arms' variation IDs are `4074395b…` and `0b34fd94…`.
+  - The A/B metric `users` did not move after these calls.
+  - **Takeaway:** don't use the Web API to demo or measure flow-test assignment; use a placement of type paywall.
 
 ### Webhook events
 
