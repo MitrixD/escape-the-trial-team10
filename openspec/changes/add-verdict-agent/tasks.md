@@ -6,8 +6,8 @@ Parallel start: after group 1, track A (groups 2–3) and track C (group 4) run 
 
 ## 1. Foundation — needs nothing, blocks everything
 
-- [ ] 1.1 Create `verdict_agent/`, `tests/`, `requirements.txt` (`pytest==9.2.0`, `mcp==2.3.0`), `pytest.ini` with marker `dataset`, `tests/conftest.py` with a session fixture `dataset_path()` that skips when `VERDICT_DATASET` is unset, `.env.example` with empty `ADAPTY_APP_ID`, `ADAPTY_EXPECTED_COMPANY`, `ADAPTY_SECRET_KEY`, `VERDICT_DATASET`, and `.gitignore` entries `*.pem *.key *.p8 *.p12 .venv/ __pycache__/`; verify `pytest` runs and `git check-ignore .env` prints `.env`
-- [ ] 1.2 Write `verdict_agent/model.py` with `Group`, `Arm` (property `users`), `TestData` and `Calibration` exactly as in design.md → Interfaces; verify a test constructs each and `Arm.users` sums group sizes
+- [x] 1.1 Create `verdict_agent/`, `tests/`, `requirements.txt` (`pytest==9.2.0`, `mcp==2.3.0`), `pytest.ini` with marker `dataset`, `tests/conftest.py` with a session fixture `dataset_path()` that skips when `VERDICT_DATASET` is unset, `.env.example` with empty `ADAPTY_APP_ID`, `ADAPTY_EXPECTED_COMPANY`, `ADAPTY_SECRET_KEY`, `VERDICT_DATASET`, and `.gitignore` entries `*.pem *.key *.p8 *.p12 .venv/ __pycache__/`; verify `pytest` runs and `git check-ignore .env` prints `.env`
+- [x] 1.2 Write `verdict_agent/model.py` with `Group`, `Arm` (property `users`), `TestData` and `Calibration` exactly as in design.md → Interfaces; verify a test constructs each and `Arm.users` sums group sizes
 
 ## 2. Track A — statistics and calibration (needs 1; 2.2 needs 4.1 recordings)
 

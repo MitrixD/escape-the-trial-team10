@@ -10,3 +10,11 @@ tmp/
 
 # OS / editors
 .DS_Store
+
+# Keys and caches
+*.pem
+*.key
+*.p8
+*.p12
+.venv/
+__pycache__/
