@@ -49,7 +49,7 @@ The system SHALL treat every user of the test as installed on the test's start d
 - **THEN** that product has no `trial` group and its expected trial revenue is 0
 
 ### Requirement: Calibration from the app's own history
-The system SHALL build the calibration table from Adapty analytics of the same app: trial→paid conversion per product from `analytics conversion` (`trial-paid`, by store product) and expected net revenue per paying subscriber over the next N days per product from `analytics cohort` by store product over renewal periods. The system SHALL NOT read any dataset outside Adapty at run time.
+The system SHALL build the calibration table from analytics of the same app, read through any Adapty API (Developer CLI, Export Analytics API or Server-side API): trial→paid conversion per product (`conversion`, `trial-paid`, by store product) and expected net revenue per paying subscriber over the next N days per product (`cohort` by store product over renewal periods). The system SHALL NOT read any dataset outside Adapty at run time.
 
 #### Scenario: Calibration from recorded Lumen analytics
 - **WHEN** the recorded `conversion`, `cohort` and `ltv` responses of Lumen are given for horizon 60
@@ -93,11 +93,11 @@ Before the first read the system SHALL confirm the CLI is logged in to the team'
 - **THEN** the system stops before any data read with a message that names the `ADAPTY_EXPECTED_COMPANY` setting but never its value or any `whoami` value
 
 ### Requirement: Replay of recorded responses
-The system SHALL accept a replay directory of recorded Adapty responses, keyed by command, and SHALL run the same code path on them without any network call. Output `source` SHALL be `replay`.
+The system SHALL accept a replay directory of recorded Adapty responses, keyed by command, and SHALL run the same code path on them without any network call.
 
 #### Scenario: Replay of the live Onboarding run
 - **WHEN** the tool runs with `--replay` on the recorded Onboarding responses
-- **THEN** it produces the same JSON as the live run except `source: replay`, and no subprocess or HTTP call is made
+- **THEN** it produces the same JSON as the live run, and no subprocess or HTTP call is made
 
 #### Scenario: Missing recording
 - **WHEN** a command needed for the verdict has no file in the replay directory

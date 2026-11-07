@@ -4,11 +4,11 @@
 
 See proposal.md for why and `docs/2026-11-07-verdict-agent-design.md` for the full reasoning. Constraints that shape the approach:
 
-- The public API cannot list users or return per-user event timelines; reading profiles one by one would be scraping, which the hackathon rules forbid. Live data is therefore per-arm aggregates: `ab-tests metrics total` and `analytics funnel` filtered by flow and placement, grouped by store product (verified on Lumen: arm B gives 71 trials and 35 purchases, same as the test metrics).
-- The tool must work on any Adapty app, so calibration comes from Adapty analytics of the same app (`analytics conversion`, `cohort`, `ltv` by product), never from files outside Adapty.
+- Per-user data from Adapty is an open question: the Server-side API reads one profile at a time, the S3/GCS export is daily and configured in the dashboard, and neither has been tried for a test's users. How to obtain it is a time-boxed investigation (task 4.5). This version uses per-arm aggregates: `ab-tests metrics total` and `analytics funnel` filtered by flow and placement, grouped by store product (verified on Lumen: arm B gives 71 trials and 35 purchases, same as the test metrics).
+- The tool must work on any Adapty app, so every input comes from Adapty itself through whichever API provides it: the Developer CLI, the Export Analytics API or the Server-side API. Calibration comes from the same app's analytics (`conversion`, `cohort`, `ltv` by product), never from files outside Adapty.
 - Live Lumen tests contain only users who installed on 7 Nov, so every live user has the same age. Behaviour over weeks exists only in the offline dataset, which the eval turns into Adapty-shaped replay bundles.
 - A spike eval (`eval/ab_verdict_eval.py`, 7 Nov) and a first implementation (`feature/verdict-agent`, PR #9) exist. They are references for interfaces and for what was verified on Lumen; the first implementation calibrated from the offline dataset, which this change replaces.
-- Two people, about one day.
+- Two people, about one day. Design and process are in `docs/2026-11-07-verdict-agent-design.md` and `CLAUDE.md`.
 
 ## Goals / Non-Goals
 
@@ -17,10 +17,12 @@ See proposal.md for why and `docs/2026-11-07-verdict-agent-design.md` for the fu
 - Every input of the verdict is obtainable from Adapty for the app being judged.
 
 **Non-Goals (next steps, listed in README):**
-- Money at stake, typed next steps, guardrails (refunds, trial cancels), segments, test validity checks (SRM, dead arm).
-- A dashboard UI or HTTP layer.
-- Per-user live data, webhooks, S3 export, seeding data into Lumen.
+- Money at stake and typed next steps.
+- Test validity checks (SRM, dead arm).
+- Guardrails (refunds, trial cancels) and segments.
+- A new UI for the A/B test screen with our estimates.
 - Per-arm updating of calibration from the arm's own finished trials; Adapty's lognormal P2BB model.
+- Starting, stopping or changing tests.
 
 ## Decisions
 
@@ -34,15 +36,15 @@ See proposal.md for why and `docs/2026-11-07-verdict-agent-design.md` for the fu
 
 **5. Come-back dates.** `not_enough_data` with `min_events` → today + ceil(days to reach 30 events at the observed daily rate). `keep_running` → the later of: test start + longest trial length among the arms' products (7 if unknown) + 30 days; and today + days until the sample reaches the size needed to detect the current |Δ| at 95% with the current daily traffic. Capped at the horizon, never before today. `confirmed` and `tie` → `null`.
 
-**6. Horizon.** Parameter > number of days in the goal (capped at 120) > 60. Reported in `horizon_source`.
+**6. Horizon is a call parameter.** Days to the horizon are passed by the caller; 60 when omitted; values below 1 are rejected. The test goal is not parsed and no `horizon_source` is reported.
 
 **7. Python, standard library for the core; `mcp` SDK for the server; `pytest` for tests.**
 
-**8. Adapty access through one wrapper.** `AdaptyCLI` runs the Developer CLI as a subprocess with `--json`: read-only allowlist, `apps get` denied (it returns the secret key), calls ≥ 0.5 s apart, exit 4 / 429 → stop with the wait time, account check before the first data read. `ExportAPI` (optional, key from `.env`) covers the same analytics endpoints when the CLI lacks a breakdown; same spacing and error rules. *Alternative:* Python MCP client to Adapty's MCP — needs OAuth plumbing.
+**8. Adapty access through one wrapper.** `AdaptyCLI` runs the Developer CLI as a subprocess with `--json`: read-only allowlist, `apps get` denied (it returns the secret key), calls ≥ 0.5 s apart, exit 4 / 429 → stop with the wait time, account check before the first data read. Other Adapty APIs (Export Analytics, Server-side; keys from `.env`) go through the same wrapper with the same spacing and error rules, and are used where the CLI lacks the data or the breakdown. *Alternative:* Python MCP client to Adapty's MCP — needs OAuth plumbing.
 
-**9. Replay instead of an offline mode.** `--replay <dir>` substitutes the wrapper's runner with one that returns recorded JSON files named by command. Everything after the wrapper is identical to live. Replay bundles come from `scripts/record_fixtures.sh` (live) or from the eval generator (dataset → Adapty-shaped JSON for day N). `source` is `live` or `replay`.
+**9. Replay instead of an offline mode.** `--replay <dir>` substitutes the wrapper's runner with one that returns recorded JSON files named by command. Everything after the wrapper is identical to live. Replay bundles come from `scripts/record_fixtures.sh` (live) or from the eval generator (dataset → Adapty-shaped JSON for day N).
 
-**10. No model inside the tool.** The MCP tool description instructs the calling agent to explain the verdict using only JSON numbers and to say whether the data is live or replay.
+**10. No model inside the tool.** The MCP tool description instructs the calling agent to explain the verdict using only JSON numbers.
 
 **11. Package layout.**
 
@@ -69,8 +71,6 @@ scripts/          # record_fixtures.sh
 - [Calibration from `conversion`, `cohort`, `ltv` by product is unverified on Lumen; `conversion` returned rows only for products with trials and duplicate keys per product] → first task of track C records the responses; a product-key mapping normalises store keys and UUIDs; fallback to app-wide rates; honest `not_enough_data` when nothing is available.
 - [Pseudo-user variance understates spread] → labelled approximate; the eval measures the error on replay bundles.
 - [Live Lumen tests are one day old] → the live demo accepts any verdict; the synthetic test on replay shows the trap.
-- [Eval numbers of the first implementation were computed with per-user calibration] → recompute the grid; keep the old tables in `eval/RESULTS.md` marked as such.
-- [Pre-hackathon work] → README lists the spike eval, research and the first implementation as made on 7 Nov.
 
 ## Interfaces (fixed so tracks can be built in parallel)
 
@@ -83,7 +83,7 @@ class Group: status: str; product: str; age_days: float; n: int; received: float
 @dataclass
 class Arm: title: str; groups: list[Group]; purchases: int; trials: int; paid_users: int; revenue_received: float   # property users = Σ n
 @dataclass
-class TestData: ab_test_id: str; title: str; goal: str; placement_id: str | None; started_on: date; as_of: date; users_per_day: float; arms: list[Arm]; source: str   # source: live|replay
+class TestData: ab_test_id: str; title: str; placement_id: str | None; started_on: date; as_of: date; users_per_day: float; arms: list[Arm]
 @dataclass
 class Calibration: trial_to_paid: dict[str, float]; renewal_value: dict[str, list[float]]; trial_days: dict[str, int]; app_trial_to_paid: float | None; app_renewal_value: list[float] | None; source: str   # renewal_value[product][d] = expected net USD per paying subscriber over the next d days; source: product|app|none
     def expected(self, status, product, age_days, horizon) -> float
@@ -103,8 +103,8 @@ estimate(arm, cal, horizon) -> ArmEstimate(received, from_trials, from_renewals;
 pseudo_values(arm, cal, horizon) -> list[float]
 
 # verdict_agent/verdict.py
-resolve_horizon(horizon: int | None, goal: str) -> tuple[int, str]     # parameter > goal (capped 120) > 60
-build_verdict(test, cal, horizon=None) -> dict                          # JSON per spec Output contract
+check_horizon(horizon: int | None) -> int                                # 60 when None; raises below 1
+build_verdict(test, cal, horizon=None) -> dict                           # JSON per spec Output contract
 
 # verdict_agent/adapty_cli.py
 class AdaptyCLI(runner=subprocess.run, clock=time.monotonic, sleep=time.sleep, min_interval=0.5): run(args) -> dict; check_account(expected_company)
@@ -124,7 +124,7 @@ MCP tool ab_test_verdict(ab_test_id, horizon, replay)
 
 ## Decisions kept from the first implementation
 
-- Thresholds: `MIN_EVENTS = 30` (purchases + trials per arm), `P_CONFIRM = 0.95`, `MATURITY_MIN = 0.80`, `MDE_SHARE = 0.05`, `DEFAULT_HORIZON = 60`, `MAX_HORIZON = 120`, `RENEWAL_DAYS = 30`, `DEFAULT_TRIAL_DAYS = 7`.
+- Thresholds: `MIN_EVENTS = 30` (purchases + trials per arm), `P_CONFIRM = 0.95`, `MATURITY_MIN = 0.80`, `MDE_SHARE = 0.05`, `DEFAULT_HORIZON = 60`, `RENEWAL_DAYS = 30`, `DEFAULT_TRIAL_DAYS = 7`.
 - `confirmed` is checked before `keep_running` on purpose: the estimator exists to decide safely before revenue matures.
 - Leader = highest expected total (ties → first arm); P2BB = leader vs best other arm. Maturity = Σ users·received / Σ users·total (1.0 when 0).
 - Live mode: every user of the test is treated as installed on the test's start day; trial groups older than their product's trial length become `ended`; trial→paid conversions move users to `active`; product labels from App Store titles and Play `lumen_*` keys map to one product key.

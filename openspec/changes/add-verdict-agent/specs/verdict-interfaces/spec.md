@@ -11,7 +11,7 @@ The system SHALL provide a command that takes an A/B test ID, an optional `--hor
 
 #### Scenario: Live test
 - **WHEN** a user runs the command with the ID of a live Lumen test
-- **THEN** it prints a verdict JSON with `source: live` and exits 0
+- **THEN** it prints a verdict JSON and exits 0
 
 #### Scenario: Unknown test
 - **WHEN** the ID does not exist in the app
@@ -19,10 +19,10 @@ The system SHALL provide a command that takes an A/B test ID, an optional `--hor
 
 #### Scenario: Replay
 - **WHEN** a user runs the command with `--replay` on a recorded bundle
-- **THEN** it prints a verdict JSON with `source: replay` and exits 0 without network access
+- **THEN** it prints a verdict JSON and exits 0 without network access
 
 ### Requirement: MCP tool
-The system SHALL provide a stdio MCP server with one tool `ab_test_verdict` that takes a test ID, an optional horizon in days and an optional replay directory, and returns the same JSON as the CLI. The tool description SHALL tell calling agents to run it before stopping a test or choosing a winner, to explain the verdict using only numbers from the JSON, and to say whether the data is live or replay.
+The system SHALL provide a stdio MCP server with one tool `ab_test_verdict` that takes a test ID, an optional horizon in days and an optional replay directory, and returns the same JSON as the CLI. The tool description SHALL tell calling agents to run it before stopping a test or choosing a winner and to explain the verdict using only numbers from the JSON.
 
 #### Scenario: Same answer on both paths
 - **WHEN** the CLI and the MCP tool run on the same test with the same inputs

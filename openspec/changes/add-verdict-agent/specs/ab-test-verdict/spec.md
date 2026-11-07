@@ -22,23 +22,19 @@ The system SHALL estimate each arm's revenue per user at the test horizon as rec
 - **THEN** both give the same expected revenue per user within $0.01
 
 ### Requirement: Horizon
-The horizon SHALL be, in order of precedence: the horizon passed by the caller; the number of days in the test goal, capped at 120; 60 days. The output SHALL state which one was used in `horizon_source` (`parameter`, `goal` or `default`). A caller horizon outside 1–120 days SHALL be rejected with an error naming the range.
+The horizon in days SHALL be a parameter of the call. When omitted it SHALL be 60. A horizon below 1 SHALL be rejected with an error. The test goal SHALL NOT be parsed for a horizon.
 
-#### Scenario: Caller horizon wins
-- **WHEN** the caller passes a horizon of 30 days and the goal says "60-day revenue"
-- **THEN** the horizon is 30 days and `horizon_source` is `parameter`
+#### Scenario: Caller horizon
+- **WHEN** the caller passes a horizon of 30 days
+- **THEN** `horizon_days` is 30 and the expected revenue is computed to day 30
 
-#### Scenario: Horizon from goal
-- **WHEN** the test goal reads "Find which onboarding offer maximises 60-day revenue per install" and no horizon is passed
-- **THEN** the horizon is 60 days and `horizon_source` is `goal`
+#### Scenario: Default horizon
+- **WHEN** no horizon is passed
+- **THEN** `horizon_days` is 60
 
-#### Scenario: Goal asks for a year
-- **WHEN** the goal says "maximise 365-day revenue" and no horizon is passed
-- **THEN** `horizon_days` is 120 and `horizon_source` is `goal`
-
-#### Scenario: Horizon out of range
-- **WHEN** the caller passes a horizon of 365 days
-- **THEN** the system returns an error naming the allowed range 1–120
+#### Scenario: Horizon below one day
+- **WHEN** the caller passes a horizon of 0
+- **THEN** the system returns an error and no verdict
 
 ### Requirement: Verdict rules
 The system SHALL return exactly one verdict, checked in this order: `not_enough_data` (an arm below 30 purchases plus trials, or no calibration); `confirmed` (expected P2BB of the leader ≥ 0.95); `tie` (maturity ≥ 0.80 and the 95% interval of |Δ expected revenue per user| lies below the MDE, 5% of the leader's value); otherwise `keep_running`. Maturity is received divided by expected revenue across arms.
@@ -113,7 +109,7 @@ The system SHALL reject a test with fewer than two arms with the error "an A/B t
 - **THEN** the system returns that error and no verdict
 
 ### Requirement: Output contract
-The system SHALL return one JSON object with exactly these fields: `ab_test_id`, `verdict`, `reason`, `leader`, `p2bb_expected`, `p2bb_raw`, `maturity`, `horizon_days`, `horizon_source`, `come_back_on`, `arms[]`, `calibration_source`, `source`. Each arm has `title`, `users`, `revenue_received`, `revenue_expected_trials`, `revenue_expected_renewals`, in USD per user. The JSON SHALL contain no free text written by a model.
+The system SHALL return one JSON object with exactly these fields: `ab_test_id`, `verdict`, `reason`, `leader`, `p2bb_expected`, `p2bb_raw`, `maturity`, `horizon_days`, `come_back_on`, `arms[]`, `calibration_source`. Each arm has `title`, `users`, `revenue_received`, `revenue_expected_trials`, `revenue_expected_renewals`, in USD per user. The JSON SHALL contain no free text written by a model.
 
 #### Scenario: Valid output
 - **WHEN** a verdict is produced for any test
@@ -121,4 +117,4 @@ The system SHALL return one JSON object with exactly these fields: `ab_test_id`,
 
 #### Scenario: Reason only when undecided
 - **WHEN** the verdict is `confirmed` or `tie`
-- **THEN** `reason` is `null`, and `calibration_source` is one of `product`, `app`, `none` and `source` one of `live`, `replay`
+- **THEN** `reason` is `null` and `calibration_source` is one of `product`, `app`, `none`

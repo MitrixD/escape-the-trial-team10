@@ -41,7 +41,7 @@ The Verdict Agent is planned as one OpenSpec change: `openspec/changes/add-verdi
 - Commit and push only when the user asks.
 - Secrets only in `.env`; never commit or print them.
 - Adapty is read-only for this project: no start, stop, create or update; never `apps get` (it returns the secret key).
-- The tool's inputs come only from Adapty: the Developer CLI, or the Export Analytics API where the CLI lacks a breakdown. No external datasets at run time; recorded Adapty responses may be replayed with `--replay`.
+- The tool's inputs come only from Adapty, through whichever API provides the data: the Developer CLI, the Export Analytics API or the Server-side API. No external datasets at run time; recorded Adapty responses may be replayed with `--replay`.
 - Use synthetic data only. Do not run `seed_adapty.py`. Do not load the API: sequential calls, about 2 per second.
 - Commits in English, Conventional Commits. Add files by name (never `git add .`). Before committing run:
   `git diff --cached | grep -nEi 'secret_live|secret_test|api[_-]?key|token|password|private key|sk-[a-z0-9]|ghp_|gho_'` — any match stops the commit until a human checks it.
