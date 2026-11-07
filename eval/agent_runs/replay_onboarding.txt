@@ -1,0 +1,3 @@
+Yes, the leader can be trusted: the verdict is "confirmed", and variant B is ahead. The probability that B beats A is 0.9999, and that figure doesn't change when the revenue still to arrive is counted. B is expected to earn about $9.05 per user over 60 days against $4.07 for A, a gap of about $4.98 per user. B has already collected $5.36 per user, while A has collected nothing yet.
+
+The test is still immature. The maturity score is 0.42, and the arms have only 254 and 285 users. The verdict already accounts for the pending trials and future renewals, though, so you can choose B without waiting for more data.

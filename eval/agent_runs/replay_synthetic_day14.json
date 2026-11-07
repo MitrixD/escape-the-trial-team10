@@ -1,0 +1,31 @@
+{
+  "ab_test_id": "50e46448-6692-54c6-b1e0-1b2e2fa62cdd",
+  "verdict": "confirmed",
+  "reason": null,
+  "leader": "weekly_trial",
+  "p2bb_expected": 0.9994,
+  "p2bb_raw": 0.0,
+  "maturity": 0.5286,
+  "horizon_days": 60,
+  "come_back_on": null,
+  "arms": [
+    {
+      "title": "annual_upfront",
+      "users": 1400,
+      "revenue_received": 3.77,
+      "revenue_expected_trials": 0.0,
+      "revenue_expected_renewals": 0.01,
+      "revenue_expected_total": 3.78
+    },
+    {
+      "title": "weekly_trial",
+      "users": 1400,
+      "revenue_received": 1.01,
+      "revenue_expected_trials": 0.71,
+      "revenue_expected_renewals": 3.55,
+      "revenue_expected_total": 5.27
+    }
+  ],
+  "calibration_source": "product",
+  "expected_gap_per_user": 1.49
+}
