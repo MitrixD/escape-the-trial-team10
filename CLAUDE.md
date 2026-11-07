@@ -16,20 +16,22 @@
 
 ## How to change this project
 
-Follow this section for every change in this repo.
+Follow this section for every behaviour change; for typos and doc wording just edit and commit. Commit and push only when the user asks.
 
 **When OpenSpec is required**
 - Required for any change to what the system does: verdict rules, thresholds, JSON fields, inputs, data reads.
 - Not required for typos, README or docs wording, and refactors with no behaviour change.
 
 **Tooling check (do this first)**
-- The OpenSpec CLI is required: `npm install -g @fission-ai/openspec@latest`. The `openspec-*` skills live in `.claude/skills/`. Run `openspec update` after a CLI upgrade.
-- Superpowers is optional.
+- The OpenSpec CLI is required: `npm install -g @fission-ai/openspec@latest`. The `openspec-*` skills live in `.claude/skills/`. Run `openspec update` after a CLI upgrade: it refreshes the generated skills in `.claude/skills`.
+- Superpowers is optional. It is installed if `superpowers:*` skills appear in your available skills.
+- If installed and the user has not said which flow, ask once: "Superpowers is installed. Use the full flow (brainstorming + plan) or OpenSpec only?". If not installed, use Flow B without asking.
+- `add-verdict-agent` is not archived while `openspec/changes/add-verdict-agent/` exists (`openspec list` shows it). Use `openspec-update-change` on it only for changes to the Verdict Agent; use `openspec-propose` for a new, unrelated capability or after the change is archived.
 
 **Flow A: Superpowers installed and the user wants it**
 1. `superpowers:brainstorming`
 2. OpenSpec change: `openspec-update-change` on `add-verdict-agent` while it is not archived; `openspec-propose` for a new change after it is archived.
-3. `superpowers:writing-plans`: append tasks to `docs/superpowers/plans/2026-11-07-verdict-agent.md`, or write a new plan.
+3. `superpowers:writing-plans`: append tasks to `docs/superpowers/plans/2026-11-07-verdict-agent.md`, or write a new plan in `docs/superpowers/plans/YYYY-MM-DD-<name>.md`.
 4. Implement with `superpowers:test-driven-development`.
 5. `openspec validate <change> --strict`, then open the PR.
 
@@ -43,6 +45,13 @@ Follow this section for every change in this repo.
 **Both flows**
 - The rule in `openspec/config.yaml` applies: every implementation task starts with a failing test.
 - Never edit change artifacts by hand outside the `openspec-*` skills.
+
+**Before the PR**
+1. Run the full test suite with `VERDICT_DATASET` exported (see `README.md`).
+2. Run `openspec validate <change> --strict`.
+3. Mark finished tasks in tasks.md through the `openspec-*` skills.
+4. Run the secret grep on the staged diff.
+5. Open the PR into `feature/verdict-agent` with a Russian description.
 
 **Branches**
 - Branch from `feature/verdict-agent` and open the PR into `feature/verdict-agent`.
