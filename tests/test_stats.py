@@ -1,21 +1,9 @@
-import importlib.util
-import pathlib
-import sys
-
 import pytest
 
+from tests.helpers import load_spike
 from verdict_agent.stats import bonferroni, diff_in_diff_p, p2bb, two_prop_p, welch_p
 
-_path = pathlib.Path(__file__).resolve().parent.parent / "eval" / "ab_verdict_eval.py"
-_spec = importlib.util.spec_from_file_location("spike", _path)
-spike = importlib.util.module_from_spec(_spec)
-_argv, sys.argv = sys.argv, ['spike']
-try:
-    _spec.loader.exec_module(spike)
-finally:
-    sys.argv = _argv
-spike.DATA = "unused"
-spike.HORIZON = 60
+spike = load_spike()
 
 
 def test_p2bb_matches_spike():
