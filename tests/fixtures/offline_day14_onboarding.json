@@ -1,0 +1,70 @@
+{
+  "ab_test_id": "Onboarding: annual trial vs weekly first",
+  "verdict": "confirmed",
+  "leader": "onb_weekly",
+  "p2bb_expected": 1.0,
+  "p2bb_raw": 1.0,
+  "horizon_days": 60,
+  "maturity": 0.3857,
+  "come_back_on": null,
+  "money_at_stake_usd": 0.0,
+  "arms": [
+    {
+      "title": "onb_trial",
+      "users": 1400,
+      "revenue_received": 1.69,
+      "revenue_expected_trials": 1.95,
+      "revenue_expected_renewals": 0.83,
+      "warnings": [
+        {
+          "metric": "refund_rate_per_payer",
+          "value": 0.0444,
+          "vs_other": 0.0176,
+          "status": "ok"
+        },
+        {
+          "metric": "trial_cancel_rate:weekly",
+          "value": 0.1791,
+          "vs_other": 0.1407,
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "title": "onb_weekly",
+      "users": 1400,
+      "revenue_received": 5.08,
+      "revenue_expected_trials": 1.14,
+      "revenue_expected_renewals": 2.67,
+      "warnings": [
+        {
+          "metric": "refund_rate_per_payer",
+          "value": 0.0176,
+          "vs_other": 0.0444,
+          "status": "ok"
+        },
+        {
+          "metric": "trial_cancel_rate:weekly",
+          "value": 0.1407,
+          "vs_other": 0.1791,
+          "status": "ok"
+        }
+      ]
+    }
+  ],
+  "segments_checked": 14,
+  "segments_found": [],
+  "next_step": {
+    "type": "stop_with_winner",
+    "reason": "Stop the test and roll out the leader.",
+    "placement_id": null,
+    "primary_metric": "net revenue per user, 60 days",
+    "watch": [
+      "refund_rate_per_payer",
+      "trial_cancel_rate:weekly"
+    ],
+    "alternative": null
+  },
+  "source": "offline",
+  "calibration_source": "offline"
+}

@@ -1,0 +1,57 @@
+{
+  "ab_test_id": "Main: 3 plans vs lifetime anchor (NA)",
+  "verdict": "confirmed",
+  "leader": "main_lifetime",
+  "p2bb_expected": 1.0,
+  "p2bb_raw": 1.0,
+  "horizon_days": 60,
+  "maturity": 0.7519,
+  "come_back_on": null,
+  "money_at_stake_usd": 0.0,
+  "arms": [
+    {
+      "title": "main",
+      "users": 1400,
+      "revenue_received": 5.27,
+      "revenue_expected_trials": 0.23,
+      "revenue_expected_renewals": 1.46,
+      "warnings": [
+        {
+          "metric": "refund_rate_per_payer",
+          "value": 0.0189,
+          "vs_other": 0.009,
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "title": "main_lifetime",
+      "users": 1400,
+      "revenue_received": 11.3,
+      "revenue_expected_trials": 0.0,
+      "revenue_expected_renewals": 0.67,
+      "warnings": [
+        {
+          "metric": "refund_rate_per_payer",
+          "value": 0.009,
+          "vs_other": 0.0189,
+          "status": "ok"
+        }
+      ]
+    }
+  ],
+  "segments_checked": 14,
+  "segments_found": [],
+  "next_step": {
+    "type": "stop_with_winner",
+    "reason": "Stop the test and roll out the leader.",
+    "placement_id": null,
+    "primary_metric": "net revenue per user, 60 days",
+    "watch": [
+      "refund_rate_per_payer"
+    ],
+    "alternative": null
+  },
+  "source": "offline",
+  "calibration_source": "offline"
+}
