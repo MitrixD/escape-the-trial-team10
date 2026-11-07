@@ -1,5 +1,6 @@
 import json
 import logging
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
@@ -7,7 +8,7 @@ import pytest
 
 from verdict_agent.adapty_cli import AdaptyCLI, replay_runner
 from verdict_agent.calibration import build_from_adapty, product_map_from_catalog
-from verdict_agent.live import expire_trials, live_calibration, live_test, read_products
+from verdict_agent.live import expire_trials, live_calibration, live_test, read_products, read_test
 from verdict_agent.model import DEFAULT_TRIAL_DAYS, Arm, Group, TestData
 
 LIVE = Path(__file__).parent / "fixtures" / "live"
@@ -45,7 +46,16 @@ def metrics_rows(bundle):
 
 
 def by(arm, status):
-    return {g.product: g for g in arm.groups if g.status == status}
+    out = {}
+    for g in arm.groups:
+        if g.status == status:
+            prev = out.get(g.product)
+            out[g.product] = g if prev is None else replace(prev, n=prev.n + g.n)
+    return out
+
+
+def ages(arm, status, product):
+    return {g.age_days: g.n for g in arm.groups if g.status == status and g.product == product}
 
 
 @pytest.mark.parametrize("bundle", [ONBOARDING, MAIN], ids=["onboarding", "main"])
@@ -67,7 +77,7 @@ def test_arm_fields_follow_metrics_and_test(bundle):
         assert arm.trials == row["trials"]
         assert arm.paid_users == row["unique_paid_subscribers"]
         assert arm.revenue_received == pytest.approx(row["revenue"])
-        assert all(g.age_days == 0 for g in arm.groups)
+        assert all(g.age_days == 0.5 for g in arm.groups)
     assert test.users_per_day == sum(r["users"] for r in rows.values())
 
 
@@ -193,7 +203,9 @@ def test_one_period_conversions_go_to_active():
     assert by(arm, "active")["u-year"].n == 5
     assert by(arm, "active")["u-week"].received == pytest.approx(400.0 / 20)
     assert by(arm, "none")["-"].n == 200 - 30 - 20
-    assert all(g.age_days == 5 for g in arm.groups)
+    assert ages(arm, "active", "u-week") == {d + 0.5: 3 for d in range(5)}
+    assert ages(arm, "trial", "u-week") == {d + 0.5: 6 for d in range(5)}
+    assert [g.age_days for g in arm.groups if g.status == "none"] == [2.5]
 
 
 def test_converted_reconciled_to_metrics_trials_paid():
@@ -317,3 +329,52 @@ def test_product_without_conversion_trials_has_zero_trial_days_so_its_trials_exp
     assert cal.trial_days["u-year"] == 0
     test = expire_trials(make_test([("trial", "u-year", 4, 0.0), ("trial", "u-week", 4, 0.0)], age=1), cal.trial_days)
     assert {g.product: g.status for g in test.arms[0].groups} == {"u-year": "ended", "u-week": "trial"}
+
+
+def test_active_users_spread_over_test_period():
+    cli = fake([seg("Weekly Plan", [("Trial", 0), ("Paid", 0)]), seg("x_year", [("Paid", 8)])],
+               {**ROW, "trials": 0, "trials_paid": 0, "purchases": 8, "unique_paid_subscribers": 8, "revenue": 80.0})
+    arm = live_test(cli, APP, "t1", date(2026, 11, 5)).arms[0]
+    assert ages(arm, "active", "u-year") == {0.5: 2, 1.5: 2, 2.5: 2, 3.5: 2}
+    assert all(g.received == pytest.approx(10.0) for g in arm.groups if g.status == "active")
+
+
+def test_active_counts_per_age_by_largest_remainder_reproduce_metrics():
+    cli = fake([seg("x_year", [("Paid", 7)])],
+               {**ROW, "trials": 0, "trials_paid": 0, "purchases": 7, "unique_paid_subscribers": 7, "revenue": 70.0})
+    arm = live_test(cli, APP, "t1", date(2026, 11, 11)).arms[0]
+    spread = ages(arm, "active", "u-year")
+    assert sum(spread.values()) == 7
+    assert set(spread.values()) == {1}
+    assert set(spread) <= {d + 0.5 for d in range(10)}
+    assert sum(g.n * g.received for g in arm.groups) == pytest.approx(70.0)
+
+
+def test_share_of_unconverted_trials_still_in_trial():
+    cli = fake([seg("Weekly Plan", [("Trial", 100), ("1 period", 0)])],
+               {**ROW, "trials": 100, "trials_paid": 0, "purchases": 0, "unique_paid_subscribers": 0, "revenue": 0.0})
+    arm = live_test(cli, APP, "t1", date(2026, 11, 11), trial_days={"u-week": 3}).arms[0]
+    assert ages(arm, "trial", "u-week") == {0.5: 10, 1.5: 10, 2.5: 10}
+    assert by(arm, "ended")["u-week"].n == 70
+    assert [g.n for g in arm.groups if g.status == "none"] == [100]
+
+
+def test_trials_younger_than_the_test_stay_in_trial_unknown_length_defaults():
+    cli = fake([seg("Weekly Plan", [("Trial", 9), ("1 period", 0)])],
+               {**ROW, "trials": 9, "trials_paid": 0, "purchases": 0, "unique_paid_subscribers": 0, "revenue": 0.0})
+    arm = live_test(cli, APP, "t1", date(2026, 11, 4)).arms[0]
+    assert ages(arm, "trial", "u-week") == {0.5: 3, 1.5: 3, 2.5: 3}
+    assert by(arm, "ended") == {}
+
+
+def test_expire_trials_is_a_no_op_on_live_test_output():
+    cli = fake([seg("Weekly Plan", [("Trial", 45), ("1 period", 15)]), seg("x_year", [("Paid", 5)])], ROW)
+    test = live_test(cli, APP, "t1", date(2026, 11, 21), trial_days={"u-week": 3})
+    assert expire_trials(test, {"u-week": 3}) == test
+
+
+def test_live_test_reuses_a_read_test_without_another_get():
+    cli = fake([seg("Weekly Plan", [("Trial", 45), ("1 period", 15)])], ROW)
+    got = read_test(cli, APP, "t1")
+    live_test(cli, APP, "t1", TODAY, products=CATALOG, test=got)
+    assert [c[:2] for c in cli.calls].count(["ab-tests", "get"]) == 1

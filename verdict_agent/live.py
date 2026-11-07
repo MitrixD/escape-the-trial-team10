@@ -109,7 +109,13 @@ def _reconcile(title: str, trials: dict[str, int], seen: dict[str, int], target:
     return _largest_remainder(weights, target, caps=trials)
 
 
-def _live_arm(title: str, row: dict, funnel: dict, labels: dict[str, str], age: float) -> Arm:
+def _spread(status: str, product: str, n: int, days: int, received: float) -> list[Group]:
+    counts = [((2 * (d + 1) * n + days) // (2 * days)) - ((2 * d * n + days) // (2 * days)) for d in range(days)]
+    return [Group(status, product, d + 0.5, c, received) for d, c in enumerate(counts) if c]
+
+
+def _live_arm(title: str, row: dict, funnel: dict, labels: dict[str, str], days: int,
+              trial_days: dict[str, int]) -> Arm:
     paid_users = int(row.get("unique_paid_subscribers") or 0)
     revenue = float(row.get("revenue") or 0)
     metric_trials = int(row.get("trials") or 0)
@@ -130,15 +136,19 @@ def _live_arm(title: str, row: dict, funnel: dict, labels: dict[str, str], age: 
     for product in sorted(set(trials) | set(active)):
         still = trials.get(product, 0) - converted.get(product, 0)
         if still:
-            groups.append(Group("trial", product, age, still, 0.0))
+            t = min(days, max(0, trial_days.get(product, DEFAULT_TRIAL_DAYS)))
+            split = _largest_remainder({"trial": t, "ended": days - t}, still)
+            groups += _spread("trial", product, split["trial"], t, 0.0) if t else []
+            if split["ended"]:
+                groups.append(Group("ended", product, days / 2, split["ended"], 0.0))
         if active.get(product):
-            groups.append(Group("active", product, age, active[product], per_paid))
+            groups += _spread("active", product, active[product], days, per_paid)
     none_n = int(row.get("users") or 0) - sum(g.n for g in groups)
     if none_n < 0:
         log.warning("arm %s: product groups exceed arm users by %d; none group clamped to 0", title, -none_n)
         none_n = 0
     if none_n:
-        groups.append(Group("none", UNKNOWN, age, none_n, 0.0))
+        groups.append(Group("none", UNKNOWN, days / 2, none_n, 0.0))
     return Arm(title, groups, int(row.get("purchases") or 0), metric_trials, paid_users, revenue)
 
 
@@ -160,13 +170,22 @@ def _metrics_row(rows: list[dict], arm: dict, id_field: str, index: int) -> dict
     raise ValueError(f"metrics have no row for arm {arm.get('title') or arm.get(id_field)}")
 
 
-def live_test(cli, app_id: str, test_id: str, today: date, products: dict | None = None) -> TestData:
+def read_test(cli, app_id: str, test_id: str) -> dict:
     test = cli.run(["ab-tests", "get", test_id, "--app", app_id])
-    test = test.get("data", test) if isinstance(test.get("data"), dict) else test
+    return test.get("data", test) if isinstance(test.get("data"), dict) else test
+
+
+def _started_on(test: dict) -> date:
+    return datetime.fromisoformat(test["started_at"].replace("Z", "+00:00")).date()
+
+
+def live_test(cli, app_id: str, test_id: str, today: date, products: dict | None = None,
+              test: dict | None = None, trial_days: dict[str, int] | None = None) -> TestData:
+    if test is None:
+        test = read_test(cli, app_id, test_id)
     placement_id = (test.get("placement") or {}).get("placement_id")
-    started_on = datetime.fromisoformat(test["started_at"].replace("Z", "+00:00")).date()
-    days = (today - started_on).days
-    age = float(days)
+    start = _started_on(test)
+    days = (today - start).days
     arm_list, id_field = _arms(test)
     if len(arm_list) > MAX_ARMS:
         raise ValueError("tests with more than 3 arms exceed the 10-call budget")
@@ -180,18 +199,18 @@ def live_test(cli, app_id: str, test_id: str, today: date, products: dict | None
     for i, arm in enumerate(arm_list):
         row = _metrics_row(rows, arm, id_field, i)
         args = ["analytics", "funnel", "--app", app_id,
-                "--date-from", started_on.isoformat(), "--date-to", today.isoformat(),
+                "--date-from", start.isoformat(), "--date-to", today.isoformat(),
                 "--filter", f"{id_field}={arm[id_field]}"]
         if placement_id:
             args += ["--filter", f"placement_id={placement_id}"]
         funnel = cli.run(args + ["--group-by", "store_product_id"])
         title = arm.get("title") or arm.get("flow_name") or arm.get("paywall_name") or row.get("title")
-        arms.append(_live_arm(title, row, funnel, labels, age))
+        arms.append(_live_arm(title, row, funnel, labels, max(1, days), trial_days or {}))
     return TestData(
         ab_test_id=test.get("ab_test_id", test_id),
         title=test.get("title") or "",
         placement_id=placement_id,
-        started_on=started_on,
+        started_on=start,
         as_of=today,
         users_per_day=sum(a.users for a in arms) / max(1, days),
         arms=arms,
@@ -257,7 +276,8 @@ def run_live(test_id: str, today: date | None = None, horizon: int | None = None
         cli = AdaptyCLI()
     cli.check_account(expected)
     catalog = read_products(cli, app_id)
-    test = live_test(cli, app_id, test_id, today, products=catalog)
-    cal = live_calibration(cli, app_id, catalog, horizon, until=test.started_on)
+    raw = read_test(cli, app_id, test_id)
+    cal = live_calibration(cli, app_id, catalog, horizon, until=_started_on(raw))
+    test = live_test(cli, app_id, test_id, today, products=catalog, test=raw, trial_days=cal.trial_days)
     test = expire_trials(test, cal.trial_days)
     return build_verdict(test, cal, horizon)
