@@ -50,7 +50,7 @@ python3 -m venv .venv
 .venv/bin/python -m verdict_agent.cli 995b124f-9075-440d-83bb-20dbdf7d7fbb --replay tests/fixtures/live/995b124f-9075-440d-83bb-20dbdf7d7fbb
 ```
 
-The command prints one JSON object. Options: `--horizon N` (days, default 60), `--replay DIR`, `--app APP_ID` (wins over `ADAPTY_APP_ID`) and `--as-of YYYY-MM-DD` (the day to judge the test on). Every replay bundle records its day in `as_of.json`, so the replay prints the same JSON on any day. Replay never reads `.env`.
+The command prints one JSON object. Options: `--horizon N` (days, default 60), `--after-days N` (days the shipped variant serves traffic after the stop, for money at stake, default 180), `--replay DIR`, `--app APP_ID` (wins over `ADAPTY_APP_ID`) and `--as-of YYYY-MM-DD` (the day to judge the test on). Every replay bundle records its day in `as_of.json`, so the replay prints the same JSON on any day. Replay never reads `.env`.
 
 The synthetic test "annual upfront vs weekly trial" (100 users per day per variant, seed 7) is committed as a replay bundle for day 14. The command prints raw P2BB next to expected P2BB:
 
@@ -98,7 +98,7 @@ Copy `.mcp.json.example` to `.mcp.json` in your agent's project and replace `<ab
 }
 ```
 
-Use absolute paths: the agent's project is usually another directory. The server starts `python -m verdict_agent.mcp_server` over stdio and exposes one tool, `ab_test_verdict(ab_test_id, horizon, replay, app_id)`. If the server's working directory has no `.env`, it reads the `.env` in this repo's root. The tool description tells agents to call it before stopping a test, to quote only numbers from the JSON, and to pass `horizon` as the number of days the test goal names (omit it otherwise).
+Use absolute paths: the agent's project is usually another directory. The server starts `python -m verdict_agent.mcp_server` over stdio and exposes one tool, `ab_test_verdict(ab_test_id, horizon, replay, app_id, after_days)`. If the server's working directory has no `.env`, it reads the `.env` in this repo's root. The tool description tells agents to call it before stopping a test, to quote only numbers from the JSON, to pass `horizon` as the number of days the test goal names (omit it otherwise), that USD values in `money` are totals for the test's traffic, and what `next_action_basis` `money` means.
 
 ### Tests
 
@@ -126,8 +126,21 @@ JSON that validates against [verdict_agent/schema.json](verdict_agent/schema.jso
 | `arms[]` | Per variant: `users`, `revenue_received`, `revenue_expected_trials`, `revenue_expected_renewals`, `revenue_expected_total` (the sum of the three) |
 | `calibration_source` | `product` (some product has its own history; products without it use app-wide rates), `app` or `none` |
 | `expected_gap_per_user` | Leader's `revenue_expected_total` minus the best other variant's, never below 0 |
+| `money` | `null` for `not_enough_data`. Otherwise the leader against the best other variant, in USD for the test's whole traffic: `traffic_per_day`, `after_days` (how long the shipped variant serves that traffic after the stop, `--after-days`, default 180), `cost_per_day` (expected revenue lost by one more test day, because part of the traffic sees the worse variant), `loss_if_ship_leader_now` (expected loss of stopping now and shipping the leader), `cost_until_come_back` (`cost_per_day` until `come_back_on`, only for `keep_running`) and `chance_leader_is_wrong` (1 − `p2bb_expected`) |
+| `next_action` | `ship_leader`, `ship_either` (for `tie`, or a test past its horizon without a likely leader) or `come_back` |
+| `next_action_basis` | `verdict`; `money` when the verdict is `keep_running`, `p2bb_expected` is at least 0.80 and `loss_if_ship_leader_now` is below `cost_until_come_back` (the leader is not proven, yet waiting is expected to cost more than shipping it); `horizon` when the test has passed its horizon, so there is nothing left to wait for (`ship_leader` from 0.80, `ship_either` below). Below 0.80 the tool never advises shipping the leader on money |
 
-Revenue fields and `expected_gap_per_user` are USD per user, rounded to cents from unrounded values.
+Revenue fields and `expected_gap_per_user` are USD per user, rounded to cents from unrounded values. USD values in `money` are totals for the test's traffic, rounded to cents.
+
+### Money at stake on the synthetic test
+
+At day 14 of the synthetic test (100 users per day per variant), raw P2BB is 0.0 for `weekly_trial`, so a dashboard reader would ship `annual_upfront`. With 200 users a day for 180 days and a gap of $1.49 per user, that mistake costs about $53,640. The verdict confirms `weekly_trial` and prices both choices: each more day of the test costs $148.98, and shipping `weekly_trial` now has an expected loss of $2.35, with a 0.06% chance that it is wrong.
+
+```bash
+.venv/bin/python -m verdict_agent.cli 50e46448-6692-54c6-b1e0-1b2e2fa62cdd --replay tests/fixtures/synthetic/day14 | python3 -c "import json,sys; o=json.load(sys.stdin); print(o['leader'], o['money'], o['next_action'], o['next_action_basis'])"
+```
+
+How often a money-based ship picks the wrong variant: [eval/RESULTS.md](eval/RESULTS.md), section "Деньги на кону". It ships the right variant earlier on the synthetic test (65% instead of 41% at day 14, 30 users per day) with 0–1% wrong ships, but on Settings at day 7 with 100 users per day 5% of ships are wrong.
 
 ## Architecture
 
@@ -184,7 +197,7 @@ Limits:
 
 ## Next steps
 
-- Money at stake and typed next steps.
+- Money at stake for tests with more than two variants beyond the leader and the best other one.
 - Test validity checks (SRM, dead arm).
 - Guardrails (refunds, trial cancels) and segments.
 - A new UI for the A/B test screen with our estimates.
