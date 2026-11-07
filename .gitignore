@@ -9,3 +9,13 @@ tmp/
 
 # OS / editors
 .DS_Store
+
+# Keys and certificates
+*.pem
+*.key
+*.p8
+*.p12
+
+# Python
+.venv/
+__pycache__/
