@@ -64,3 +64,48 @@ The tool SHALL NOT call a language model. Explanations SHALL be written by the c
 #### Scenario: No LLM dependency
 - **WHEN** the tool runs with no LLM API key configured
 - **THEN** it returns the full verdict JSON
+
+### Requirement: Stop guard
+The system SHALL provide a Claude Code `PreToolUse` hook that runs before an agent stops an Adapty A/B test, through the Adapty MCP tool `ab_tests_stop` or the CLI command `adapty ab-tests stop`, and decides from the verdict of that test. The hook SHALL never stop, start or change a test itself; it only lets the call through to the human (`ask`) or blocks it (`deny`), and its reason SHALL quote only values from the verdict JSON and the test's arms:
+- the verdict cannot be produced (error) → `deny`: no stop without a verdict;
+- `next_action` is `come_back` → `deny`, naming the verdict, `come_back_on`, `cost_per_day`, `loss_if_ship_leader_now` and `chance_leader_is_wrong` when present;
+- `next_action` is `ship_leader` and the chosen winner is another arm → `deny`, naming the verdict leader, its `p2bb_expected` and the chosen arm;
+- `next_action` is `ship_leader` and the winner is the leader, or `ship_either` with any winner of the test, or the stop names no winner of the test → `ask`, with the verdict summary, so a human confirms the irreversible stop.
+These decisions are the `strict` mode. The guard SHALL also have an `ask` mode, in which every stop is answered `ask`: when `strict` would deny, the reason starts with a warning that the stop goes against the verdict (or that there is no verdict) and carries the same facts. The mode SHALL come from the environment variable `VERDICT_GUARD_MODE` when it is set, otherwise from the `--mode` argument of the hook command, otherwise `ask`; an unknown value SHALL mean `strict`. In `strict`, a deny reason SHALL tell the agent that the user can restart the session with `VERDICT_GUARD_MODE=ask` to confirm the stop themselves. The guard is optional: a project gets it only through `scripts/install_guard.sh <dir> [--mode ask|strict]` (default `ask`) or by adding the hook to its settings by hand.
+Commands other than an A/B test stop SHALL pass through with no output. The hook SHALL read the test from a recorded bundle instead of Adapty when the environment variable `VERDICT_GUARD_REPLAY` lists a bundle (paths separated by the OS path separator) whose `ab-tests_get.json` has the stopped test's ID.
+
+#### Scenario: Agent picks the raw-P2BB favourite
+- **WHEN** an agent calls `ab_tests_stop` on the synthetic test at day 14 with `winner_flow_id` `annual_upfront`, while the verdict leader is `weekly_trial`
+- **THEN** the hook denies the call and the reason names `weekly_trial`, its `p2bb_expected` and `annual_upfront`
+
+#### Scenario: Too early to stop
+- **WHEN** the verdict's `next_action` is `come_back`
+- **THEN** the hook denies the call and the reason names `come_back_on`
+
+#### Scenario: Winner agrees with the verdict
+- **WHEN** the verdict's `next_action` is `ship_leader` and the winner is the leader
+- **THEN** the hook answers `ask` and the reason states the leader and `p2bb_expected`
+
+#### Scenario: No verdict, no stop
+- **WHEN** the verdict returns an error
+- **THEN** the hook denies the call and the reason includes the error
+
+#### Scenario: CLI stop is guarded too
+- **WHEN** an agent runs `adapty ab-tests stop <id> --app <app> --winner <flow id>` through Bash
+- **THEN** the hook decides exactly as for the MCP tool with the same test, app and winner
+
+#### Scenario: Ask mode hands a disagreeing stop to the human
+- **WHEN** the mode is `ask` and an agent stops the synthetic test at day 14 with winner `annual_upfront`
+- **THEN** the hook answers `ask`, and the reason starts with a warning and names `weekly_trial` and `annual_upfront`
+
+#### Scenario: The human sets the mode, not the command
+- **WHEN** the hook command says `--mode strict` and `VERDICT_GUARD_MODE` is `ask`
+- **THEN** the guard runs in `ask` mode
+
+#### Scenario: Unknown mode is strict
+- **WHEN** `VERDICT_GUARD_MODE` is `off`
+- **THEN** the guard runs in `strict` mode
+
+#### Scenario: Other commands pass
+- **WHEN** an agent runs any other Bash command or `adapty ab-tests get`
+- **THEN** the hook prints nothing and exits 0
