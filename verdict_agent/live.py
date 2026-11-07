@@ -1,15 +1,21 @@
 """Live mode: read one Adapty A/B test and the app's history through the read-only CLI."""
 import logging
+import os
 from dataclasses import replace
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
+from verdict_agent.adapty_cli import AdaptyCLI, replay_runner
 from verdict_agent.calibration import build_from_adapty, product_map_from_catalog
 from verdict_agent.model import DEFAULT_TRIAL_DAYS, Arm, Calibration, Group, TestData
+from verdict_agent.verdict import build_verdict, check_horizon
 
 log = logging.getLogger(__name__)
 
 HISTORY_DAYS = 180
 UNKNOWN = "-"
+MAX_ARMS = 3
+REPLAY_PLACEHOLDER = "replay"
 ARM_KINDS = (("flows", "flow_id"), ("paywalls", "paywall_id"))
 
 
@@ -162,6 +168,8 @@ def live_test(cli, app_id: str, test_id: str, today: date, products: dict | None
     days = (today - started_on).days
     age = float(days)
     arm_list, id_field = _arms(test)
+    if len(arm_list) > MAX_ARMS:
+        raise ValueError("tests with more than 3 arms exceed the 10-call budget")
     test_type = test.get("type") or id_field.removesuffix("_id")
     metrics = cli.run(["ab-tests", "metrics", "total", test_id, "--app", app_id, "--type", test_type])
     rows = ((metrics or {}).get("data") or {}).get("metrics") or []
@@ -212,3 +220,44 @@ def live_calibration(cli, app_id: str, products: dict | None, horizon: int, unti
     ltv = cli.run(["analytics", "ltv", "--app", app_id, *window,
                    "--group-by", "store_product_id", "--period-type", "days"])
     return build_from_adapty(conversion, cohort, ltv, horizon, product_map_from_catalog(products))
+
+
+def read_env(path: Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    try:
+        lines = Path(path).read_text().splitlines()
+    except OSError:
+        return values
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        values[key.strip().removeprefix("export ").strip()] = value
+    return values
+
+
+def run_live(test_id: str, today: date | None = None, horizon: int | None = None,
+             replay: Path | None = None, env_path: Path | None = None) -> dict:
+    horizon = check_horizon(horizon)
+    today = today or datetime.now(timezone.utc).date()
+    env = {**os.environ, **read_env(env_path or Path(".env"))}
+    app_id = env.get("ADAPTY_APP_ID") or ""
+    expected = env.get("ADAPTY_EXPECTED_COMPANY") or ""
+    if replay is not None:
+        cli = AdaptyCLI(runner=replay_runner(replay), min_interval=0)
+        app_id = app_id or REPLAY_PLACEHOLDER
+        expected = expected or REPLAY_PLACEHOLDER
+    else:
+        if not app_id:
+            raise ValueError("ADAPTY_APP_ID is not set in .env")
+        cli = AdaptyCLI()
+    cli.check_account(expected)
+    catalog = read_products(cli, app_id)
+    test = live_test(cli, app_id, test_id, today, products=catalog)
+    cal = live_calibration(cli, app_id, catalog, horizon, until=test.started_on)
+    test = expire_trials(test, cal.trial_days)
+    return build_verdict(test, cal, horizon)
