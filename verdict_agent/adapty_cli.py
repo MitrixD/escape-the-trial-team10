@@ -4,6 +4,7 @@ import subprocess
 import time
 
 READ_VERBS = {"get", "list"}
+DENIED = {("apps", "get")}
 STDERR_LIMIT = 300
 
 
@@ -23,13 +24,14 @@ class CliError(Exception):
 
 
 class RateLimited(Exception):
-    def __init__(self, retry_after: int):
+    def __init__(self, retry_after: int | None):
         self.retry_after = retry_after
-        super().__init__(f"Adapty rate limit hit, retry after {retry_after} seconds")
+        wait = f"retry after {retry_after} seconds" if retry_after is not None else "retry time unknown"
+        super().__init__(f"Adapty rate limit hit, {wait}; stopping without further calls")
 
 
 def is_read_command(args: list[str]) -> bool:
-    if len(args) < 2 or args[0] == "profiles":
+    if len(args) < 2 or args[0] == "profiles" or tuple(args[:2]) in DENIED:
         return False
     topic, verb = args[0], args[1]
     return (
@@ -85,13 +87,15 @@ class AdaptyCLI:
         finally:
             self._last = self.clock()
         if proc.returncode == 4:
-            retry = _retry_after(proc.stdout or "", proc.stderr or "")
-            if retry is not None:
-                self._rate_limited = RateLimited(retry)
-                raise self._rate_limited
+            self._rate_limited = RateLimited(_retry_after(proc.stdout or "", proc.stderr or ""))
+            raise self._rate_limited
+        private = args[:2] == ["auth", "whoami"]
         if proc.returncode != 0:
-            raise CliError(proc.returncode, proc.stderr or "")
-        return json.loads(proc.stdout)
+            raise CliError(proc.returncode, "<hidden for auth whoami>" if private else proc.stderr or "")
+        try:
+            return json.loads(proc.stdout)
+        except (TypeError, ValueError):
+            raise CliError(proc.returncode, f"{' '.join(args[:2])} did not return JSON") from None
 
     def check_account(self, expected_company: str) -> None:
         if not expected_company:

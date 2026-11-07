@@ -63,10 +63,40 @@ def _product_counts(funnel: dict) -> dict[str, list[int]]:
         label = seg.get("title") or seg.get("key")
         product = PRODUCTS.get(label, label)
         steps = _steps(seg)
-        cell = counts.setdefault(product, [0, 0])
-        cell[0] += steps.get("Trial", 0)
-        cell[1] += steps.get("Paid", 0)
+        cell = counts.setdefault(product, [0, 0, 0])
+        if "Trial" in steps:
+            cell[0] += steps["Trial"]
+            cell[1] += steps.get("Paid", steps.get("1 period", 0))
+        else:
+            cell[2] += steps.get("Paid", 0)
     return counts
+
+
+def _reconcile(title: str, counts: dict[str, list[int]], target: int) -> dict[str, int]:
+    trials = {p: c[0] for p, c in counts.items() if c[0]}
+    seen = {p: min(counts[p][1], n) for p, n in trials.items()}
+    target = min(max(0, target), sum(trials.values()))
+    if sum(seen.values()) == target:
+        return seen
+    log.warning(
+        "arm %s: funnel trial->paid %d differs from metrics trials_paid %d; scaled per product",
+        title, sum(seen.values()), target,
+    )
+    weights = seen if sum(seen.values()) else trials
+    total = sum(weights.values())
+    if not total:
+        return {p: 0 for p in trials}
+    raw = {p: target * w / total for p, w in weights.items()}
+    out = {p: min(int(v), trials[p]) for p, v in raw.items()}
+    for p in sorted(raw, key=lambda p: raw[p] - int(raw[p]), reverse=True):
+        if sum(out.values()) >= target:
+            break
+        if out[p] < trials[p]:
+            out[p] += 1
+    for p in sorted(trials):
+        while sum(out.values()) < target and out[p] < trials[p]:
+            out[p] += 1
+    return out
 
 
 def _live_arm(title: str, row: dict, funnel: dict, age: int) -> Arm:
@@ -74,15 +104,18 @@ def _live_arm(title: str, row: dict, funnel: dict, age: int) -> Arm:
     revenue = float(row["revenue"] or 0)
     per_paid = revenue / max(1, paid_users)
     counts = _product_counts(funnel)
+    converted = _reconcile(title, counts, int(row.get("trials_paid") or 0))
     groups = []
-    for product, (trials, paid) in sorted(counts.items()):
-        trial_n = max(0, trials - paid) if trials else 0
-        if trial_n:
-            groups.append(Group("trial", product, age, trial_n, 0.0))
-        if paid:
-            groups.append(Group("active", product, age, paid, per_paid))
-    if sum(t for t, _ in counts.values()) != int(row["trials"]) or sum(p for _, p in counts.values()) != paid_users:
-        log.warning("arm %s: per-product funnel counts do not add up to the metrics totals", title)
+    for product, (trials, _, direct) in sorted(counts.items()):
+        conv = converted.get(product, 0)
+        if trials - conv:
+            groups.append(Group("trial", product, age, trials - conv, 0.0))
+        if direct + conv:
+            groups.append(Group("active", product, age, direct + conv, per_paid))
+    if sum(c[0] for c in counts.values()) != int(row["trials"]):
+        log.warning("arm %s: per-product funnel trials do not add up to the metrics trials", title)
+    if sum(g.n for g in groups if g.status == "active") != paid_users:
+        log.warning("arm %s: per-product paid users do not add up to the metrics paid subscribers", title)
     none_n = int(row["users"]) - sum(g.n for g in groups)
     if none_n < 0:
         log.warning("arm %s: product groups exceed arm users by %d; none group clamped to 0", title, -none_n)
@@ -142,6 +175,6 @@ def run_live(test_id: str, today: date | None = None, *, cli: AdaptyCLI | None =
     test = live_test(cli, app_id, test_id, today)
     horizon = horizon_from_goal(test.goal)
     users, trial_days = _cached_users(Path(dataset), horizon)
-    cal = build_offline(users, None, horizon)
+    cal = build_offline(users, test.title, horizon)
     cal.source = "offline_calibration"
     return build_verdict(test, cal, warnings=warnings_for(test), segments=(0, []), trial_days=trial_days)

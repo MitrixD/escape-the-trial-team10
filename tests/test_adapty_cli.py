@@ -28,7 +28,7 @@ def make(runner=None, clock=None):
 @pytest.mark.parametrize("args", [
     ["ab-tests", "stop", "x"], ["ab-tests", "start", "x"], ["ab-tests", "create"], ["ab-tests", "archive", "x"],
     ["ab-tests", "replace", "x"], ["flows", "publish", "x"], ["products", "update", "x"], ["auth", "login"],
-    ["profiles", "list"], ["profiles", "get", "x"], [], ["ab-tests"],
+    ["profiles", "list"], ["profiles", "get", "x"], ["apps", "get", "x"], [], ["ab-tests"],
 ])
 def test_rejects_mutating_command(args):
     runner = FakeRunner()
@@ -105,3 +105,32 @@ def test_wrong_account(expected):
     assert "dev@example.test" not in str(err.value)
     if expected:
         assert expected in str(err.value)
+
+
+def test_exit_4_without_retry_after_still_stops():
+    calls = []
+
+    def runner(cmd, **kw):
+        calls.append(cmd)
+        return subprocess.CompletedProcess(cmd, 4, "rate limited", "")
+
+    cli, _ = make(runner)
+    with pytest.raises(RateLimited) as err:
+        cli.run(["analytics", "funnel"])
+    assert err.value.retry_after is None
+    with pytest.raises(RateLimited):
+        cli.run(["analytics", "funnel"])
+    assert len(calls) == 1
+
+
+def test_non_json_output_is_cli_error():
+    cli, _ = make(lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0, "not json", ""))
+    with pytest.raises(CliError):
+        cli.run(["ab-tests", "get", "x"])
+
+
+def test_whoami_error_hides_stderr():
+    cli, _ = make(lambda cmd, **kw: subprocess.CompletedProcess(cmd, 1, "", "logged in as someone@example.test"))
+    with pytest.raises(CliError) as err:
+        cli.check_account(COMPANY)
+    assert "someone@example.test" not in str(err.value) and "someone" not in err.value.stderr

@@ -1,11 +1,13 @@
 import json
+import logging
 from datetime import date
 
 import pytest
 
-from tests.live_fakes import APP, COMPANY, FIXTURES, ONB_ID, FakeRunner
+from tests.live_fakes import APP, COMPANY, FIXTURES, FLOW_A, FLOW_B, ONB_ID, FakeRunner, with_metrics, with_step
 from verdict_agent.adapty_cli import AdaptyCLI, WrongAccount
 from verdict_agent.calibration import Calibration
+import verdict_agent.live as live
 from verdict_agent.live import PRODUCTS, live_test, parse_env, run_live
 
 TODAY = date(2026, 11, 7)
@@ -44,7 +46,7 @@ def test_per_product_sums_match_metrics_totals():
         assert by["active"] == row["unique_paid_subscribers"] == arm.paid_users
         assert by["trial"] == row["trials"] - row["trials_paid"]
         assert arm.users == row["users"]
-        assert by["none"] == row["users"] - row["trials"] - row["unique_paid_subscribers"]
+        assert by["none"] == row["users"] - (row["trials"] - row["trials_paid"]) - row["unique_paid_subscribers"]
         assert arm.purchases == row["purchases"] and arm.refunds == row["refunds"]
         assert arm.revenue_received == pytest.approx(row["revenue"])
         assert arm.trial_cancels == {}
@@ -123,3 +125,71 @@ def test_run_live_reads_each_endpoint_once(tmp_path, dataset_path):
     ]
     from tests.test_verdict import SCHEMA, check
     check(out, SCHEMA)
+
+
+
+def _arm_sums(arm, row):
+    by = {s: sum(g.n for g in arm.groups if g.status == s) for s in ("trial", "active", "none")}
+    assert by["trial"] == row["trials"] - row["trials_paid"]
+    assert by["active"] == row["unique_paid_subscribers"]
+    assert by["none"] == row["users"] - by["trial"] - by["active"]
+    return {(g.status, g.product): g.n for g in arm.groups}
+
+
+CONVERTED_B = with_step("funnel_arm_2.json", {
+    "Premium Weekly (3-day trial)": {"1 period": 10}, "lumen_weekly": {"1 period": 5},
+})
+
+
+def test_converted_trials_land_in_active_groups(caplog):
+    metrics = with_metrics(B={"trials_paid": 15, "unique_paid_subscribers": 50})
+    runner = FakeRunner(metrics=metrics, funnels={FLOW_B: CONVERTED_B})
+    with caplog.at_level(logging.WARNING, logger="verdict_agent.live"):
+        t = live_test(fake_cli(runner), APP, ONB_ID, TODAY)
+    assert caplog.records == []
+    b = next(a for a in t.arms if a.title == "B")
+    row = next(r for r in metrics["data"]["metrics"] if r["title"] == "B")
+    groups = _arm_sums(b, row)
+    assert groups == {("trial", "weekly"): 56, ("active", "weekly"): 15, ("active", "annual"): 35, ("none", "-"): 179}
+
+
+def test_funnel_conversions_scaled_to_metrics_trials_paid(caplog):
+    metrics = with_metrics(B={"trials_paid": 12, "unique_paid_subscribers": 47})
+    runner = FakeRunner(metrics=metrics, funnels={FLOW_B: CONVERTED_B})
+    with caplog.at_level(logging.WARNING, logger="verdict_agent.live"):
+        t = live_test(fake_cli(runner), APP, ONB_ID, TODAY)
+    assert any("trials_paid" in r.getMessage() for r in caplog.records)
+    b = next(a for a in t.arms if a.title == "B")
+    row = next(r for r in metrics["data"]["metrics"] if r["title"] == "B")
+    assert _arm_sums(b, row)[("active", "weekly")] == 12
+
+
+def test_metrics_conversions_without_funnel_steps_spread_by_trials(caplog):
+    metrics = with_metrics(A={"trials_paid": 10, "unique_paid_subscribers": 10})
+    t = live_test(fake_cli(FakeRunner(metrics=metrics)), APP, ONB_ID, TODAY)
+    a = next(x for x in t.arms if x.title == "A")
+    row = next(r for r in metrics["data"]["metrics"] if r["title"] == "A")
+    groups = _arm_sums(a, row)
+    assert groups[("active", "annual_trial")] == 7 and groups[("active", "weekly")] == 3
+
+
+def test_run_live_excludes_offline_test_with_live_title(tmp_path, monkeypatch):
+    env = tmp_path / ".env"
+    env.write_text(f"LUMEN_APP_ID={APP}\nADAPTY_EXPECTED_COMPANY={COMPANY}\nVERDICT_DATASET=/synthetic\n")
+    seen = []
+    real = live.build_offline
+
+    def spy(users, exclude_test, horizon):
+        seen.append(exclude_test)
+        return real(users, exclude_test, horizon)
+
+    users = {
+        "u1": {"test": "Onboarding: annual trial vs weekly first", "arm": "x", "ev": [(1.0, 100.0)], "subs": [(1.0, 9.0, "weekly", False)]},
+        "u2": {"test": "", "arm": "", "ev": [], "subs": []},
+    }
+    monkeypatch.setattr(live, "build_offline", spy)
+    monkeypatch.setattr(live, "_cached_users", lambda path, horizon: (users, {}))
+    out = run_live(ONB_ID, TODAY, cli=fake_cli(), env_path=env)
+    assert seen == ["Onboarding: annual trial vs weekly first"]
+    assert out["calibration_source"] == "offline_calibration"
+    assert out["arms"][0]["revenue_expected_renewals"] == 0
