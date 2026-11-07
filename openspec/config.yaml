@@ -6,7 +6,8 @@ context: |
   Adapty used correctly), demo 10%.
   Stack: Python 3.11+, standard library first; Adapty Developer CLI (`adapty ... --json`) called as a
   subprocess for live reads; a stdio MCP server exposing the same function.
-  Data: Lumen app (synthetic) in Maxim's Adapty account. The tool reads Adapty only, through whichever
+  Data: the tool works for any Adapty app. Development, fixtures and the demo use the Lumen test app
+  (synthetic) in Maxim's Adapty account. The tool reads Adapty only, through whichever
   API provides the data (Developer CLI, Export Analytics API, Server-side API). The offline Lumen dataset
   (CSV) is used only by the eval to generate Adapty-shaped replay bundles and 60-day ground truth.
   Hard rules: synthetic data only; read-only against Adapty (no start/stop/create/update); no load on the

@@ -6,6 +6,7 @@ See proposal.md for why and `docs/2026-11-07-verdict-agent-design.md` for the fu
 
 - Per-user data from Adapty is an open question: the Server-side API reads one profile at a time, the S3/GCS export is daily and configured in the dashboard, and neither has been tried for a test's users. How to obtain it is a time-boxed investigation (task 4.5). This version uses per-arm aggregates: `ab-tests metrics total` and `analytics funnel` filtered by flow and placement, grouped by store product (verified on Lumen: arm B gives 71 trials and 35 purchases, same as the test metrics).
 - The tool must work on any Adapty app, so every input comes from Adapty itself through whichever API provides it: the Developer CLI, the Export Analytics API or the Server-side API. Calibration comes from the same app's analytics (`conversion`, `cohort`, `ltv` by product), never from files outside Adapty.
+- The tool is not tied to one app: the app ID comes from `ADAPTY_APP_ID` or the call, and products are mapped through the app's own catalog. Lumen is the test app for development, fixtures and the demo; its offline dataset is the eval's ground truth only.
 - Live Lumen tests contain only users who installed on 7 Nov, so every live user has the same age. Behaviour over weeks exists only in the offline dataset, which the eval turns into Adapty-shaped replay bundles.
 - A spike eval (`eval/ab_verdict_eval.py`, 7 Nov) and a first implementation (`feature/verdict-agent`, PR #9) exist. They are references for interfaces and for what was verified on Lumen; the first implementation calibrated from the offline dataset, which this change replaces.
 - Two people, about one day. Design and process are in `docs/2026-11-07-verdict-agent-design.md` and `CLAUDE.md`.
@@ -112,7 +113,7 @@ replay_runner(dir: Path) -> Callable                                    # return
 ReadOnlyViolation, WrongAccount, CliError, RateLimited(retry_after)
 
 # verdict_agent/live.py
-live_test(cli, app_id, test_id, today) -> TestData
+live_test(cli, app_id, test_id, today) -> TestData   # reads the product catalog to merge store keys
 live_calibration(cli, app_id, products, horizon, until: date) -> Calibration
 run_live(test_id, today=None, horizon=None, replay: Path | None = None) -> dict
 
@@ -127,6 +128,6 @@ MCP tool ab_test_verdict(ab_test_id, horizon, replay)
 - Thresholds: `MIN_EVENTS = 30` (purchases + trials per arm), `P_CONFIRM = 0.95`, `MATURITY_MIN = 0.80`, `MDE_SHARE = 0.05`, `DEFAULT_HORIZON = 60`, `RENEWAL_DAYS = 30`, `DEFAULT_TRIAL_DAYS = 7`.
 - `confirmed` is checked before `keep_running` on purpose: the estimator exists to decide safely before revenue matures.
 - Leader = highest expected total (ties → first arm); P2BB = leader vs best other arm. Maturity = Σ users·received / Σ users·total (1.0 when 0).
-- Live mode: every user of the test is treated as installed on the test's start day; trial groups older than their product's trial length become `ended`; trial→paid conversions move users to `active`; product labels from App Store titles and Play `lumen_*` keys map to one product key.
+- Live mode: every user of the test is treated as installed on the test's start day; trial groups older than their product's trial length become `ended`; trial→paid conversions move users to `active`; App Store and Play keys of one product are merged through the app's product catalog (`products list`), never through a hard-coded map.
 - Probabilities are floored to 4 decimals; a test needs at least two arms; errors never echo `.env`, `whoami` or raw Adapty stderr.
 - Tests that need the offline dataset (eval only) are marked `dataset` and skip when `VERDICT_DATASET` is unset.
