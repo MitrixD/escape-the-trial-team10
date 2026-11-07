@@ -320,12 +320,6 @@ def _ltv(history: list[User], window: tuple[date, date]) -> dict:
     }
 
 
-def _cohort(window: tuple[date, date]) -> dict:
-    return {"data": {"value": 0, "segments": []},
-            "meta": {"query": {"timezone": "UTC", "filters": {"date": [window[0].isoformat(), window[1].isoformat()]},
-                               "period_unit": "month", "revenue_basis": "gross", "period_type": "renewals"}}}
-
-
 @lru_cache(maxsize=8)
 def _test_independent_files(dataset_dir: str, test_name: str) -> tuple[tuple[str, str], ...]:
     users = _load(dataset_dir)
@@ -333,7 +327,6 @@ def _test_independent_files(dataset_dir: str, test_name: str) -> tuple[tuple[str
     window = _window(users)
     files = {"products_list.json": _products(users),
              "analytics_conversion_trial-paid.json": _conversion(history, window),
-             "analytics_cohort.json": _cohort(window),
              "analytics_ltv.json": _ltv(history, window)}
     return tuple((name, json.dumps(body, indent=2) + "\n") for name, body in files.items())
 
@@ -344,6 +337,8 @@ def _write(out_dir: Path, name: str, body: dict) -> None:
 
 def make_replay(dataset_dir: Path, test_name: str, day: int, traffic: int, out_dir: Path,
                 seed: int = 7, start: date | None = None) -> Path:
+    if day < 1 or traffic < 1:
+        raise ValueError(f"day and traffic must be at least 1, got day {day} and traffic {traffic}")
     start = start or (DATA_END.date() - timedelta(days=day))
     as_of = start + timedelta(days=day)
     users = _load(str(dataset_dir))
@@ -365,6 +360,7 @@ def make_replay(dataset_dir: Path, test_name: str, day: int, traffic: int, out_d
 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    _write(out_dir, "as_of.json", {"as_of": as_of.isoformat()})
     _write(out_dir, "auth_whoami.json", {"company": "<redacted>", "matched_expected_company": True})
     _write(out_dir, "ab-tests_get.json", {
         "ab_test_id": test_id, "title": test_name, "type": "flow", "state": "live",

@@ -4,6 +4,10 @@ from datetime import date
 DEFAULT_TRIAL_DAYS = 7
 
 
+class VerdictError(ValueError):
+    pass
+
+
 @dataclass(frozen=True)
 class Group:
     status: str

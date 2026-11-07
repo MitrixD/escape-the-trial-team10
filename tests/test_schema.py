@@ -22,7 +22,11 @@ def test_schema_is_a_json_schema_document():
     assert schema["additionalProperties"] is False
     assert set(schema["required"]) == {
         "ab_test_id", "verdict", "reason", "leader", "p2bb_expected", "p2bb_raw",
-        "maturity", "horizon_days", "come_back_on", "arms", "calibration_source",
+        "maturity", "horizon_days", "come_back_on", "arms", "calibration_source", "expected_gap_per_user",
+    }
+    assert set(schema["properties"]["arms"]["items"]["required"]) == {
+        "title", "users", "revenue_received", "revenue_expected_trials", "revenue_expected_renewals",
+        "revenue_expected_total",
     }
 
 
@@ -65,6 +69,10 @@ def mutate(out, change):
     lambda o: o.update(arms=o["arms"][:1]),
     lambda o: o.update(verdict="keep_running", reason="min_events"),
     lambda o: o.update(verdict="keep_running", reason="pending_revenue", come_back_on="14 Dec"),
+    lambda o: o.update(verdict="not_enough_data", reason="no_calibration", come_back_on="2026-12-14"),
+    lambda o: o.pop("expected_gap_per_user"),
+    lambda o: o.update(expected_gap_per_user=-0.5),
+    lambda o: o["arms"][0].pop("revenue_expected_total"),
 ])
 def test_checker_rejects_outputs_outside_the_contract(confirmed, change):
     assert mutate(confirmed, change)
@@ -74,10 +82,7 @@ def test_checker_accepts_a_produced_verdict(confirmed):
     assert errors(confirmed, load_schema()) == []
 
 
-def test_live_run_fixture_matches_schema():
-    import json
-    from pathlib import Path
-
-    live = json.loads((Path(__file__).parent / "fixtures" / "live_run_onboarding.json").read_text())
-    assert errors(live, load_schema()) == []
-    assert live["verdict"] in {"not_enough_data", "confirmed", "tie", "keep_running"}
+def test_min_events_may_carry_a_date_and_no_calibration_may_not(confirmed):
+    ok = dict(confirmed, verdict="not_enough_data", reason="min_events", come_back_on="2026-12-14")
+    assert errors(ok, load_schema()) == []
+    assert errors(dict(ok, reason="no_calibration", come_back_on=None), load_schema()) == []

@@ -1,15 +1,16 @@
 import json
 import logging
+import subprocess
 from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
 import pytest
 
-from verdict_agent.adapty_cli import AdaptyCLI, replay_runner
+from verdict_agent.adapty_cli import AdaptyCLI, CliError, replay_runner
 from verdict_agent.calibration import build_from_adapty, product_map_from_catalog
 from verdict_agent.live import expire_trials, live_calibration, live_test, read_products, read_test
-from verdict_agent.model import DEFAULT_TRIAL_DAYS, Arm, Group, TestData
+from verdict_agent.model import DEFAULT_TRIAL_DAYS, Arm, Group, TestData, VerdictError
 
 LIVE = Path(__file__).parent / "fixtures" / "live"
 ONBOARDING = LIVE / "995b124f-9075-440d-83bb-20dbdf7d7fbb"
@@ -152,7 +153,7 @@ def test_live_test_reads_five_commands_and_reuses_catalog():
     products = read_products(cli, APP)
     live_test(cli, APP, ONBOARDING.name, TODAY, products=products)
     cal = live_calibration(cli, APP, products, 60, date(2026, 11, 7))
-    assert len(spy.calls) == 8
+    assert len(spy.calls) == 7
     assert [c[:2] for c in spy.calls].count(["products", "list"]) == 1
     assert cal.source == "product"
 
@@ -276,18 +277,18 @@ def test_live_calibration_from_recorded_analytics(bundle):
     cli, spy = replay(bundle)
     cal = live_calibration(cli, APP, None, 60, date(2026, 11, 7))
     products = load(bundle, "products_list.json")
-    expected = build_from_adapty(load(bundle, "analytics_conversion_trial-paid.json"), load(bundle, "analytics_cohort.json"),
+    expected = build_from_adapty(load(bundle, "analytics_conversion_trial-paid.json"),
                                  load(bundle, "analytics_ltv.json"), 60, product_map_from_catalog(products))
     assert cal == expected
     assert cal.source == "product"
     assert set(cal.renewal_value) <= {p["id"] for p in products["data"]}
     assert [c[:2] for c in spy.calls] == [
-        ["products", "list"], ["analytics", "conversion"], ["analytics", "cohort"], ["analytics", "ltv"]]
+        ["products", "list"], ["analytics", "conversion"], ["analytics", "ltv"]]
     for call in spy.calls[1:]:
         assert call[call.index("--date-from") + 1] == "2026-05-11"
         assert call[call.index("--date-to") + 1] == "2026-11-06"
         assert call[call.index("--app") + 1] == APP
-    conversion, _, ltv = spy.calls[1:]
+    conversion, ltv = spy.calls[1:]
     assert conversion[conversion.index("--group-by") + 1] == "store_product_id"
     assert ltv[ltv.index("--group-by") + 1] == "store_product_id"
 
@@ -315,8 +316,25 @@ def test_funnel_counts_scaled_to_metrics_by_largest_remainder(caplog):
 def test_metrics_without_row_for_arm_raise_clear_error():
     cli = fake([], ROW)
     cli.responses["metrics"] = {"data": {"metrics": []}}
-    with pytest.raises(ValueError, match="metrics have no row for arm A"):
+    with pytest.raises(VerdictError, match="metrics have no row for arm A"):
         live_test(cli, APP, "t1", TODAY)
+
+
+def test_metrics_row_is_never_matched_by_position():
+    cli = fake([], ROW)
+    cli.responses["metrics"] = {"data": {"metrics": [{"flow_id": "other", "variation_id": "v-other", "title": "B", **ROW}]}}
+    with pytest.raises(VerdictError, match="metrics have no row for arm A"):
+        live_test(cli, APP, "t1", TODAY)
+
+
+def test_unknown_test_error_names_the_id():
+    def runner(cmd, **kw):
+        return subprocess.CompletedProcess(cmd, 1, "", "404 not found")
+
+    with pytest.raises(CliError) as err:
+        read_test(AdaptyCLI(runner=runner, min_interval=0), APP, "missing-test-9")
+    assert err.value.public == "cannot read A/B test missing-test-9: adapty exited with code 1"
+    assert APP not in err.value.public
 
 
 def test_product_without_conversion_trials_has_zero_trial_days_so_its_trials_expire_at_once():
@@ -325,7 +343,7 @@ def test_product_without_conversion_trials_has_zero_trial_days_so_its_trials_exp
     ltv = {"data": {"segments": [
         {"key": "u-week", "cohort_size": 5, "values": [{"x": 0, "value": 0}, {"x": 3, "value": 5}]},
         {"key": "u-year", "cohort_size": 5, "values": [{"x": 0, "value": 0}, {"x": 3, "value": 40}]}]}}
-    cal = build_from_adapty(conversion, {}, ltv, 60, product_map_from_catalog(CATALOG))
+    cal = build_from_adapty(conversion, ltv, 60, product_map_from_catalog(CATALOG))
     assert cal.trial_days["u-year"] == 0
     test = expire_trials(make_test([("trial", "u-year", 4, 0.0), ("trial", "u-week", 4, 0.0)], age=1), cal.trial_days)
     assert {g.product: g.status for g in test.arms[0].groups} == {"u-year": "ended", "u-week": "trial"}

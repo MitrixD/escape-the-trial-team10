@@ -1,12 +1,14 @@
 import json
 import shutil
+import subprocess
 from datetime import date
 from pathlib import Path
 
 import pytest
 
 from verdict_agent import live
-from verdict_agent.adapty_cli import WrongAccount
+from verdict_agent.adapty_cli import AdaptyCLI, CliError, WrongAccount
+from verdict_agent.model import VerdictError
 from verdict_agent.live import run_live
 from schema_check import assert_valid
 
@@ -83,12 +85,98 @@ def test_two_runs_give_identical_json():
     assert json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)
 
 
-def test_env_file_is_parsed_and_values_never_leak_in_errors(tmp_path):
+def test_env_file_is_parsed_and_values_never_leak_in_errors(tmp_path, monkeypatch):
     env = tmp_path / ".env"
     env.write_text('# c\nADAPTY_APP_ID="app-secret-123"\nADAPTY_EXPECTED_COMPANY=\'me@example.com\'\n')
     assert live.read_env(env) == {"ADAPTY_APP_ID": "app-secret-123", "ADAPTY_EXPECTED_COMPANY": "me@example.com"}
-    bundle = copy_bundle(ONBOARDING, tmp_path)
-    (bundle / "auth_whoami.json").write_text(json.dumps({"matched_expected_company": False}))
+    def runner(cmd, **kw):
+        return subprocess.CompletedProcess(cmd, 0, json.dumps({"company": "someone@else.test"}), "")
+
+    monkeypatch.setattr(live, "AdaptyCLI", lambda **kw: AdaptyCLI(runner=runner, min_interval=0))
+    monkeypatch.delenv("ADAPTY_APP_ID", raising=False)
+    monkeypatch.delenv("ADAPTY_EXPECTED_COMPANY", raising=False)
     with pytest.raises(WrongAccount) as err:
-        run_live(ONBOARDING.name, today=TODAY, replay=bundle, env_path=env)
+        run_live(ONBOARDING.name, today=TODAY, env_path=env)
     assert "app-secret-123" not in str(err.value) and "me@example.com" not in str(err.value)
+
+
+def test_replay_date_comes_from_the_bundle(tmp_path):
+    assert json.loads((ONBOARDING / "as_of.json").read_text()) == {"as_of": "2026-11-07"}
+    assert json.loads((MAIN / "as_of.json").read_text()) == {"as_of": "2026-11-07"}
+    bundle = copy_bundle(ONBOARDING, tmp_path)
+    (bundle / "as_of.json").write_text(json.dumps({"as_of": "2026-11-20"}))
+    assert run_live(ONBOARDING.name, replay=bundle) == run_live(ONBOARDING.name, today=date(2026, 11, 20), replay=ONBOARDING)
+
+
+def test_replay_without_as_of_and_today_raises(tmp_path):
+    bundle = copy_bundle(ONBOARDING, tmp_path)
+    (bundle / "as_of.json").unlink()
+    with pytest.raises(VerdictError, match="as_of.json"):
+        run_live(ONBOARDING.name, replay=bundle)
+
+
+def test_two_arm_replay_needs_eight_calls_without_cohort(counted):
+    run_live(ONBOARDING.name, replay=ONBOARDING)
+    calls = counted["runner"].calls
+    assert len(calls) == 8
+    assert not any(c[:2] == ["analytics", "cohort"] for c in calls)
+
+
+class AppSpy:
+    def __init__(self):
+        self.apps = []
+
+    def __call__(self, cmd, **kw):
+        if "--app" in cmd:
+            self.apps.append(cmd[cmd.index("--app") + 1])
+        body = {"matched_expected_company": True} if cmd[1:3] == ["auth", "whoami"] else {"data": []}
+        return subprocess.CompletedProcess(cmd, 0 if cmd[1:3] != ["ab-tests", "get"] else 1, json.dumps(body), "")
+
+
+@pytest.fixture
+def app_spy(monkeypatch, tmp_path):
+    spy = AppSpy()
+    monkeypatch.setattr(live, "AdaptyCLI", lambda **kw: AdaptyCLI(runner=spy, min_interval=0))
+    monkeypatch.setenv("ADAPTY_EXPECTED_COMPANY", "Synthetic Co")
+    env = tmp_path / ".env"
+    env.write_text("ADAPTY_APP_ID=FILE-APP\nADAPTY_EXPECTED_COMPANY=File Co\n")
+    return spy, env
+
+
+def test_environment_wins_over_env_file(app_spy, monkeypatch):
+    spy, env = app_spy
+    monkeypatch.setenv("ADAPTY_APP_ID", "ENV-APP")
+    with pytest.raises(CliError):
+        run_live("t1", today=TODAY, env_path=env)
+    assert set(spy.apps) == {"ENV-APP"}
+
+
+def test_call_app_id_wins_over_environment_and_file(app_spy, monkeypatch):
+    spy, env = app_spy
+    monkeypatch.setenv("ADAPTY_APP_ID", "ENV-APP")
+    with pytest.raises(CliError) as err:
+        run_live("t1", today=TODAY, env_path=env, app_id="CALL-APP")
+    assert set(spy.apps) == {"CALL-APP"}
+    assert "CALL-APP" not in err.value.public and "cannot read A/B test t1" in err.value.public
+
+
+def test_env_file_used_when_environment_has_no_app(app_spy, monkeypatch):
+    spy, env = app_spy
+    monkeypatch.delenv("ADAPTY_APP_ID", raising=False)
+    with pytest.raises(CliError):
+        run_live("t1", today=TODAY, env_path=env)
+    assert set(spy.apps) == {"FILE-APP"}
+
+
+def test_no_app_id_anywhere_is_a_verdict_error(monkeypatch, tmp_path):
+    monkeypatch.delenv("ADAPTY_APP_ID", raising=False)
+    with pytest.raises(VerdictError, match="app id"):
+        run_live("t1", today=TODAY, env_path=tmp_path / "missing.env")
+
+
+def test_default_env_path_falls_back_to_the_repo_root(monkeypatch, tmp_path):
+    assert live.REPO_ENV == Path(live.__file__).resolve().parent.parent / ".env"
+    monkeypatch.chdir(tmp_path)
+    assert live.default_env_path() == live.REPO_ENV
+    (tmp_path / ".env").write_text("ADAPTY_APP_ID=x\n")
+    assert live.default_env_path() == Path(".env")

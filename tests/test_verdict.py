@@ -3,7 +3,7 @@ import math
 import pytest
 
 from verdict_agent import verdict as verdict_module
-from verdict_agent.estimator import pseudo_values
+from verdict_agent.estimator import ArmEstimate, estimate, pseudo_values
 from verdict_agent.stats import diff_ci, p2bb
 from tests.helpers import make_arm, make_cal, make_test, step_curve
 from tests.helpers import build_checked_verdict as build_verdict
@@ -117,7 +117,7 @@ def test_output_has_exactly_the_contract_fields():
     out = build_verdict(*two_arms(15.0, 200, 49, 66))
     assert set(out) == {
         "ab_test_id", "verdict", "reason", "leader", "p2bb_expected", "p2bb_raw",
-        "maturity", "horizon_days", "come_back_on", "arms", "calibration_source",
+        "maturity", "horizon_days", "come_back_on", "arms", "calibration_source", "expected_gap_per_user",
     }
     assert out["calibration_source"] == "product"
     assert out["arms"][1] == {
@@ -126,4 +126,36 @@ def test_output_has_exactly_the_contract_fields():
         "revenue_received": round(66 * 10 / 200, 2),
         "revenue_expected_trials": 0.0,
         "revenue_expected_renewals": round(66 * 15 / 200, 2),
+        "revenue_expected_total": round(66 * 25 / 200, 2),
     }
+
+
+def test_expected_totals_and_gap_equal_the_estimator():
+    test, cal = two_arms(10.0, 200, 67, 72)
+    out = build_verdict(test, cal)
+    totals = [estimate(arm, cal, 60).total for arm in test.arms]
+    assert [a["revenue_expected_total"] for a in out["arms"]] == [round(t, 2) for t in totals]
+    assert out["expected_gap_per_user"] == round(max(totals) - min(totals), 2)
+    assert out["expected_gap_per_user"] >= 0
+
+
+def test_gap_uses_the_best_other_arm_with_three_arms():
+    cal = make_cal({"p": step_curve(15.0)})
+    arms = [make_arm("A", 200, 40), make_arm("B", 200, 55), make_arm("C", 200, 66)]
+    out = build_verdict(make_test(arms), cal)
+    totals = [estimate(arm, cal, 60).total for arm in arms]
+    assert out["expected_gap_per_user"] == round(totals[2] - totals[1], 2)
+
+
+def test_maturity_is_floored_and_the_rule_uses_the_floored_value(monkeypatch):
+    test, cal = two_arms(10.0, 200, 67, 72)
+    monkeypatch.setattr(verdict_module, "estimate", lambda arm, cal, h: ArmEstimate(0.799996, 0.0, 0.200004))
+    out = build_verdict(test, cal)
+    assert out["maturity"] == 0.7999
+    assert out["reason"] == "pending_revenue"
+
+
+def test_maturity_floor_tolerates_float_error(monkeypatch):
+    test, cal = two_arms(10.0, 200, 67, 72)
+    monkeypatch.setattr(verdict_module, "estimate", lambda arm, cal, h: ArmEstimate(0.03, 0.0, 0.27))
+    assert build_verdict(test, cal)["maturity"] == 0.1

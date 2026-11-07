@@ -2,7 +2,7 @@ import math
 from datetime import date, timedelta
 
 from verdict_agent.estimator import estimate, pseudo_values
-from verdict_agent.model import DEFAULT_TRIAL_DAYS, Arm, Calibration, TestData
+from verdict_agent.model import DEFAULT_TRIAL_DAYS, Arm, Calibration, TestData, VerdictError
 from verdict_agent.stats import diff_ci, p2bb, users_needed
 
 MIN_EVENTS = 30
@@ -11,10 +11,11 @@ MATURITY_MIN = 0.80
 MDE_SHARE = 0.05
 DEFAULT_HORIZON = 60
 RENEWAL_DAYS = 30
+FLOOR_EPS = 1e-9
 
 
 def _floor4(p: float) -> float:
-    return math.floor(p * 1e4) / 1e4
+    return math.floor(p * 1e4 + FLOOR_EPS) / 1e4
 
 
 def _events(arm: Arm) -> int:
@@ -36,14 +37,14 @@ def check_horizon(horizon: int | None) -> int:
     if horizon is None:
         return DEFAULT_HORIZON
     if horizon < 1:
-        raise ValueError("horizon must be at least 1 day")
+        raise VerdictError("horizon must be at least 1 day")
     return horizon
 
 
 def build_verdict(test: TestData, cal: Calibration, horizon: int | None = None) -> dict:
     horizon = check_horizon(horizon)
     if len(test.arms) < 2:
-        raise ValueError("an A/B test needs at least two arms")
+        raise VerdictError("an A/B test needs at least two arms")
     estimates = [estimate(arm, cal, horizon) for arm in test.arms]
     totals = [e.total for e in estimates]
     leader_i = max(range(len(test.arms)), key=lambda i: (totals[i], -i))
@@ -56,7 +57,7 @@ def build_verdict(test: TestData, cal: Calibration, horizon: int | None = None) 
 
     received_sum = sum(arm.users * e.received for arm, e in zip(test.arms, estimates))
     total_sum = sum(arm.users * e.total for arm, e in zip(test.arms, estimates))
-    maturity = received_sum / total_sum if total_sum else 1.0
+    maturity = _floor4(received_sum / total_sum) if total_sum else 1.0
 
     min_events = min(_events(arm) for arm in test.arms)
     if min_events < MIN_EVENTS:
@@ -83,7 +84,7 @@ def build_verdict(test: TestData, cal: Calibration, horizon: int | None = None) 
         "leader": leader.title,
         "p2bb_expected": p_expected,
         "p2bb_raw": p_raw,
-        "maturity": round(maturity, 4),
+        "maturity": maturity,
         "horizon_days": horizon,
         "come_back_on": come_back_on.isoformat() if come_back_on else None,
         "arms": [
@@ -93,10 +94,12 @@ def build_verdict(test: TestData, cal: Calibration, horizon: int | None = None) 
                 "revenue_received": _per_user(e.received),
                 "revenue_expected_trials": _per_user(e.from_trials),
                 "revenue_expected_renewals": _per_user(e.from_renewals),
+                "revenue_expected_total": _per_user(e.total),
             }
             for arm, e in zip(test.arms, estimates)
         ],
         "calibration_source": cal.source,
+        "expected_gap_per_user": _per_user(max(0.0, totals[leader_i] - totals[other_i])),
     }
 
 

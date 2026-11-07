@@ -1,0 +1,319 @@
+{
+  "data": {
+    "value": 49.18,
+    "segments": [
+      {
+        "key": null,
+        "title": "Total",
+        "is_total": true,
+        "value": 49.18,
+        "cohort_size": 8896,
+        "values": [
+          {
+            "x": 0,
+            "value": 32.41
+          },
+          {
+            "x": 3,
+            "value": 33.21
+          },
+          {
+            "x": 7,
+            "value": 37.57
+          },
+          {
+            "x": 14,
+            "value": 38.66
+          },
+          {
+            "x": 28,
+            "value": 40.9
+          },
+          {
+            "x": 31,
+            "value": 43.18
+          },
+          {
+            "x": 61,
+            "value": 47.27
+          },
+          {
+            "x": 92,
+            "value": 49.18
+          }
+        ]
+      },
+      {
+        "key": "annual",
+        "title": "annual",
+        "is_total": false,
+        "value": 44.16,
+        "cohort_size": 3013,
+        "values": [
+          {
+            "x": 0,
+            "value": 44.83
+          },
+          {
+            "x": 3,
+            "value": 44.38
+          },
+          {
+            "x": 7,
+            "value": 43.79
+          },
+          {
+            "x": 14,
+            "value": 43.74
+          },
+          {
+            "x": 28,
+            "value": 43.85
+          },
+          {
+            "x": 31,
+            "value": 43.81
+          },
+          {
+            "x": 61,
+            "value": 44.11
+          },
+          {
+            "x": 92,
+            "value": 44.16
+          }
+        ]
+      },
+      {
+        "key": "annual_trial",
+        "title": "annual_trial",
+        "is_total": false,
+        "value": 43.53,
+        "cohort_size": 931,
+        "values": [
+          {
+            "x": 0,
+            "value": 0.0
+          },
+          {
+            "x": 3,
+            "value": 0.0
+          },
+          {
+            "x": 7,
+            "value": 44.74
+          },
+          {
+            "x": 14,
+            "value": 43.56
+          },
+          {
+            "x": 28,
+            "value": 43.32
+          },
+          {
+            "x": 31,
+            "value": 43.32
+          },
+          {
+            "x": 61,
+            "value": 43.13
+          },
+          {
+            "x": 92,
+            "value": 43.53
+          }
+        ]
+      },
+      {
+        "key": "lifetime",
+        "title": "lifetime",
+        "is_total": false,
+        "value": 91.97,
+        "cohort_size": 577,
+        "values": [
+          {
+            "x": 0,
+            "value": 94.78
+          },
+          {
+            "x": 3,
+            "value": 92.72
+          },
+          {
+            "x": 7,
+            "value": 91.67
+          },
+          {
+            "x": 14,
+            "value": 91.95
+          },
+          {
+            "x": 28,
+            "value": 91.65
+          },
+          {
+            "x": 31,
+            "value": 91.34
+          },
+          {
+            "x": 61,
+            "value": 91.25
+          },
+          {
+            "x": 92,
+            "value": 91.97
+          }
+        ]
+      },
+      {
+        "key": "monthly",
+        "title": "monthly",
+        "is_total": false,
+        "value": 37.84,
+        "cohort_size": 1274,
+        "values": [
+          {
+            "x": 0,
+            "value": 11.72
+          },
+          {
+            "x": 3,
+            "value": 11.59
+          },
+          {
+            "x": 7,
+            "value": 11.41
+          },
+          {
+            "x": 14,
+            "value": 11.34
+          },
+          {
+            "x": 28,
+            "value": 11.26
+          },
+          {
+            "x": 31,
+            "value": 21.72
+          },
+          {
+            "x": 61,
+            "value": 31.14
+          },
+          {
+            "x": 92,
+            "value": 37.84
+          }
+        ]
+      },
+      {
+        "key": "pro_annual",
+        "title": "pro_annual",
+        "is_total": false,
+        "value": 79.15,
+        "cohort_size": 1038,
+        "values": [
+          {
+            "x": 0,
+            "value": 80.56
+          },
+          {
+            "x": 3,
+            "value": 79.88
+          },
+          {
+            "x": 7,
+            "value": 78.58
+          },
+          {
+            "x": 14,
+            "value": 78.52
+          },
+          {
+            "x": 28,
+            "value": 78.62
+          },
+          {
+            "x": 31,
+            "value": 78.56
+          },
+          {
+            "x": 61,
+            "value": 78.58
+          },
+          {
+            "x": 92,
+            "value": 79.15
+          }
+        ]
+      },
+      {
+        "key": "weekly",
+        "title": "weekly",
+        "is_total": false,
+        "value": 40.11,
+        "cohort_size": 2063,
+        "values": [
+          {
+            "x": 0,
+            "value": 0.0
+          },
+          {
+            "x": 3,
+            "value": 6.18
+          },
+          {
+            "x": 7,
+            "value": 6.08
+          },
+          {
+            "x": 14,
+            "value": 11.24
+          },
+          {
+            "x": 28,
+            "value": 19.77
+          },
+          {
+            "x": 31,
+            "value": 23.44
+          },
+          {
+            "x": 61,
+            "value": 33.94
+          },
+          {
+            "x": 92,
+            "value": 40.11
+          }
+        ]
+      }
+    ]
+  },
+  "meta": {
+    "query": {
+      "timezone": "UTC",
+      "filters": {
+        "date": [
+          "2026-07-05",
+          "2026-11-02"
+        ]
+      },
+      "segmentation": "store_product_id",
+      "revenue_basis": "gross",
+      "period_type": "days",
+      "renewal_days": [
+        0,
+        3,
+        7,
+        14,
+        28,
+        31,
+        61,
+        92,
+        183
+      ]
+    }
+  }
+}

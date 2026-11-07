@@ -1,13 +1,14 @@
 """Live mode: read one Adapty A/B test and the app's history through the read-only CLI."""
+import json
 import logging
 import os
 from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-from verdict_agent.adapty_cli import AdaptyCLI, replay_runner
+from verdict_agent.adapty_cli import AdaptyCLI, CliError, replay_runner
 from verdict_agent.calibration import build_from_adapty, product_map_from_catalog
-from verdict_agent.model import DEFAULT_TRIAL_DAYS, Arm, Calibration, Group, TestData
+from verdict_agent.model import DEFAULT_TRIAL_DAYS, Arm, Calibration, Group, TestData, VerdictError
 from verdict_agent.verdict import build_verdict, check_horizon
 
 log = logging.getLogger(__name__)
@@ -17,6 +18,8 @@ UNKNOWN = "-"
 MAX_ARMS = 3
 REPLAY_PLACEHOLDER = "replay"
 ARM_KINDS = (("flows", "flow_id"), ("paywalls", "paywall_id"))
+REPO_ENV = Path(__file__).resolve().parent.parent / ".env"
+AS_OF_FILE = "as_of.json"
 
 
 def read_products(cli, app_id: str) -> dict:
@@ -160,19 +163,21 @@ def _arms(test: dict) -> tuple[list[dict], str]:
     return [], "flow_id"
 
 
-def _metrics_row(rows: list[dict], arm: dict, id_field: str, index: int) -> dict:
+def _metrics_row(rows: list[dict], arm: dict, id_field: str) -> dict:
     for field in ("variation_id", id_field):
         if arm.get(field):
             match = next((r for r in rows if r.get(field) == arm[field]), None)
             if match:
                 return match
-    if index < len(rows):
-        return rows[index]
-    raise ValueError(f"metrics have no row for arm {arm.get('title') or arm.get(id_field)}")
+    raise VerdictError(f"metrics have no row for arm {arm.get('title') or arm.get(id_field)}")
 
 
 def read_test(cli, app_id: str, test_id: str) -> dict:
-    test = cli.run(["ab-tests", "get", test_id, "--app", app_id])
+    try:
+        test = cli.run(["ab-tests", "get", test_id, "--app", app_id])
+    except CliError as exc:
+        context = f"cannot read A/B test {test_id}" + (f"; {exc.context}" if exc.context else "")
+        raise CliError(exc.exit_code, exc.stderr, context=context) from None
     return test.get("data", test) if isinstance(test.get("data"), dict) else test
 
 
@@ -187,9 +192,11 @@ def live_test(cli, app_id: str, test_id: str, today: date, products: dict | None
     placement_id = (test.get("placement") or {}).get("placement_id")
     start = _started_on(test)
     days = (today - start).days
+    if days < 0:
+        raise VerdictError(f"as-of date {today.isoformat()} is before the test start {start.isoformat()}")
     arm_list, id_field = _arms(test)
     if len(arm_list) > MAX_ARMS:
-        raise ValueError("tests with more than 3 arms exceed the 10-call budget")
+        raise VerdictError("tests with more than 3 arms exceed the 10-call budget")
     test_type = test.get("type") or id_field.removesuffix("_id")
     metrics = cli.run(["ab-tests", "metrics", "total", test_id, "--app", app_id, "--type", test_type])
     rows = ((metrics or {}).get("data") or {}).get("metrics") or []
@@ -197,8 +204,8 @@ def live_test(cli, app_id: str, test_id: str, today: date, products: dict | None
         products = read_products(cli, app_id)
     labels = label_map(products)
     arms = []
-    for i, arm in enumerate(arm_list):
-        row = _metrics_row(rows, arm, id_field, i)
+    for arm in arm_list:
+        row = _metrics_row(rows, arm, id_field)
         args = ["analytics", "funnel", "--app", app_id,
                 "--date-from", start.isoformat(), "--date-to", today.isoformat(),
                 "--filter", f"{id_field}={arm[id_field]}"]
@@ -235,11 +242,9 @@ def live_calibration(cli, app_id: str, products: dict | None, horizon: int, unti
               "--date-to", (until - timedelta(days=1)).isoformat()]
     conversion = cli.run(["analytics", "conversion", "--app", app_id, "--conversion", "trial-paid",
                           "--group-by", "store_product_id", *window])
-    cohort = cli.run(["analytics", "cohort", "--app", app_id, *window,
-                      "--granularity", "month", "--period-type", "renewals"])
     ltv = cli.run(["analytics", "ltv", "--app", app_id, *window,
                    "--group-by", "store_product_id", "--period-type", "days"])
-    return build_from_adapty(conversion, cohort, ltv, horizon, product_map_from_catalog(products))
+    return build_from_adapty(conversion, ltv, horizon, product_map_from_catalog(products))
 
 
 def read_env(path: Path) -> dict[str, str]:
@@ -260,20 +265,34 @@ def read_env(path: Path) -> dict[str, str]:
     return values
 
 
+def default_env_path() -> Path:
+    local = Path(".env")
+    return local if local.is_file() else REPO_ENV
+
+
+def replay_as_of(replay: Path) -> date:
+    path = Path(replay) / AS_OF_FILE
+    try:
+        return date.fromisoformat(json.loads(path.read_text())["as_of"])
+    except (OSError, ValueError, KeyError, TypeError):
+        raise VerdictError(f"replay bundle has no valid {AS_OF_FILE} with the recording day; "
+                           "pass --as-of YYYY-MM-DD") from None
+
+
 def run_live(test_id: str, today: date | None = None, horizon: int | None = None,
-             replay: Path | None = None, env_path: Path | None = None) -> dict:
+             replay: Path | None = None, env_path: Path | None = None, app_id: str | None = None) -> dict:
     horizon = check_horizon(horizon)
-    today = today or datetime.now(timezone.utc).date()
-    env = {**os.environ, **read_env(env_path or Path(".env"))}
-    app_id = env.get("ADAPTY_APP_ID") or ""
-    expected = env.get("ADAPTY_EXPECTED_COMPANY") or ""
     if replay is not None:
+        today = today or replay_as_of(replay)
         cli = AdaptyCLI(runner=replay_runner(replay), min_interval=0)
-        app_id = app_id or REPLAY_PLACEHOLDER
-        expected = expected or REPLAY_PLACEHOLDER
+        app_id, expected = REPLAY_PLACEHOLDER, REPLAY_PLACEHOLDER
     else:
+        today = today or datetime.now(timezone.utc).date()
+        env = {**read_env(env_path or default_env_path()), **os.environ}
+        app_id = app_id or env.get("ADAPTY_APP_ID") or ""
+        expected = env.get("ADAPTY_EXPECTED_COMPANY") or ""
         if not app_id:
-            raise ValueError("ADAPTY_APP_ID is not set in .env")
+            raise VerdictError("Adapty app id is not set: pass it in the call (--app) or set ADAPTY_APP_ID in .env")
         cli = AdaptyCLI()
     cli.check_account(expected)
     catalog = read_products(cli, app_id)

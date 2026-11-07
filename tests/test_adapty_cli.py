@@ -93,6 +93,24 @@ def test_rate_limited(stream):
     assert len(calls) == 1
 
 
+@pytest.mark.parametrize("value", ["soon", None, [], "1.5"])
+def test_non_numeric_retry_after_is_unknown(value):
+    def runner(cmd, **kw):
+        return subprocess.CompletedProcess(cmd, 4, json.dumps({"retry_after_seconds": value}), "")
+
+    cli, _ = make(runner)
+    with pytest.raises(RateLimited) as err:
+        cli.run(["ab-tests", "get", "x"])
+    assert err.value.retry_after is None
+
+
+def test_bundles_have_no_cohort_recording_and_replay_refuses_it():
+    for bundle in BUNDLES:
+        assert not (bundle / "analytics_cohort.json").exists()
+    with pytest.raises(CliError, match="no recorded file"):
+        replay_cli(BUNDLES[0]).run(["analytics", "cohort", "--app", "a"])
+
+
 def test_exit_4_without_retry_after_still_stops():
     calls = []
 
@@ -173,7 +191,6 @@ def test_replay_serves_every_recorded_file(bundle):
     assert cli.run(["ab-tests", "get", "any"]) == json.loads((bundle / "ab-tests_get.json").read_text())
     assert cli.run(["ab-tests", "metrics", "total", "any"]) == json.loads((bundle / "ab-tests_metrics_total.json").read_text())
     assert cli.run(["products", "list", "--app-id", "a"]) == json.loads((bundle / "products_list.json").read_text())
-    assert cli.run(["analytics", "cohort", "--app-id", "a"]) == json.loads((bundle / "analytics_cohort.json").read_text())
     assert cli.run(["analytics", "ltv", "--app-id", "a"]) == json.loads((bundle / "analytics_ltv.json").read_text())
     conv = ["analytics", "conversion", "--conversion", "trial-paid"]
     assert cli.run(conv) == json.loads((bundle / "analytics_conversion_trial-paid.json").read_text())

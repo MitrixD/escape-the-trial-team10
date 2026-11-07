@@ -5,7 +5,7 @@
   "leader": "B",
   "p2bb_expected": 0.9999,
   "p2bb_raw": 0.9999,
-  "maturity": 0.4167,
+  "maturity": 0.4227,
   "horizon_days": 60,
   "come_back_on": null,
   "arms": [
@@ -13,16 +13,19 @@
       "title": "A",
       "users": 254,
       "revenue_received": 0.0,
-      "revenue_expected_trials": 4.11,
-      "revenue_expected_renewals": 0.0
+      "revenue_expected_trials": 4.07,
+      "revenue_expected_renewals": 0.0,
+      "revenue_expected_total": 4.07
     },
     {
       "title": "B",
       "users": 285,
       "revenue_received": 5.36,
-      "revenue_expected_trials": 3.84,
-      "revenue_expected_renewals": 0.0
+      "revenue_expected_trials": 3.69,
+      "revenue_expected_renewals": 0.0,
+      "revenue_expected_total": 9.05
     }
   ],
-  "calibration_source": "product"
+  "calibration_source": "product",
+  "expected_gap_per_user": 4.98
 }

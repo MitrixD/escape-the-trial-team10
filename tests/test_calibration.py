@@ -22,7 +22,6 @@ def read(name):
 def recorded():
     return {
         "conversion": read("analytics_conversion_trial-paid.json"),
-        "cohort": read("analytics_cohort.json"),
         "ltv": read("analytics_ltv.json"),
         "product_map": product_map_from_catalog(read("products_list.json")),
     }
@@ -109,7 +108,7 @@ def test_expected_on_recorded_weekly_curve(cal):
 
 def test_empty_ltv_reports_none(recorded):
     for ltv in (None, {}, {"data": {"value": 0, "segments": []}}):
-        c = build_from_adapty(recorded["conversion"], recorded["cohort"], ltv, 60, recorded["product_map"])
+        c = build_from_adapty(recorded["conversion"], ltv, 60, recorded["product_map"])
         assert c.source == "none"
         assert c.renewal_value == {}
         assert c.app_renewal_value is None
@@ -119,7 +118,7 @@ def test_empty_ltv_reports_none(recorded):
 
 
 def test_empty_responses_report_none():
-    c = build_from_adapty({}, {}, None, 60, {})
+    c = build_from_adapty({}, None, 60, {})
     assert c.source == "none"
     assert c.trial_to_paid == {}
     assert c.app_trial_to_paid is None
@@ -129,7 +128,7 @@ def test_app_only_curve_reports_app():
     ltv = {"data": {"segments": [
         {"key": None, "is_total": True, "cohort_size": 10, "values": [{"x": 0, "value": 1.0}, {"x": 10, "value": 11.0}]},
     ]}}
-    c = build_from_adapty({"data": {"value_from": 0, "value_to": 0, "segments": []}}, {}, ltv, 5, {})
+    c = build_from_adapty({"data": {"value_from": 0, "value_to": 0, "segments": []}}, ltv, 5, {})
     assert c.source == "app"
     assert c.app_renewal_value == [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
     assert c.app_trial_to_paid is None
@@ -143,7 +142,7 @@ def test_unknown_keys_map_to_themselves_and_null_points_skipped():
     conv = {"data": {"value_from": 4, "value_to": 1, "segments": [
         {"key": "play_store:x", "is_total": False, "value_from": 4, "value_to": 1},
     ]}}
-    c = build_from_adapty(conv, {}, ltv, 3, {})
+    c = build_from_adapty(conv, ltv, 3, {})
     assert c.renewal_value["play_store:x"] == [0.0, 2.0, 4.0, 4.0]
     assert c.trial_to_paid["play_store:x"] == 0.25
     assert c.trial_days["play_store:x"] == 2
@@ -153,3 +152,8 @@ def test_save_load_roundtrip(cal, tmp_path):
     path = tmp_path / "cal.json"
     save(cal, path)
     assert load(path) == cal
+
+
+def test_build_from_adapty_takes_no_cohort():
+    import inspect
+    assert list(inspect.signature(build_from_adapty).parameters) == ["conversion", "ltv", "horizon", "product_map"]

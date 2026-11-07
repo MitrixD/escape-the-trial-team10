@@ -67,8 +67,7 @@ def _trial_length(points: list[tuple[float, float]]) -> int:
     return next((int(x) for x, v in points if x > 0 and v > 0), 0)
 
 
-def build_from_adapty(conversion: dict, cohort: dict, ltv: dict | None, horizon: int,
-                      product_map: dict[str, str]) -> Calibration:
+def build_from_adapty(conversion: dict, ltv: dict | None, horizon: int, product_map: dict[str, str]) -> Calibration:
     trials: dict[str, float] = {}
     trial_to_paid: dict[str, float] = {}
     for product, segs in _product_rows(conversion, product_map).items():

@@ -1,15 +1,18 @@
 """One entry point for the CLI and the MCP tool: the verdict for an Adapty A/B test, with safe errors."""
 import sys
+from datetime import date
 from pathlib import Path
 
 from verdict_agent.adapty_cli import CliError, RateLimited, ReadOnlyViolation, WrongAccount
 from verdict_agent.live import run_live
+from verdict_agent.model import VerdictError
 
-KNOWN_ERRORS = (ValueError, WrongAccount, RateLimited, ReadOnlyViolation)
+KNOWN_ERRORS = (VerdictError, WrongAccount, RateLimited, ReadOnlyViolation)
 
 
-def verdict(ab_test_id: str, horizon: int | None = None, replay: str | None = None) -> dict:
-    return run_live(ab_test_id, horizon=horizon, replay=Path(replay) if replay else None)
+def verdict(ab_test_id: str, horizon: int | None = None, replay: str | None = None,
+            app_id: str | None = None, as_of: date | None = None) -> dict:
+    return run_live(ab_test_id, horizon=horizon, replay=Path(replay) if replay else None, app_id=app_id, today=as_of)
 
 
 def _log_detail(exc: Exception) -> None:

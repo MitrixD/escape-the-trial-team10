@@ -52,8 +52,12 @@ def _retry_after(*streams: str) -> int | None:
             value = json.loads(text).get("retry_after_seconds")
         except (ValueError, AttributeError):
             continue
-        if value is not None:
+        if value is None:
+            continue
+        try:
             return int(value)
+        except (TypeError, ValueError):
+            return None
     return None
 
 
@@ -126,8 +130,6 @@ def _replay_file(args: list[str]) -> str | None:
         return "ab-tests_metrics_total.json"
     if key == ("products", "list"):
         return "products_list.json"
-    if key == ("analytics", "cohort"):
-        return "analytics_cohort.json"
     if key == ("analytics", "ltv"):
         return "analytics_ltv.json"
     if key == ("analytics", "conversion"):

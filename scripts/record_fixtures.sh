@@ -4,21 +4,41 @@ cd "$(dirname "$0")/.."
 
 TEST_ID="${1:?usage: scripts/record_fixtures.sh <ab_test_id>}"
 HISTORY_FROM="${HISTORY_FROM:-2026-07-01}"
+ENV_FILE="${ENV_FILE:-.env}"
 
 env_val() {
   local val
-  val="$(grep -E "^$1=" .env | head -1 | cut -d= -f2-)"
+  val="$(grep -E "^$1=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2-)"
   val="${val%\"}"; val="${val#\"}"
   printf '%s' "$val"
 }
 APP="$(env_val ADAPTY_APP_ID)"
 EXPECTED="$(env_val ADAPTY_EXPECTED_COMPANY)"
 [ -n "$APP" ] || { echo "ADAPTY_APP_ID missing in .env" >&2; exit 2; }
+[ -n "$EXPECTED" ] || { echo "ADAPTY_EXPECTED_COMPANY missing in .env" >&2; exit 2; }
 
 OUT="tests/fixtures/live/$TEST_ID"
-mkdir -p "$OUT"
 RAW="$(mktemp -d)"
 trap 'rm -rf "$RAW"' EXIT
+
+adapty auth whoami --json >"$RAW/whoami.json"
+sleep 1
+if ! python3 - "$RAW/whoami.json" "$RAW/auth_whoami.json" "$EXPECTED" <<'PY'
+import json, sys
+raw = open(sys.argv[1]).read()
+expected = sys.argv[3]
+matched = bool(expected) and expected.lower() in raw.lower()
+json.dump({"company": "<redacted>", "matched_expected_company": matched}, open(sys.argv[2], "w"), indent=2)
+sys.exit(0 if matched else 3)
+PY
+then
+  echo "adapty auth whoami does not match ADAPTY_EXPECTED_COMPANY; nothing recorded" >&2
+  exit 3
+fi
+
+mkdir -p "$OUT"
+[ -f "$OUT/auth_whoami.json" ] || cp "$RAW/auth_whoami.json" "$OUT/auth_whoami.json"
+[ -f "$OUT/as_of.json" ] || printf '{\n  "as_of": "%s"\n}\n' "$(date +%F)" >"$OUT/as_of.json"
 
 call() {
   local name="$1"; shift
@@ -39,18 +59,6 @@ call() {
   cp "$RAW/$name.json" "$OUT/$name.json"
 }
 
-if [ ! -f "$OUT/auth_whoami.json" ]; then
-  adapty auth whoami --json >"$RAW/whoami.json"
-  sleep 1
-  python3 - "$RAW/whoami.json" "$OUT/auth_whoami.json" "$EXPECTED" <<'PY'
-import json, sys
-raw = open(sys.argv[1]).read()
-expected = sys.argv[3]
-matched = bool(expected) and expected.lower() in raw.lower()
-json.dump({"company": "<redacted>", "matched_expected_company": matched}, open(sys.argv[2], "w"), indent=2)
-PY
-fi
-
 call ab-tests_get ab-tests get "$TEST_ID" --app "$APP"
 TYPE="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['type'])" "$OUT/ab-tests_get.json")"
 call ab-tests_metrics_total ab-tests metrics total "$TEST_ID" --app "$APP" --type "$TYPE"
@@ -69,7 +77,7 @@ for key in ("flows", "paywalls"):
 PY
 PLACEMENT="$(sed -n 1p "$RAW/ids.txt")"
 START="$(sed -n 2p "$RAW/ids.txt")"
-TODAY="$(date +%F)"
+TODAY="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['as_of'])" "$OUT/as_of.json")"
 HISTORY_TO="$(python3 -c "import datetime,sys; print(datetime.date.fromisoformat(sys.argv[1]) - datetime.timedelta(days=1))" "$START")"
 
 sed -n '3,$p' "$RAW/ids.txt" | while read -r DIM ID; do
@@ -79,8 +87,6 @@ done
 
 call analytics_conversion_trial-paid analytics conversion --app "$APP" --conversion trial-paid \
   --group-by store_product_id --date-from "$HISTORY_FROM" --date-to "$HISTORY_TO"
-call analytics_cohort analytics cohort --app "$APP" --date-from "$HISTORY_FROM" --date-to "$HISTORY_TO" \
-  --granularity month --period-type renewals
 call analytics_ltv analytics ltv --app "$APP" --date-from "$HISTORY_FROM" --date-to "$HISTORY_TO" \
   --group-by store_product_id --period-type days
 

@@ -1,0 +1,32 @@
+{
+  "ab_test_id": "50e46448-6692-54c6-b1e0-1b2e2fa62cdd",
+  "title": "AI limit: annual upfront vs weekly trial",
+  "type": "flow",
+  "state": "live",
+  "placement": {
+    "placement_id": "ai_limit_reached",
+    "title": "ai_limit_reached"
+  },
+  "segment_ids": [],
+  "priority": 0,
+  "started_at": "2026-10-20T00:00:00Z",
+  "stopped_at": null,
+  "goal": "Find which arm maximises revenue per user",
+  "paywalls": [],
+  "flows": [
+    {
+      "flow_id": "annual_upfront",
+      "flow_name": "annual_upfront",
+      "weight": 50,
+      "title": "annual_upfront",
+      "variation_id": "annual_upfront"
+    },
+    {
+      "flow_id": "weekly_trial",
+      "flow_name": "weekly_trial",
+      "weight": 50,
+      "title": "weekly_trial",
+      "variation_id": "weekly_trial"
+    }
+  ]
+}

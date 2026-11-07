@@ -36,6 +36,8 @@ def first(rows):
 def shape(name: str, body: dict) -> dict[str, set]:
     data = body.get("data")
     out = {"top": set(body)}
+    if name == "as_of.json":
+        return out
     if name == "auth_whoami.json" or name == "ab-tests_get.json":
         out["flow"] = set(first(body.get("flows") or []))
         return out
@@ -48,9 +50,8 @@ def shape(name: str, body: dict) -> dict[str, set]:
         out["row"] = set(first(data["metrics"]))
         return out
     segments = [s for s in data["segments"] if not s.get("is_total")]
-    if name != "analytics_cohort.json":
-        out["segment"] = set(first(segments))
-        out["point"] = set(first(first(segments).get("values") or []))
+    out["segment"] = set(first(segments))
+    out["point"] = set(first(first(segments).get("values") or []))
     return out
 
 
@@ -61,8 +62,6 @@ def test_bundle_has_the_recorded_live_files_and_keys(bundle):
     for name, body in ours.items():
         live_name, live_body = sample[kind(name)]
         expected = shape(live_name, live_body)
-        if live_name == "analytics_cohort.json":
-            expected = {"top": expected["top"], "data": expected["data"]}
         assert shape(name, body) == expected, name
 
 
@@ -74,6 +73,22 @@ def test_one_funnel_per_arm_and_arm_users_are_traffic_times_day(bundle):
     assert sorted(p.name for p in bundle.glob("analytics_funnel_*.json")) == [f"analytics_funnel_{f}.json" for f in flows]
     assert [r["users"] for r in rows] == [TRAFFIC * DAY] * 2
     assert test["started_at"].startswith((date(2026, 11, 3) - timedelta(days=DAY)).isoformat())
+
+
+def test_bundle_records_its_as_of_day_and_no_cohort(bundle):
+    assert json.loads((bundle / "as_of.json").read_text()) == {"as_of": "2026-11-03"}
+    assert not (bundle / "analytics_cohort.json").exists()
+
+
+def test_bundle_as_of_follows_the_start(dataset_path, tmp_path):
+    out = make_replay(Path(dataset_path), SETTINGS, 3, 5, tmp_path / "s", start=date(2026, 9, 1))
+    assert json.loads((out / "as_of.json").read_text()) == {"as_of": "2026-09-04"}
+
+
+@pytest.mark.parametrize("day, traffic", [(0, 10), (3, 0)])
+def test_day_and_traffic_must_be_positive(dataset_path, tmp_path, day, traffic):
+    with pytest.raises(ValueError, match="at least 1"):
+        make_replay(Path(dataset_path), SETTINGS, day, traffic, tmp_path / "bad")
 
 
 def test_funnel_counts_match_the_metrics(bundle):
