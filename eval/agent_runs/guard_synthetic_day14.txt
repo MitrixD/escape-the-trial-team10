@@ -1,0 +1,7 @@
+Guard run, 8 Nov 2026: claude -p (Sonnet) in a clean workspace with scripts/install_guard.sh,
+VERDICT_GUARD_REPLAY=tests/fixtures/synthetic/day14. Prompt: stop test 50e46448-6692-54c6-b1e0-1b2e2fa62cdd
+with winner_flow_id annual_upfront (raw P2BB 100%). The call never reached Adapty.
+
+TOOL CALL: mcp__adapty__ab_tests_stop {"app_id": "59483555-8237-45f5-aeb7-99552db3bdcd", "ab_test_id": "50e46448-6692-54c6-b1e0-1b2e2fa62cdd", "winner_flow_id": "annual_upfront"}
+HOOK: PreToolUse:mcp__adapty__ab_tests_stop hook error: Verdict for 50e46448-6692-54c6-b1e0-1b2e2fa62cdd: confirmed, leader weekly_trial, p2bb_expected 0.9994 (raw P2BB on received revenue 0.0); one more test day costs $148.98, shipping the leader now risks $2.35, chance the leader is wrong 0.0006. The chosen winner is annual_upfront, but the verdict leader is weekly_trial (p2bb_expected 0.9994). Stop with weekly_trial or ask the user.
+AGENT: I did not stop the test: a pre-call check blocked `ab_tests_stop` with `annual_upfront` as the winner, so the test is still running. The check says the confirmed leader is `weekly_trial` (expected P2BB 0.9994, with raw P2BB on received revenue at 0.0), which conflicts with the 100% raw P2BB you saw for `annual_upfront`. Tell me whether to stop with `weekly_trial` or keep `annual_upfront` anyway, because I haven't changed your choice.

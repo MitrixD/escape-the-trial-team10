@@ -68,6 +68,13 @@ Output: `confirmed weekly_trial raw 0.0 expected 0.9994`. Days 7 and 28 from the
 
 Raw P2BB of `weekly_trial` is 0.0, so the dashboard picks `annual_upfront`; expected P2BB confirms `weekly_trial`, the 60-day winner.
 
+Only day 14 is committed. Another day is built from the offline dataset into any folder:
+
+```bash
+.venv/bin/python eval/synthetic_test/make_test.py <dataset>/data/offline /tmp/synth
+.venv/bin/python eval/make_replay.py /tmp/synth "AI limit: annual upfront vs weekly trial" 7 100 /tmp/day7
+```
+
 Live, against your own Adapty account:
 
 ```bash
@@ -99,6 +106,36 @@ Copy `.mcp.json.example` to `.mcp.json` in your agent's project and replace `<ab
 ```
 
 Use absolute paths: the agent's project is usually another directory. The server starts `python -m verdict_agent.mcp_server` over stdio and exposes one tool, `ab_test_verdict(ab_test_id, horizon, replay, app_id, after_days)`. If the server's working directory has no `.env`, it reads the `.env` in this repo's root. The tool description tells agents to call it before stopping a test, to quote only numbers from the JSON, to pass `horizon` as the number of days the test goal names (omit it otherwise), that USD values in `money` are totals for the test's traffic, and what `next_action_basis` `money` means.
+
+### Stop guard
+
+An agent may skip the MCP tool and stop a test on raw P2BB. The stop guard closes that path: a Claude Code `PreToolUse` hook runs the verdict before every A/B test stop, through the Adapty MCP tool `ab_tests_stop` or `adapty ab-tests stop` in Bash. It is optional: a project gets it only when someone installs it. It never stops anything and never lets a stop through without a human: it either asks the human or blocks the call.
+
+| Verdict | `ask` mode (default) | `strict` mode |
+|---|---|---|
+| Agrees with the stop (`ship_leader` with the leader, `ship_either`, or no winner named) | Asks the human, with the verdict summary | Same |
+| `ship_leader`, but the winner is another variant | Asks the human, starting with a warning and the verdict leader | Denies; the agent goes back to the user |
+| `next_action` is `come_back` | Asks, with a warning, `come_back_on` and the money at stake | Denies |
+| No verdict (error) | Asks, with a warning that there is no verdict | Denies |
+
+Who sets the mode: the team picks it at install time, and the person who starts the session can override it with `VERDICT_GUARD_MODE=ask` or `VERDICT_GUARD_MODE=strict`. The agent cannot: it does not control the environment of the hook process, so unlike `git push --force` there is no flag it could add to the stop call. A strict deny tells the agent that the user can restart with `VERDICT_GUARD_MODE=ask` and confirm the stop themselves. An unknown value means `strict`. This follows how experiment platforms gate decisions: Statsig can require a review when a ship decision goes against its decision framework, and LaunchDarkly grants approval bypass as a role permission rather than per request.
+
+Install into the project where your agent works:
+
+```bash
+scripts/install_guard.sh <your agent's project> --mode ask
+```
+
+This repo registers the guard in `.claude/settings.json` in `strict` mode. Other Bash commands pass through in about 0.06 s.
+
+Demo without touching a live test: point `VERDICT_GUARD_REPLAY` at recorded bundles (paths separated by `:`). A stop on a replayed test is decided before any Adapty call.
+
+```bash
+scripts/install_guard.sh /tmp/demo --mode strict
+cd /tmp/demo && VERDICT_GUARD_REPLAY="<this repo>/tests/fixtures/synthetic/day14" claude
+```
+
+Then ask the agent to stop test `50e46448-6692-54c6-b1e0-1b2e2fa62cdd` with winner `annual_upfront`, the raw-P2BB favourite. A recorded run with Claude Sonnet in `strict` mode: [eval/agent_runs/guard_synthetic_day14.txt](eval/agent_runs/guard_synthetic_day14.txt). The hook denied the call, named `weekly_trial` (p2bb_expected 0.9994, raw P2BB 0.0) and the agent went back to the user. Start the same session with `VERDICT_GUARD_MODE=ask` to see the human's side: a permission prompt with the warning and the money at stake.
 
 ### Tests
 
@@ -140,7 +177,7 @@ At day 14 of the synthetic test (100 users per day per variant), raw P2BB is 0.0
 .venv/bin/python -m verdict_agent.cli 50e46448-6692-54c6-b1e0-1b2e2fa62cdd --replay tests/fixtures/synthetic/day14 | python3 -c "import json,sys; o=json.load(sys.stdin); print(o['leader'], o['money'], o['next_action'], o['next_action_basis'])"
 ```
 
-How often a money-based ship picks the wrong variant: [eval/RESULTS.md](eval/RESULTS.md), section "Деньги на кону". It ships the right variant earlier on the synthetic test (65% instead of 41% at day 14, 30 users per day) with 0–1% wrong ships, but on Settings at day 7 with 100 users per day 5% of ships are wrong.
+How often a money-based ship picks the wrong variant: [eval/RESULTS.md](eval/RESULTS.md), section "Деньги на кону и `next_action`". It ships the right variant earlier on the synthetic test (65% instead of 41% at day 14, 30 users per day) with 0–1% wrong ships, but on Settings at day 7 with 100 users per day 5% of ships are wrong.
 
 ## Architecture
 
@@ -153,11 +190,12 @@ verdict_agent/
   verdict.py      Horizon, verdict rules, dates, JSON
   adapty_cli.py   Read-only Adapty CLI wrapper and replay runner
   live.py         Test ID to TestData and Calibration through the wrapper
-  service.py      verdict(ab_test_id, horizon, replay, app_id, as_of) and safe_verdict
+  service.py      verdict(ab_test_id, horizon, replay, app_id, as_of, after_days) and safe_verdict
   cli.py          python -m verdict_agent.cli
   mcp_server.py   stdio MCP tool
+  guard.py        PreToolUse hook: verdict before any A/B test stop
   schema.json     Output contract
-eval/             Spike, replay generator, verdict eval, synthetic test
+eval/             Spike, replay generator, verdict eval, synthetic test, agent text check (check_agent_text.py), recorded agent runs (agent_runs/)
 scripts/          record_fixtures.sh
 tests/            Unit tests and recorded fixtures
 ```
@@ -172,7 +210,7 @@ How AI was used to build the tool, and three Claude answers through MCP checked 
 
 Key results (60-day truth, 150 repetitions, seed 7, days 1 to 28, 30 and 100 users per day per variant):
 
-- Wrong confirmations: none in Main and Onboarding. At most 1% in Settings at day 14. None in the synthetic test at day 14.
+- Wrong confirmations: none in Main and Onboarding. At most 1% in Settings (days 7 and 14). None in any cell of the synthetic test.
 - Synthetic test at day 14: raw P2BB is wrong in 100% of runs. The verdict confirms the right variant in 41% (30 per day) and 95% (100 per day) of runs.
 - First safe day (right confirmed at least 50%, wrong at most 5%): day 3 to 7 on Main and Onboarding, 7 to 11 days before a fixed 14-day rule.
 - Settings is harder: day 14 at 100 per day, day 28 at 30 per day.
@@ -203,7 +241,7 @@ Limits:
 - A new UI for the A/B test screen with our estimates.
 - Per-arm updating of calibration from the arm's own finished trials; Adapty's lognormal P2BB model.
 - Starting, stopping or changing tests.
-- A demo script and a check of the agent's text (every number in Claude's answer exists in the JSON).
+- A demo script.
 - A `doctor` command that checks a clean machine (CLI installed and logged in, `.env`, dependencies) and says what is missing.
 - A per-user estimator instead of group counts. Reading profiles one by one is forbidden by the hackathon rules; see [docs/per-user-data.md](docs/per-user-data.md).
 - Spread inside a group: live P2BB is approximate because every user of a group gets the same value.
@@ -213,14 +251,14 @@ Limits:
 
 ## Who did what
 
-- Dmitrii: Verdict Agent implementation (calibration, estimator, verdict rules, live reads, CLI, MCP, eval).
-- Maxim: validation and verification tests, MVP spec and design.
+- Dmitrii: Verdict Agent implementation (calibration, estimator, verdict rules, live reads, CLI, MCP, eval), money at stake and next action, the stop guard, the spike eval.
+- Maxim: Adapty product, A/B platform and user-pain research, `CLAUDE.md` and the PR process, the design doc and MVP spec, the synthetic up-front-vs-trial test.
 
 ## Made before the hackathon core
 
 Made on 7 Nov 2026 before the core work: the spike eval in [eval/](eval/) (`ab_verdict_eval.py`, `money_at_stake.py`, `RESULTS.md`) and a first implementation on branch `feature/verdict-agent`. Both were used as references. The core in `verdict_agent/` was rewritten on the hackathon.
 
-Plan and specs: [openspec/changes/add-verdict-agent/](openspec/changes/add-verdict-agent/). Design: [docs/2026-11-07-verdict-agent-design.md](docs/2026-11-07-verdict-agent-design.md). How to pick and build a task: `CLAUDE.md`.
+Plan and specs: [openspec/changes/add-verdict-agent/](openspec/changes/add-verdict-agent/). Design: [docs/2026-11-07-verdict-agent-design.md](docs/2026-11-07-verdict-agent-design.md). How we build and change it: `CLAUDE.md`.
 
 ## Live data
 

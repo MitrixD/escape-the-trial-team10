@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "mcp__.*adapty.*__ab_tests_stop",
+        "hooks": [
+          {"type": "command", "command": "cd \"$CLAUDE_PROJECT_DIR\" && .venv/bin/python -m verdict_agent.guard --mode strict", "timeout": 120}
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {"type": "command", "command": "cd \"$CLAUDE_PROJECT_DIR\" && .venv/bin/python -m verdict_agent.guard --mode strict", "timeout": 120}
+        ]
+      }
+    ]
+  }
+}

@@ -10,6 +10,8 @@ How AI was used to build Verdict Agent. Models: Claude Opus and Fable for design
 4. **Subagent-driven implementation (Superpowers style).** For every task one implementer subagent worked with TDD, then a fresh reviewer subagent read the diff against the spec. Findings went to fix rounds before the next task. A ledger recorded every ruling, deferred minor and user decision, so later tasks and reviewers saw the same context.
 5. **Final checks.** `openspec-verify-change` (0 critical), a Fable review of the build against the brainstormed idea (idea kept, no drift), and a whole-branch review. One fix wave closed 24 items from them.
 6. **Eval.** `eval/verdict_eval.py` replays Adapty-shaped bundles built from the offline dataset against 60-day truth; `eval/synthetic_test/` has a test whose true winner is known. Results: [eval/RESULTS.md](eval/RESULTS.md).
+7. **Second iteration against the judging rubric (8 Nov).** Claude searched the web for how hackathon judges score projects and what winning agent projects share (separate deterministic logic from the LLM, a human gate before irreversible actions, evals of the agent rather than of a video). It mapped the gaps of Verdict Agent onto the rubric. Maxim's Miro card added "the price of the question in dollars". Each addition went through `openspec-update-change` on `add-verdict-agent` as a new task group, then TDD: group 9 (money at stake and `next_action`, PR #15) and group 10 (the stop guard).
+8. **Independent reviews of the second iteration.** A Fable 5.1 reviewer checked the build against every idea from step 7 and Maxim's card and reviewed the new math. A separate read-only agent audited `CLAUDE.md` and `README.md` on `main` against the code and ran the README commands in a clean worktree. Their findings and what we did with them are in "Where AI was wrong" below.
 
 A first implementation (branch `feature/verdict-agent`, made before the hackathon core) was used as a reference only; the core was rewritten.
 
@@ -29,6 +31,41 @@ This implementation:
 - **2–4× revenue inflation** (task review). On Main the funnel lags the test metrics, so funnel counts overstated revenue. Fixed: test metrics are the source of truth, and the funnel only gives the per-product split.
 - **Single-install-day ages** (eval). Live reads gave every user the age "days since test start", as in the Lumen seed. Under continuous traffic this made synthetic day 60 confirm the wrong arm in 95–100% of runs. Fixed with uniform arrival over the test: wrong confirmations dropped to 0%.
 - **Replay depended on the wall clock and read `.env`** (whole-branch review). Replay now uses the bundle's recorded date and does not read `.env`.
+
+## Where AI was wrong
+
+Each line: what an AI said or built, how we found out it was wrong, and what changed. The point of the list is that no AI output went into the product unchecked.
+
+| AI output | How we found it was wrong | What changed |
+|---|---|---|
+| Research agent: "Adapty's dashboard does not account for trials" | Adapty docs (`predictions-in-ab-tests`): Predicted P2BB does count trials | Dropped the claim; positioned Verdict Agent as the safeguard for the AI path (Predicted P2BB is missing in CLI and MCP) and the first two weeks |
+| Research agent: the first-day result picks the wrong winner in 54–77% of cases | Spike eval (`eval/RESULTS.md`): with a large gap raw P2BB almost never confirms the wrong arm | Pitch changed from "the dashboard is wrong" to "raw P2BB is biased toward up-front arms, and the bias grows with traffic" |
+| Pitch draft: the live Onboarding test shows the dashboard's mistake | Eval on 60- and 90-day truth: on Onboarding the dashboard is right | The trap is shown on the synthetic test; Onboarding is the case where the verdict agrees early |
+| Design: a refund guardrail against the weekly arm | Design review: refunds are already subtracted from revenue | Guardrails moved to next steps |
+| AI-found iOS segment where the other arm wins | Bonferroni correction, p = 1.0 | Segments moved to next steps; the refusal is part of the story |
+| Implementation: every live user has age "days since start" | Eval on the synthetic test: 95–100% wrong confirmations at day 60 | Uniform arrival over the test; wrong confirmations 0% |
+| Money rule (group 9): advise shipping whenever waiting costs more than the expected loss | Fable 5.1 review, reproduced by a test: it advised `ship_leader` at `p2bb_expected` 0.70, because a far come-back date made waiting look expensive | Floor of 0.80 for money-based advice (task 9.6). Wrong ships on Settings, day 7, 100 users/day: 7% → 5% |
+| Money rule: "come back today, waiting costs $0" for a test past its horizon | Same review | A test past its horizon gets a decision with basis `horizon` |
+| Proposal text: waiting 14 days costs "10–14 times more" | `openspec-verify-change` pass against `eval/money_h60.txt`: true for Onboarding (14×), on Main 2–10× | Wording fixed |
+| `CLAUDE.md` and README after the core | Docs audit agent: stale "pick a task" flow, a forbidden `apps get` tip, the trap pointed at Onboarding, a done item in next steps | Fixed in the stop-guard PR. One suggestion rejected: re-adding the research list that Maxim had removed on purpose |
+| Claude restored the synthetic day 7 and 28 bundles after a reviewer warned the jury might ask for day 7 | The user saw ~8k diff lines; no test or code used them | Dropped again; README shows the command that builds any day. Rule: after a review, commit no data that tests do not use |
+| Our own audit brief said PR #15 was not merged | The audit agent checked `git log` and found it merged | The audit report was read with that correction |
+
+## Stop guard: a real agent run
+
+The guard (`verdict_agent/guard.py`, task group 10) is a Claude Code `PreToolUse` hook. It was installed with `scripts/install_guard.sh` into an empty workspace, and Claude Sonnet was asked with `claude -p` to stop the synthetic test with winner `annual_upfront`, the raw-P2BB favourite, while `VERDICT_GUARD_REPLAY` pointed at the day-14 bundle. The stop tool was not in `--allowedTools`, and the synthetic test does not exist in Lumen, so nothing could reach a live test.
+
+- The agent called `mcp__adapty__ab_tests_stop` with `winner_flow_id` `annual_upfront`.
+- The hook denied the call before Adapty: leader `weekly_trial`, p2bb_expected 0.9994, raw P2BB 0.0, one more day $148.98, shipping the leader now $2.35.
+- The agent stopped and asked the user whether to stop with `weekly_trial`.
+
+Record: [eval/agent_runs/guard_synthetic_day14.txt](eval/agent_runs/guard_synthetic_day14.txt).
+
+The run used the guard's deny behaviour, which is now the `strict` mode.
+
+**Modes after a design question from the user.** Dmitrii asked whether the guard should be this strict or have a `--force`-like flag. Claude argued against a flag in the call: unlike git, the agent writes the command, so it would add the flag itself after a deny. A web check of experiment platforms (Statsig reviews when a ship decision goes against the decision framework, LaunchDarkly's approval bypass as a role permission, GrowthBook and Eppo recommendations) led to an opt-in guard with two modes: `ask` (default) hands every stop to the human, with a warning when it goes against the verdict; `strict` denies. The human sets the mode with `VERDICT_GUARD_MODE` at session start; the agent cannot change it.
+
+The first attempt ran inside this repo, and the agent refused on its own because `CLAUDE.md` forbids stopping tests here, so the hook never fired. That is why the guard ships with an installer for the agent's own project and the demo runs from a separate workspace.
 
 ## Agent answers through MCP
 
@@ -73,6 +110,8 @@ One live run on 7 Nov 2026 through the Adapty CLI, read-only. The JSON matches t
 Full answer: [eval/agent_runs/live_onboarding.txt](eval/agent_runs/live_onboarding.txt).
 
 ## Limits of the text check
+
+- The three recorded answers predate the `money` and `next_action` fields, so the check does not cover them yet.
 
 - A number passes if it equals any value in the JSON or the arguments, not necessarily the right field.
 - Without bold, the verdict word is the first label in the text; a phrase like "not confirmed yet" in a `keep_running` answer would be read as `confirmed`.
