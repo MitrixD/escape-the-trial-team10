@@ -332,3 +332,16 @@ def test_onboarding_groups():
 - [ ] **Step 4:** Write `docs/demo-script.md` (3 minutes, live and offline parts marked) and do a timed dry run.
 - [ ] **Step 5:** Run `.venv/bin/pytest` and `openspec validate add-verdict-agent --strict`. Expected: both pass.
 - [ ] **Step 6:** Commit: `docs: add README, AI log and demo script`.
+
+### Task 13: Repository working rules for Claude, and delivery polish
+
+**Files:**
+- Modify: `CLAUDE.md`, `README.md`, `requirements.txt`, `verdict_agent/mcp_server.py`, `docs/superpowers/plans/2026-11-07-verdict-agent.md`, `openspec/changes/add-verdict-agent/tasks.md`
+- Test: `tests/test_mcp.py`
+
+- [ ] **Step 1:** `CLAUDE.md`: add the section "How to change this project": when OpenSpec is required, tooling check, Flow A (Superpowers) and Flow B (OpenSpec only), branches, where things are, hackathon rules.
+- [ ] **Step 2:** `CLAUDE.md`: in the A/B tests table, replace the "artefact of trial timing" claim for "Onboarding: annual trial vs weekly first" with the eval finding: the weekly arm (B) wins at 60 and 90 days, see `eval/RESULTS.md`.
+- [ ] **Step 3:** Write the failing test in `tests/test_mcp.py` asserting the tool description contains "USD per user"; then append " Revenue fields in `arms` are USD per user, not totals; `money_at_stake_usd` is a total." to `DESCRIPTION`.
+- [ ] **Step 4:** README: "days 1–28" becomes "days 1, 3, 7, 14, 21, 28". `requirements.txt`: pin `pytest==9.2.0` and `mcp==2.3.0`.
+- [ ] **Step 5:** Run the full suite with `VERDICT_DATASET` exported and `openspec validate add-verdict-agent --strict`. Expected: both pass.
+- [ ] **Step 6:** Commit: `docs: add repository working rules for Claude`.

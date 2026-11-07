@@ -92,7 +92,7 @@ Code computes, the agent explains. That keeps the numbers testable by the eval w
 
 ## Eval: how good is the verdict
 
-Full tables in `eval/RESULTS.md` (Russian). Grid: 3 tests × days 1–28 × 30 and 100 users per day per arm × 150 resamples. Truth: net revenue per user over 60 days on the whole arm population.
+Full tables in `eval/RESULTS.md` (Russian). Grid: 3 tests × days 1, 3, 7, 14, 21, 28 × 30 and 100 users per day per arm × 150 resamples. Truth: net revenue per user over 60 days on the whole arm population.
 
 - **Settings** (small difference, delayed revenue; truth `main_lifetime` $12.60 vs `settings` $10.80), day 14, 100 users/day: wrong `confirmed` **0%**, right `confirmed` **43%**, `tie` 57%. By day 28: right `confirmed` 82%.
 - **Main and Onboarding** (large differences): wrong `confirmed` 0% in every cell. Main is confirmed from day 7, Onboarding from day 3 at 100 users/day.

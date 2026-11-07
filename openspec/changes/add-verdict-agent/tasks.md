@@ -57,3 +57,10 @@
 - [ ] 10.1 Finish README: what it does, for whom, how to run (live and offline), what is real and what is offline, architecture, eval numbers with their limits, next steps, who did what; verify a clean clone runs the offline demo from README alone
 - [ ] 10.2 Write the 3-minute demo script with the live and offline parts marked; verify a dry run fits in 3 minutes
 - [ ] 10.3 Run `openspec validate add-verdict-agent --strict` and the full test suite; verify both pass
+
+## 11. Repository rules and polish
+
+- [ ] 11.1 Add the section "How to change this project" to `CLAUDE.md` (OpenSpec trigger, tooling check, flows A and B, branches, file map, hackathon rules); verify a teammate can follow it from `CLAUDE.md` alone
+- [ ] 11.2 Correct the Onboarding row in the `CLAUDE.md` A/B tests table to the eval finding; verify it cites `eval/RESULTS.md` and no longer says "artefact of trial timing"
+- [ ] 11.3 Write a failing test that the MCP tool description contains "USD per user", then append the units sentence; verify the test passes
+- [ ] 11.4 Fix the day grid in README and pin `pytest==9.2.0`, `mcp==2.3.0` in `requirements.txt`; verify the full suite and `openspec validate add-verdict-agent --strict` pass

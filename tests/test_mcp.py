@@ -10,6 +10,7 @@ EXPECTED_DESCRIPTION = (
     "Read-only verdict for an Adapty A/B test. Call it before stopping a test or choosing a winner. "
     "Returns JSON only. When you explain it, use only numbers that appear in the JSON, state the verdict "
     "as given in `verdict`, and say whether the data is live or offline."
+    " Revenue fields in `arms` are USD per user, not totals; `money_at_stake_usd` is a total."
 )
 
 
@@ -36,3 +37,7 @@ def test_single_tool_with_exact_description():
     tool = tools[0]
     assert tool.description == EXPECTED_DESCRIPTION
     assert set(tool.input_schema["properties"]) == {"ab_test_id", "offline_test", "day", "traffic", "horizon"}
+
+
+def test_description_states_revenue_units():
+    assert "USD per user" in DESCRIPTION

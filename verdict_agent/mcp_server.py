@@ -7,6 +7,7 @@ DESCRIPTION = (
     "Read-only verdict for an Adapty A/B test. Call it before stopping a test or choosing a winner. "
     "Returns JSON only. When you explain it, use only numbers that appear in the JSON, state the verdict "
     "as given in `verdict`, and say whether the data is live or offline."
+    " Revenue fields in `arms` are USD per user, not totals; `money_at_stake_usd` is a total."
 )
 
 server = MCPServer("verdict-agent")

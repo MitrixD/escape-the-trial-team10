@@ -14,6 +14,55 @@
   - [research/02-extension-ideas.md](research/02-extension-ideas.md): candidate ideas checked against the judges' questions.
 - The team talks in Russian. Code, comments, commit messages and this file are in English.
 
+## How to change this project
+
+Follow this section for every change in this repo.
+
+**When OpenSpec is required**
+- Required for any change to what the system does: verdict rules, thresholds, JSON fields, inputs, data reads.
+- Not required for typos, README or docs wording, and refactors with no behaviour change.
+
+**Tooling check (do this first)**
+- The OpenSpec CLI is required: `npm install -g @fission-ai/openspec@latest`. The `openspec-*` skills live in `.claude/skills/`. Run `openspec update` after a CLI upgrade.
+- Superpowers is optional.
+
+**Flow A: Superpowers installed and the user wants it**
+1. `superpowers:brainstorming`
+2. OpenSpec change: `openspec-update-change` on `add-verdict-agent` while it is not archived; `openspec-propose` for a new change after it is archived.
+3. `superpowers:writing-plans`: append tasks to `docs/superpowers/plans/2026-11-07-verdict-agent.md`, or write a new plan.
+4. Implement with `superpowers:test-driven-development`.
+5. `openspec validate <change> --strict`, then open the PR.
+
+**Flow B: no Superpowers, or the user does not want it**
+1. `openspec-explore`
+2. `openspec-update-change` or `openspec-propose`
+3. `openspec-apply-change` (tasks.md is the plan)
+4. `openspec validate <change> --strict`, then open the PR.
+- Do not suggest installing Superpowers unless the user asks.
+
+**Both flows**
+- The rule in `openspec/config.yaml` applies: every implementation task starts with a failing test.
+- Never edit change artifacts by hand outside the `openspec-*` skills.
+
+**Branches**
+- Branch from `feature/verdict-agent` and open the PR into `feature/verdict-agent`.
+- Only the final reviewed PR goes from `feature/verdict-agent` into `main`. Never push to `main`.
+
+**Where things are**
+- Design doc: `docs/2026-11-07-verdict-agent-design.md`
+- OpenSpec change: `openspec/changes/add-verdict-agent/`
+- Plan: `docs/superpowers/plans/2026-11-07-verdict-agent.md`
+- Code: `verdict_agent/`; tests: `tests/`; eval: `eval/` (results in `eval/RESULTS.md`)
+- Demo script: `docs/demo-script.md`; AI log: `AI_LOG.md`
+- Running tests (export `VERDICT_DATASET`): follow `README.md`; do not repeat it here.
+
+**Hackathon rules**
+- Secrets live only in `.env`. Never commit them, never print them.
+- Adapty is read-only: no start, stop, create or update calls; never run `apps get`.
+- Use synthetic data only. Do not run `seed_adapty.py`. Put no load on the API.
+- Commits are in English, Conventional Commits. Add files by name, never `git add .`. Run the secret grep before every commit.
+- Write PR descriptions in Russian.
+
 ## Adapty's object model
 
 - An **app** has **placements**. Each placement has a developer ID that is hard-coded in the client app.
@@ -77,7 +126,7 @@ All four are flow tests.
 
 | Test | State | Notes |
 |---|---|---|
-| Onboarding: annual trial vs weekly first | live | Goal: "60-day revenue per install". B shows P2BB 100% (p = 7.7e-9) with $1,528 vs $0. But `trials_finished = 0` and `active_trials_rate = 1`, so B's lead is an artefact of trial timing: no trial has ended yet |
+| Onboarding: annual trial vs weekly first | live | Goal: "60-day revenue per install". B shows P2BB 100% (p = 7.7e-9) with $1,528 vs $0. On the offline data the weekly arm (B) wins at 60 and 90 days, so the dashboard's B lead is correct; see `eval/RESULTS.md` |
 | Main: 3 plans vs lifetime anchor (NA) | live | No signal: P2BB 33/67 |
 | Settings: upgrade vs lifetime anchor | completed | Ran for 0.8 s, has no data and no winner field |
 | AI limit: Pro vs 3 plans | draft | — |
