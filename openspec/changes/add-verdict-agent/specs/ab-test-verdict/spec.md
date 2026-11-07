@@ -67,11 +67,15 @@ The system SHALL return exactly one verdict, checked in this order: `not_enough_
 - **THEN** `reason` is `no_calibration`
 
 ### Requirement: Come-back date for too little data
-For `not_enough_data` with reason `min_events`, `come_back_on` SHALL be today plus the days needed to reach 30 events at the observed daily rate. With reason `no_calibration` it SHALL be `null`.
+For `not_enough_data` with reason `min_events`, `come_back_on` SHALL be today plus the days needed to reach 30 events at the observed daily rate; when an arm has no events at all there is no rate and it SHALL be `null`. With reason `no_calibration` it SHALL be `null`.
 
 #### Scenario: Date to reach the minimum
 - **WHEN** an arm has 12 events after 3 days
 - **THEN** `come_back_on` is today + 5 days
+
+#### Scenario: No events at all
+- **WHEN** an arm has 0 purchases and 0 trials
+- **THEN** the verdict is `not_enough_data` with reason `min_events` and `come_back_on` is `null`
 
 ### Requirement: Come-back date for keep running
 For `keep_running`, `come_back_on` SHALL be the later of two dates: test start + the longest trial length among the arms' products + 30 days; and today + the days until the sample reaches the size needed to detect the current difference at 95% with the observed daily traffic. It SHALL be capped at start + horizon and never be before today.
@@ -95,11 +99,15 @@ The system SHALL report both P2BB on received revenue (`p2bb_raw`) and P2BB on e
 - **THEN** the output has `p2bb_raw` 0.0 and `p2bb_expected` 0.9976 for leader B
 
 ### Requirement: Probabilities never round up into confirmed
-The system SHALL report `p2bb_expected` and `p2bb_raw` floored to 4 decimals, so a verdict that is not `confirmed` never shows 0.95.
+The system SHALL report `p2bb_expected`, `p2bb_raw` and `maturity` floored to 4 decimals, and the verdict rules SHALL use these floored values, so a verdict that is not `confirmed` never shows 0.95 and the shown maturity is the one the rules saw.
 
 #### Scenario: Just under the threshold
 - **WHEN** P2BB on expected revenue is 0.949996
 - **THEN** `p2bb_expected` is 0.9499 and the verdict is not `confirmed`
+
+#### Scenario: Maturity just under 0.80
+- **WHEN** the received share of expected revenue is 0.799996 and the verdict is `keep_running`
+- **THEN** `maturity` is 0.7999 and the reason is `pending_revenue`
 
 ### Requirement: At least two arms
 The system SHALL reject a test with fewer than two arms with the error "an A/B test needs at least two arms".
@@ -109,7 +117,7 @@ The system SHALL reject a test with fewer than two arms with the error "an A/B t
 - **THEN** the system returns that error and no verdict
 
 ### Requirement: Output contract
-The system SHALL return one JSON object with exactly these fields: `ab_test_id`, `verdict`, `reason`, `leader`, `p2bb_expected`, `p2bb_raw`, `maturity`, `horizon_days`, `come_back_on`, `arms[]`, `calibration_source`. Each arm has `title`, `users`, `revenue_received`, `revenue_expected_trials`, `revenue_expected_renewals`, in USD per user. The JSON SHALL contain no free text written by a model.
+The system SHALL return one JSON object with exactly these fields: `ab_test_id`, `verdict`, `reason`, `leader`, `p2bb_expected`, `p2bb_raw`, `maturity`, `horizon_days`, `come_back_on`, `arms[]`, `calibration_source`, `expected_gap_per_user`. Each arm has `title`, `users`, `revenue_received`, `revenue_expected_trials`, `revenue_expected_renewals` and `revenue_expected_total` (received + trials + renewals), in USD per user, rounded to 2 decimals from unrounded values. `expected_gap_per_user` SHALL be the leader's expected total minus the best other arm's expected total, in USD per user, 2 decimals, never below 0. The JSON SHALL contain no free text written by a model.
 
 #### Scenario: Valid output
 - **WHEN** a verdict is produced for any test
@@ -118,3 +126,7 @@ The system SHALL return one JSON object with exactly these fields: `ab_test_id`,
 #### Scenario: Reason only when undecided
 - **WHEN** the verdict is `confirmed` or `tie`
 - **THEN** `reason` is `null` and `calibration_source` is one of `product`, `app`, `none`
+
+#### Scenario: Expected totals and gap
+- **WHEN** a verdict is produced for a test with two or more arms
+- **THEN** each arm's `revenue_expected_total` equals the estimator's received + trials + renewals per user rounded to 2 decimals, and `expected_gap_per_user` equals the leader's total minus the best other arm's total, rounded to 2 decimals and at least 0

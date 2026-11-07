@@ -8,8 +8,8 @@ Adapty's raw P2BB (dashboard, CLI, MCP) counts only revenue already received. Wh
 
 - New read-only tool that takes an Adapty A/B test ID and returns a verdict: `not_enough_data`, `keep_running`, `confirmed` or `tie`, with the leader, P2BB on expected revenue next to raw P2BB, revenue maturity and a come-back date.
 - Expected revenue per arm = received + expected from pending trials + expected from future renewals, computed from per-arm, per-product counts and a calibration table built from the app's own history in Adapty (trial→paid conversion and renewal revenue per product). The horizon in days is a call parameter. No external datasets at run time.
-- Works for any Adapty app: the app ID is configuration, products are mapped through the app's own catalog, and calibration comes from that app's history. Lumen is only the test app.
-- Two entry points with one JSON output: a CLI command and a stdio MCP tool. Both accept `--replay <dir>` to read recorded Adapty responses instead of the network, for tests, eval and the demo fallback. Explanations are written by the calling agent, not by the tool.
+- Works for any Adapty app: the app ID comes from `ADAPTY_APP_ID` in `.env` or from the call, products are mapped through the app's own catalog, and calibration comes from that app's history. Lumen is only the test app.
+- Two entry points with one JSON output: a CLI command and a stdio MCP tool. Both accept `--replay <dir>` to read recorded Adapty responses instead of the network, for tests, eval and the demo fallback; a bundle records its day (`as_of.json`), so a replay gives the same JSON on any day. Explanations are written by the calling agent, not by the tool.
 - An eval that generates Adapty-shaped responses from the offline Lumen dataset, runs the same code through replay, and scores verdicts against 60-day truth, including the synthetic up-front-vs-trial test.
 
 ## Capabilities
@@ -27,7 +27,7 @@ None.
 ## Impact
 
 - New Python package and tests in this repo; the spike eval from 7 Nov and the first implementation on `feature/verdict-agent` serve as references.
-- Reads Adapty through whichever API provides the data: the Developer CLI logged in to the team's account, the Export Analytics API or the Server-side API (keys in `.env`). Adds the Python MCP SDK for the stdio server.
+- Reads Adapty through the Developer CLI logged in to the team's account; the tool needs no API keys. Other Adapty APIs (Export Analytics, Server-side) are a next step. Adds the Python MCP SDK for the stdio server.
 - The offline Lumen dataset is used only by the eval to generate replay bundles and ground truth; the tool itself never reads it.
 - Whether per-user data can be obtained from Adapty for a finer estimate is an open question carried as a time-boxed task.
 - No writes to Adapty. No LLM key.
