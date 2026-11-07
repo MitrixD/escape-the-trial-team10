@@ -1,14 +1,16 @@
 import math
+from datetime import date, timedelta
 
 from verdict_agent.estimator import estimate, pseudo_values
-from verdict_agent.model import Arm, Calibration, TestData
-from verdict_agent.stats import diff_ci, p2bb
+from verdict_agent.model import DEFAULT_TRIAL_DAYS, Arm, Calibration, TestData
+from verdict_agent.stats import diff_ci, p2bb, users_needed
 
 MIN_EVENTS = 30
 P_CONFIRM = 0.95
 MATURITY_MIN = 0.80
 MDE_SHARE = 0.05
 DEFAULT_HORIZON = 60
+RENEWAL_DAYS = 30
 
 
 def _floor4(p: float) -> float:
@@ -30,8 +32,16 @@ def _per_user(x: float) -> float:
     return round(x, 2) + 0.0
 
 
+def check_horizon(horizon: int | None) -> int:
+    if horizon is None:
+        return DEFAULT_HORIZON
+    if horizon < 1:
+        raise ValueError("horizon must be at least 1 day")
+    return horizon
+
+
 def build_verdict(test: TestData, cal: Calibration, horizon: int | None = None) -> dict:
-    horizon = DEFAULT_HORIZON if horizon is None else horizon
+    horizon = check_horizon(horizon)
     if len(test.arms) < 2:
         raise ValueError("an A/B test needs at least two arms")
     estimates = [estimate(arm, cal, horizon) for arm in test.arms]
@@ -60,6 +70,12 @@ def build_verdict(test: TestData, cal: Calibration, horizon: int | None = None) 
     else:
         verdict, reason = "keep_running", "pending_revenue" if maturity < MATURITY_MIN else "underpowered"
 
+    come_back_on = None
+    if reason == "min_events":
+        come_back_on = _min_events_date(test, min_events)
+    elif verdict == "keep_running":
+        come_back_on = _keep_running_date(test, cal, horizon, other_values, leader_values)
+
     return {
         "ab_test_id": test.ab_test_id,
         "verdict": verdict,
@@ -69,7 +85,7 @@ def build_verdict(test: TestData, cal: Calibration, horizon: int | None = None) 
         "p2bb_raw": p_raw,
         "maturity": round(maturity, 4),
         "horizon_days": horizon,
-        "come_back_on": None,
+        "come_back_on": come_back_on.isoformat() if come_back_on else None,
         "arms": [
             {
                 "title": arm.title,
@@ -87,3 +103,39 @@ def build_verdict(test: TestData, cal: Calibration, horizon: int | None = None) 
 def _diff_bound(other_values: list[float], leader_values: list[float]) -> float:
     lo, hi = diff_ci(other_values, leader_values)
     return max(abs(lo), abs(hi))
+
+
+def _min_events_date(test: TestData, min_events: int) -> date | None:
+    if min_events == 0:
+        return None
+    days_since_start = max(1, (test.as_of - test.started_on).days)
+    days_needed = -(-(MIN_EVENTS - min_events) * days_since_start // min_events)
+    return test.as_of + timedelta(days=days_needed)
+
+
+def _mean(xs: list[float]) -> float:
+    return sum(xs) / len(xs) if xs else 0.0
+
+
+def _pooled_sd(xa: list[float], xb: list[float]) -> float:
+    dof = len(xa) + len(xb) - 2
+    if dof < 1:
+        return 0.0
+    ma, mb = _mean(xa), _mean(xb)
+    ss = sum((x - ma) ** 2 for x in xa) + sum((x - mb) ** 2 for x in xb)
+    return math.sqrt(ss / dof)
+
+
+def _keep_running_date(test, cal, horizon, other_values, leader_values) -> date:
+    cap = test.started_on + timedelta(days=horizon)
+    products = {g.product for arm in test.arms for g in arm.groups if g.status == "trial"}
+    longest_trial = max((cal.trial_days.get(p, DEFAULT_TRIAL_DAYS) for p in products), default=0)
+    target = test.started_on + timedelta(days=longest_trial + RENEWAL_DAYS)
+    delta = abs(_mean(leader_values) - _mean(other_values))
+    if delta > 0:
+        missing = users_needed(delta, _pooled_sd(other_values, leader_values)) - min(len(other_values), len(leader_values))
+        per_day = test.users_per_day / len(test.arms)
+        if missing > 0:
+            days = math.ceil(missing / per_day) if per_day > 0 else math.inf
+            target = max(target, test.as_of + timedelta(days=min(days, max((cap - test.as_of).days, 0))))
+    return max(min(target, cap), test.as_of)
