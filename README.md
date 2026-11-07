@@ -68,6 +68,13 @@ Output: `confirmed weekly_trial raw 0.0 expected 0.9994`. Days 7 and 28 from the
 
 Raw P2BB of `weekly_trial` is 0.0, so the dashboard picks `annual_upfront`; expected P2BB confirms `weekly_trial`, the 60-day winner.
 
+Only day 14 is committed. Another day is built from the offline dataset into any folder:
+
+```bash
+.venv/bin/python eval/synthetic_test/make_test.py <dataset>/data/offline /tmp/synth
+.venv/bin/python eval/make_replay.py /tmp/synth "AI limit: annual upfront vs weekly trial" 7 100 /tmp/day7
+```
+
 Live, against your own Adapty account:
 
 ```bash
@@ -128,7 +135,7 @@ scripts/install_guard.sh /tmp/demo --mode strict
 cd /tmp/demo && VERDICT_GUARD_REPLAY="<this repo>/tests/fixtures/synthetic/day14" claude
 ```
 
-Then ask the agent to stop test `50e46448-6692-54c6-b1e0-1b2e2fa62cdd` with winner `annual_upfront`, the raw-P2BB favourite. A recorded run with Claude Sonnet in `strict` mode: [eval/agent_runs/guard_synthetic_day14.txt](eval/agent_runs/guard_synthetic_day14.txt). The hook denied the call, named `weekly_trial` (p2bb_expected 0.9994, raw P2BB 0.0) and the agent went back to the user. Start the same session with `VERDICT_GUARD_MODE=ask` to see the human's side: a permission prompt with the warning and the money at stake. Bundles for days 7 and 28 are in `tests/fixtures/synthetic/`.
+Then ask the agent to stop test `50e46448-6692-54c6-b1e0-1b2e2fa62cdd` with winner `annual_upfront`, the raw-P2BB favourite. A recorded run with Claude Sonnet in `strict` mode: [eval/agent_runs/guard_synthetic_day14.txt](eval/agent_runs/guard_synthetic_day14.txt). The hook denied the call, named `weekly_trial` (p2bb_expected 0.9994, raw P2BB 0.0) and the agent went back to the user. Start the same session with `VERDICT_GUARD_MODE=ask` to see the human's side: a permission prompt with the warning and the money at stake.
 
 ### Tests
 

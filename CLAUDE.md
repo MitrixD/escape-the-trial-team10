@@ -15,7 +15,7 @@
 
 - Setup, `.env` (`ADAPTY_APP_ID`, `ADAPTY_EXPECTED_COMPANY`), the replay quick start, MCP and the stop guard: `README.md`.
 - Tests: `.venv/bin/pytest`. With `VERDICT_DATASET=<adapty-seed-data-hack>/data/offline` the eval tests run too; without it they are skipped.
-- Demo without a live test: replay bundles in `tests/fixtures/` (Onboarding recorded live; the synthetic test for days 7, 14, 28).
+- Demo without a live test: replay bundles in `tests/fixtures/` (Onboarding recorded live; the synthetic test at day 14). Other days are built on demand with `eval/make_replay.py` and are not committed.
 
 ## How to build and change this project
 

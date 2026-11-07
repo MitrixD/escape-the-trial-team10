@@ -48,6 +48,7 @@ Each line: what an AI said or built, how we found out it was wrong, and what cha
 | Money rule: "come back today, waiting costs $0" for a test past its horizon | Same review | A test past its horizon gets a decision with basis `horizon` |
 | Proposal text: waiting 14 days costs "10–14 times more" | `openspec-verify-change` pass against `eval/money_h60.txt`: true for Onboarding (14×), on Main 2–10× | Wording fixed |
 | `CLAUDE.md` and README after the core | Docs audit agent: stale "pick a task" flow, a forbidden `apps get` tip, the trap pointed at Onboarding, a done item in next steps | Fixed in the stop-guard PR. One suggestion rejected: re-adding the research list that Maxim had removed on purpose |
+| Claude restored the synthetic day 7 and 28 bundles after a reviewer warned the jury might ask for day 7 | The user saw ~8k diff lines; no test or code used them | Dropped again; README shows the command that builds any day. Rule: after a review, commit no data that tests do not use |
 | Our own audit brief said PR #15 was not merged | The audit agent checked `git log` and found it merged | The audit report was read with that correction |
 
 ## Stop guard: a real agent run
