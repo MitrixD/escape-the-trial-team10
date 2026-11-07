@@ -11,7 +11,7 @@ Parallel start: after group 1, track A (groups 2–3) and track C (group 4) run 
 
 ## 2. Track A — statistics and calibration (needs 1; 2.2 needs 4.1 recordings)
 
-- [ ] 2.1 Write failing tests, then `verdict_agent/stats.py`: `p2bb` (must equal the spike's `p2bb` on a fixed sample), `diff_ci` (95% interval of a difference in means), `users_needed` (per-arm sample size for a given delta and sd); verify the tests pass
+- [x] 2.1 Write failing tests, then `verdict_agent/stats.py`: `p2bb` (must equal the spike's `p2bb` on a fixed sample), `diff_ci` (95% interval of a difference in means), `users_needed` (per-arm sample size for a given delta and sd); verify the tests pass
 - [ ] 2.2 Write failing tests on the recorded `conversion`, `cohort` and `ltv` responses of the test app, then `verdict_agent/calibration.py` `build_from_adapty`: trial→paid per product, renewal value curve per product up to the horizon, product-key normalisation (store key and UUID → one key), app-wide fallback, `source` `product | app | none`, `expected(status, product, age, horizon)` with the formulas from design.md → Decision 2, JSON save/load; verify the tests pass, an unknown product reports `app`, and empty responses report `none`
 
 ## 3. Track A — estimator and verdict (needs 2)
