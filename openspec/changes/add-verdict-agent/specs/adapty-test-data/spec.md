@@ -28,7 +28,11 @@ For a given test ID the system SHALL read the test, its arms with their flows, t
 - **THEN** it returns two arms with users 285 and 254 and trials 71 and 66, matching `ab-tests metrics total`
 
 ### Requirement: Per-arm counts by product
-The system SHALL read each arm's trials and purchases grouped by store product, filtering by the arm's flow and by the test's placement, because one flow can serve several placements, and SHALL map App Store titles and Play product keys of the same product to one product key.
+The system SHALL read each arm's trials and purchases grouped by store product, filtering by the arm's flow and by the test's placement, because one flow can serve several placements, and SHALL map the App Store and Play keys of the same product to one product key using the app's own product catalog read from Adapty (`products list`: each product with its store product IDs). No mapping specific to one app SHALL live in code.
+
+#### Scenario: Product keys from the catalog
+- **WHEN** the funnel reports a product once under its App Store title and once under its Play key, and both IDs belong to one product in the catalog
+- **THEN** their counts are merged under that one product
 
 #### Scenario: Flow used in several places
 - **WHEN** an arm's flow also serves another audience or test
@@ -51,8 +55,8 @@ The system SHALL treat every user of the test as installed on the test's start d
 ### Requirement: Calibration from the app's own history
 The system SHALL build the calibration table from analytics of the same app, read through any Adapty API (Developer CLI, Export Analytics API or Server-side API): trial→paid conversion per product (`conversion`, `trial-paid`, by store product) and expected net revenue per paying subscriber over the next N days per product (`cohort` by store product over renewal periods). The system SHALL NOT read any dataset outside Adapty at run time.
 
-#### Scenario: Calibration from recorded Lumen analytics
-- **WHEN** the recorded `conversion`, `cohort` and `ltv` responses of Lumen are given for horizon 60
+#### Scenario: Calibration from recorded analytics of the test app
+- **WHEN** the recorded `conversion`, `cohort` and `ltv` responses of the test app are given for horizon 60
 - **THEN** the table has a trial→paid rate and a renewal value curve for every product that appears in them, and `calibration_source` is `product`
 
 #### Scenario: History window ends at the test start
@@ -79,7 +83,7 @@ When a product has no history, the system SHALL use the app-wide trial→paid ra
 - **THEN** the verdict is `not_enough_data` with reason `no_calibration`
 
 ### Requirement: Gentle on the API
-The system SHALL issue Adapty calls one at a time, at no more than 2 per second, SHALL NOT enumerate or read individual profiles, and SHALL stop with a clear error on a 429 instead of retrying in a loop. One verdict SHALL need no more than 10 Adapty calls.
+The system SHALL issue Adapty calls one at a time, at no more than 2 per second, SHALL NOT enumerate or read individual profiles, and SHALL stop with a clear error on a 429 instead of retrying in a loop. One verdict SHALL need no more than 10 Adapty calls, including the product catalog read.
 
 #### Scenario: Rate limit hit
 - **WHEN** Adapty answers 429 with `retry_after_seconds`
@@ -102,3 +106,11 @@ The system SHALL accept a replay directory of recorded Adapty responses, keyed b
 #### Scenario: Missing recording
 - **WHEN** a command needed for the verdict has no file in the replay directory
 - **THEN** the system returns an error naming the command and makes no network call
+
+### Requirement: Any Adapty app
+The system SHALL take the app ID from `ADAPTY_APP_ID` in `.env` or from the call, and SHALL read the same commands for any app. No threshold, product name, flow or placement of a particular app SHALL be hard-coded; the test app (Lumen) appears only in recorded fixtures and the eval.
+
+#### Scenario: Another app
+- **WHEN** `ADAPTY_APP_ID` points to a different app with its own products and history
+- **THEN** the system reads that app's test, catalog and analytics with the same commands and builds its calibration from that app's history
+

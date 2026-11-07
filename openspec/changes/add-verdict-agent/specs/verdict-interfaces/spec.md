@@ -10,7 +10,7 @@ Exposes the verdict to people and AI agents through a CLI command and an MCP too
 The system SHALL provide a command that takes an A/B test ID, an optional `--horizon` in days and an optional `--replay <dir>`, and prints the verdict JSON to stdout with exit code 0, or a JSON error with a non-zero exit code.
 
 #### Scenario: Live test
-- **WHEN** a user runs the command with the ID of a live Lumen test
+- **WHEN** a user runs the command with the ID of a live test of the configured app
 - **THEN** it prints a verdict JSON and exits 0
 
 #### Scenario: Unknown test

@@ -8,6 +8,7 @@ Adapty's raw P2BB (dashboard, CLI, MCP) counts only revenue already received. Wh
 
 - New read-only tool that takes an Adapty A/B test ID and returns a verdict: `not_enough_data`, `keep_running`, `confirmed` or `tie`, with the leader, P2BB on expected revenue next to raw P2BB, revenue maturity and a come-back date.
 - Expected revenue per arm = received + expected from pending trials + expected from future renewals, computed from per-arm, per-product counts and a calibration table built from the app's own history in Adapty (trial→paid conversion and renewal revenue per product). The horizon in days is a call parameter. No external datasets at run time.
+- Works for any Adapty app: the app ID is configuration, products are mapped through the app's own catalog, and calibration comes from that app's history. Lumen is only the test app.
 - Two entry points with one JSON output: a CLI command and a stdio MCP tool. Both accept `--replay <dir>` to read recorded Adapty responses instead of the network, for tests, eval and the demo fallback. Explanations are written by the calling agent, not by the tool.
 - An eval that generates Adapty-shaped responses from the offline Lumen dataset, runs the same code through replay, and scores verdicts against 60-day truth, including the synthetic up-front-vs-trial test.
 
