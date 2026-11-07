@@ -1,0 +1,21 @@
+schema: spec-driven
+
+context: |
+  Adapty "First Commit" hackathon, team 10. Deadline Sunday 8 Nov 2026, 15:00. Judges score
+  AI-native engineering 30%, idea 30%, implementation 30% (works live, tests/evals, runs from README,
+  Adapty used correctly), demo 10%.
+  Stack: Python 3.11+, standard library first; Adapty Developer CLI (`adapty ... --json`) called as a
+  subprocess for live reads; a stdio MCP server exposing the same function.
+  Data: Lumen app (synthetic) in Maxim's Adapty account, plus the offline Lumen dataset (CSV) for
+  calibration and evals.
+  Hard rules: synthetic data only; read-only against Adapty (no start/stop/create/update); no load on the
+  API (sequential calls, respect 2 req/s, never enumerate profiles); secrets only in .env and never in git;
+  never re-run seed_adapty.py; anything made before the hackathon start is declared in README.
+  Code, comments and commit messages are in English (Conventional Commits).
+
+rules:
+  tasks:
+    - Every implementation task that adds behaviour starts with a failing test (TDD).
+    - Every task names the check that proves it is done.
+  specs:
+    - Every requirement has at least one scenario that can become an automated test.
