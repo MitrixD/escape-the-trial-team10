@@ -1,0 +1,5 @@
+The verdict is **confirmed**: variant B is the leader and can be trusted. Once pending trials and future renewals are counted, B has a 0.9999 probability of beating A, in both the raw and the expected-revenue views.
+
+B's expected revenue is $9.05 per user, against $4.07 for A. That is a gap of $4.98 per user. B has already collected $5.36 per user, and A has collected $0.00.
+
+The test is only 42% mature against its 60-day horizon, but the verdict already counts revenue that hasn't arrived yet. No "come back on" date is set, so you can pick B now.

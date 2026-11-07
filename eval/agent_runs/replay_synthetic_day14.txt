@@ -1,0 +1,5 @@
+Yes, the leader can be trusted: the verdict is "confirmed", and `weekly_trial` is the leader. Once pending trials and future renewals are counted, it has about a 99.94% probability of beating `annual_upfront` (p2bb_expected 0.9994) on the 60-day horizon. The raw, received-only comparison points the other way, because `annual_upfront` has collected more so far ($3.77 vs $1.01 per user, and p2bb_raw is 0.0).
+
+The gap in expected 60-day revenue is $1.49 per user in favor of `weekly_trial` ($5.27 vs $3.78). Most of that comes from expected renewals ($3.55) and some from pending trials ($0.71). That money hasn't arrived yet, and the test is only about 53% mature (maturity 0.5286).
+
+You can act on this result without waiting, because the verdict says no return date is needed (come_back_on is null). The caveat is that the renewal forecast carries most of the lead, so I'd pick `weekly_trial` and check its actual renewals as they come in.

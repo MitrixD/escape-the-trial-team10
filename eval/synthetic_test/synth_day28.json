@@ -1,71 +1,28 @@
 {
-  "ab_test_id": "AI limit: annual upfront vs weekly trial",
+  "ab_test_id": "50e46448-6692-54c6-b1e0-1b2e2fa62cdd",
   "verdict": "confirmed",
+  "reason": null,
   "leader": "weekly_trial",
   "p2bb_expected": 0.9999,
   "p2bb_raw": 0.0,
+  "maturity": 0.6192,
   "horizon_days": 60,
-  "horizon_source": "parameter",
-  "maturity": 0.5211,
   "come_back_on": null,
-  "money_at_stake_usd": 0.59,
   "arms": [
     {
       "title": "annual_upfront",
       "users": 2800,
       "revenue_received": 4.31,
       "revenue_expected_trials": 0.0,
-      "revenue_expected_renewals": -0.02,
-      "warnings": [
-        {
-          "metric": "refund_rate_per_payer",
-          "value": 0.0217,
-          "vs_other": 0.0473,
-          "status": "ok"
-        }
-      ]
+      "revenue_expected_renewals": 0.02
     },
     {
       "title": "weekly_trial",
       "users": 2800,
       "revenue_received": 2.01,
-      "revenue_expected_trials": 0.61,
-      "revenue_expected_renewals": 3.38,
-      "warnings": [
-        {
-          "metric": "refund_rate_per_payer",
-          "value": 0.0473,
-          "vs_other": 0.0217,
-          "status": "ok"
-        }
-      ]
+      "revenue_expected_trials": 0.3,
+      "revenue_expected_renewals": 3.56
     }
   ],
-  "segments_checked": 14,
-  "segments_found": [
-    {
-      "dimension": "push_opt_in",
-      "value": "no",
-      "lift": 0.1536,
-      "p_adjusted": 0.0429
-    },
-    {
-      "dimension": "push_opt_in",
-      "value": "yes",
-      "lift": 2.2972,
-      "p_adjusted": 0.0429
-    }
-  ],
-  "next_step": {
-    "type": "stop_with_winner",
-    "reason": "Stop the test and roll out the leader.",
-    "placement_id": null,
-    "primary_metric": "net revenue per user, 60 days",
-    "watch": [
-      "refund_rate_per_payer"
-    ],
-    "alternative": null
-  },
-  "source": "offline",
-  "calibration_source": "offline"
+  "calibration_source": "product"
 }
