@@ -1,0 +1,305 @@
+{
+  "data": {
+    "value": 4611,
+    "segments": [
+      {
+        "key": null,
+        "title": "Total",
+        "is_total": true,
+        "value": 4611,
+        "values": [
+          {
+            "x": -2,
+            "title": "Install",
+            "value": 4611,
+            "value_relative": 100,
+            "relative_changes": 2.19041422684884,
+            "following_changes": {
+              "title": "Drop off",
+              "value": 4510,
+              "value_relative": 97.80958577315117
+            },
+            "churn_reason_title": "",
+            "churn_reasons": [],
+            "parts": []
+          },
+          {
+            "x": -1,
+            "title": "Paywall displayed",
+            "value": 101,
+            "value_relative": 2.19041422684884,
+            "relative_changes": 1.9801980198019802,
+            "following_changes": {
+              "title": "Drop off",
+              "value": 99,
+              "value_relative": 98.01980198019803
+            },
+            "churn_reason_title": "",
+            "churn_reasons": [],
+            "parts": []
+          },
+          {
+            "x": 1,
+            "title": "Paid",
+            "value": 2,
+            "value_relative": 0.04337453914552158,
+            "relative_changes": 0,
+            "following_changes": {
+              "title": "Drop off",
+              "value": 2,
+              "value_relative": 100
+            },
+            "churn_reason_title": "Paywall displayed -> Paid",
+            "churn_reasons": [
+              {
+                "title": "Unknown",
+                "value": 2,
+                "value_relative": 100
+              }
+            ],
+            "parts": [
+              {
+                "title": "Install -> Paid",
+                "value": 2,
+                "value_relative": 0.04337453914552158
+              },
+              {
+                "title": "Trial -> Paid",
+                "value": 0,
+                "value_relative": 0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "Premium Annual",
+        "title": "Premium Annual",
+        "is_total": false,
+        "value": 4611,
+        "values": [
+          {
+            "x": -2,
+            "title": "Install",
+            "value": 4611,
+            "value_relative": 100,
+            "relative_changes": 2.19041422684884,
+            "following_changes": {
+              "title": "Drop off",
+              "value": 4510,
+              "value_relative": 97.80958577315117
+            },
+            "churn_reason_title": "",
+            "churn_reasons": [],
+            "parts": []
+          },
+          {
+            "x": -1,
+            "title": "Paywall displayed",
+            "value": 101,
+            "value_relative": 2.19041422684884,
+            "relative_changes": 0.9900990099009901,
+            "following_changes": {
+              "title": "Drop off",
+              "value": 100,
+              "value_relative": 99.00990099009901
+            },
+            "churn_reason_title": "",
+            "churn_reasons": [],
+            "parts": []
+          },
+          {
+            "x": 1,
+            "title": "Paid",
+            "value": 1,
+            "value_relative": 0.02168726957276079,
+            "relative_changes": 0,
+            "following_changes": {
+              "title": "Drop off",
+              "value": 1,
+              "value_relative": 100
+            },
+            "churn_reason_title": "Paywall displayed -> Paid",
+            "churn_reasons": [
+              {
+                "title": "Unknown",
+                "value": 1,
+                "value_relative": 100
+              }
+            ],
+            "parts": [
+              {
+                "title": "Install -> Paid",
+                "value": 1,
+                "value_relative": 0.02168726957276079
+              },
+              {
+                "title": "Trial -> Paid",
+                "value": 0,
+                "value_relative": 0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "Premium Lifetime",
+        "title": "Premium Lifetime",
+        "is_total": false,
+        "value": 4611,
+        "values": [
+          {
+            "x": -2,
+            "title": "Install",
+            "value": 4611,
+            "value_relative": 100,
+            "relative_changes": 2.19041422684884,
+            "following_changes": {
+              "title": "Drop off",
+              "value": 4510,
+              "value_relative": 97.80958577315117
+            },
+            "churn_reason_title": "",
+            "churn_reasons": [],
+            "parts": []
+          },
+          {
+            "x": -1,
+            "title": "Paywall displayed",
+            "value": 101,
+            "value_relative": 2.19041422684884,
+            "relative_changes": 0.9900990099009901,
+            "following_changes": {
+              "title": "Drop off",
+              "value": 100,
+              "value_relative": 99.00990099009901
+            },
+            "churn_reason_title": "",
+            "churn_reasons": [],
+            "parts": []
+          },
+          {
+            "x": 1,
+            "title": "Paid",
+            "value": 1,
+            "value_relative": 0.02168726957276079,
+            "relative_changes": 0,
+            "following_changes": {
+              "title": "Drop off",
+              "value": 1,
+              "value_relative": 100
+            },
+            "churn_reason_title": "Paywall displayed -> Paid",
+            "churn_reasons": [
+              {
+                "title": "Unknown",
+                "value": 1,
+                "value_relative": 100
+              }
+            ],
+            "parts": [
+              {
+                "title": "Install -> Paid",
+                "value": 1,
+                "value_relative": 0.02168726957276079
+              },
+              {
+                "title": "Trial -> Paid",
+                "value": 0,
+                "value_relative": 0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "Premium Monthly",
+        "title": "Premium Monthly",
+        "is_total": false,
+        "value": 4611,
+        "values": [
+          {
+            "x": -2,
+            "title": "Install",
+            "value": 4611,
+            "value_relative": 100,
+            "relative_changes": 2.19041422684884,
+            "following_changes": {
+              "title": "Drop off",
+              "value": 4510,
+              "value_relative": 97.80958577315117
+            },
+            "churn_reason_title": "",
+            "churn_reasons": [],
+            "parts": []
+          },
+          {
+            "x": -1,
+            "title": "Paywall displayed",
+            "value": 101,
+            "value_relative": 2.19041422684884,
+            "relative_changes": 0,
+            "following_changes": {
+              "title": "Drop off",
+              "value": 101,
+              "value_relative": 100
+            },
+            "churn_reason_title": "",
+            "churn_reasons": [],
+            "parts": []
+          },
+          {
+            "x": 1,
+            "title": "1 period",
+            "value": 0,
+            "value_relative": 0,
+            "relative_changes": 0,
+            "following_changes": {
+              "title": "Drop off",
+              "value": 0,
+              "value_relative": 0
+            },
+            "churn_reason_title": "",
+            "churn_reasons": [],
+            "parts": [
+              {
+                "title": "Install -> Paid",
+                "value": 0,
+                "value_relative": 0
+              },
+              {
+                "title": "Trial -> Paid",
+                "value": 0,
+                "value_relative": 0
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "meta": {
+    "query": {
+      "timezone": "UTC",
+      "timezone_source": "app",
+      "filters": {
+        "date": [
+          "2026-11-07",
+          "2026-11-07"
+        ],
+        "placement_id": [
+          "77f3a47b-0ca3-4106-8fd7-0f2c4c5d7af3"
+        ],
+        "flow_id": [
+          "58de24f9-16c5-4652-a946-a35a8aeee482"
+        ]
+      },
+      "segmentation": "store_product_id"
+    },
+    "definitions": {
+      "value": "The Installs chart shows the total number of users who have installed the app for the first time, as well as any reinstalls by existing users.",
+      "revenue_basis": null,
+      "freshness": "Transactions, installs, paywall views and flow events reach the analytics at least 15 minutes after Adapty receives them. Numbers of past days can still change: a refund that the store reports later takes the revenue out of the day of its purchase."
+    }
+  }
+}

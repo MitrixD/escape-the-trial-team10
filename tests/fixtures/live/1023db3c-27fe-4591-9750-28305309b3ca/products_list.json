@@ -1,0 +1,143 @@
+{
+  "data": [
+    {
+      "id": "69cec9be-a51c-44f9-b80a-33737947277e",
+      "title": "Pro Annual - AI Studio",
+      "period": "annual",
+      "access_level_id": "3fc88700-bdf9-4b2d-8aae-4521538e8d20",
+      "price_usd": 0,
+      "vendor_products": {
+        "app_store": {
+          "id": "d0cbb813-da2b-4f2b-98ad-bf4aa98751b0",
+          "product_id": "lumen.pro_annual",
+          "base_plan_id": null,
+          "store_status": null
+        },
+        "play_store": {
+          "id": "c8d2be6f-c66f-4eb1-aca2-0a8be664cb18",
+          "product_id": "lumen_pro_annual",
+          "base_plan_id": "pro-annual",
+          "store_status": null
+        }
+      },
+      "offers_count": 0
+    },
+    {
+      "id": "ff76ad13-624f-4771-a9bc-313c27b2239a",
+      "title": "Premium Lifetime",
+      "period": "lifetime",
+      "access_level_id": "ebed6a22-95c9-445b-8ee5-86ce602e2684",
+      "price_usd": 0,
+      "vendor_products": {
+        "app_store": {
+          "id": "cb636c44-5d45-4e68-a605-8bdb00e086bd",
+          "product_id": "lumen.lifetime",
+          "base_plan_id": null,
+          "store_status": null
+        },
+        "play_store": {
+          "id": "6fc9999a-8891-4e19-bf9d-417cbbc4287b",
+          "product_id": "lumen_lifetime",
+          "base_plan_id": null,
+          "store_status": null
+        }
+      },
+      "offers_count": 0
+    },
+    {
+      "id": "0c94bfa2-0b08-4cdd-a27e-2f2327e315dd",
+      "title": "Premium Annual (7-day trial)",
+      "period": "annual",
+      "access_level_id": "ebed6a22-95c9-445b-8ee5-86ce602e2684",
+      "price_usd": 0,
+      "vendor_products": {
+        "app_store": {
+          "id": "72a28cfe-6f85-4297-832d-3d9b4f0bd197",
+          "product_id": "lumen.annual_trial",
+          "base_plan_id": null,
+          "store_status": null
+        },
+        "play_store": {
+          "id": "829a96f6-d9cd-4765-8015-fe944eb2ce08",
+          "product_id": "lumen_annual_trial",
+          "base_plan_id": "annual-trial",
+          "store_status": null
+        }
+      },
+      "offers_count": 0
+    },
+    {
+      "id": "bd8ca735-45d0-4945-aefc-cd9d330938d2",
+      "title": "Premium Annual",
+      "period": "annual",
+      "access_level_id": "ebed6a22-95c9-445b-8ee5-86ce602e2684",
+      "price_usd": 0,
+      "vendor_products": {
+        "app_store": {
+          "id": "8367690b-a000-4b21-bf60-0995cdc9dc7f",
+          "product_id": "lumen.annual",
+          "base_plan_id": null,
+          "store_status": null
+        },
+        "play_store": {
+          "id": "a6a45c89-1acd-4672-b175-77e8f4ebff37",
+          "product_id": "lumen_annual",
+          "base_plan_id": "annual",
+          "store_status": null
+        }
+      },
+      "offers_count": 0
+    },
+    {
+      "id": "9bf9b354-5e29-40f0-96d9-072c0ee54700",
+      "title": "Premium Monthly",
+      "period": "monthly",
+      "access_level_id": "ebed6a22-95c9-445b-8ee5-86ce602e2684",
+      "price_usd": 0,
+      "vendor_products": {
+        "app_store": {
+          "id": "222d7c40-44eb-482d-b522-2835a778e561",
+          "product_id": "lumen.monthly",
+          "base_plan_id": null,
+          "store_status": null
+        },
+        "play_store": {
+          "id": "1b2b1eb6-2907-415d-872c-35a9e825e6a3",
+          "product_id": "lumen_monthly",
+          "base_plan_id": "monthly",
+          "store_status": null
+        }
+      },
+      "offers_count": 0
+    },
+    {
+      "id": "db187773-c682-49f5-9be1-648178c284c1",
+      "title": "Premium Weekly (3-day trial)",
+      "period": "weekly",
+      "access_level_id": "ebed6a22-95c9-445b-8ee5-86ce602e2684",
+      "price_usd": 0,
+      "vendor_products": {
+        "app_store": {
+          "id": "73d1b39b-0fe3-4287-8810-e4db83bb3add",
+          "product_id": "lumen.weekly",
+          "base_plan_id": null,
+          "store_status": null
+        },
+        "play_store": {
+          "id": "b7e1e578-4fee-49a6-92a8-07ab74f718fb",
+          "product_id": "lumen_weekly",
+          "base_plan_id": "weekly",
+          "store_status": null
+        }
+      },
+      "offers_count": 0
+    }
+  ],
+  "meta": {
+    "pagination": {
+      "page": 1,
+      "pages": 1,
+      "count": 6
+    }
+  }
+}

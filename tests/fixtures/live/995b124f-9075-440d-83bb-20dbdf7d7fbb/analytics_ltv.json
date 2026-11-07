@@ -1,0 +1,581 @@
+{
+  "data": {
+    "value": 48.70008872072381,
+    "segments": [
+      {
+        "key": null,
+        "title": "Total",
+        "is_total": true,
+        "value": 48.70008872072381,
+        "cohort_size": 875,
+        "values": [
+          {
+            "x": 0,
+            "value": 32.99
+          },
+          {
+            "x": 3,
+            "value": 34.93
+          },
+          {
+            "x": 7,
+            "value": 39.43
+          },
+          {
+            "x": 14,
+            "value": 40.96
+          },
+          {
+            "x": 28,
+            "value": 43.29
+          },
+          {
+            "x": 31,
+            "value": 45.07
+          },
+          {
+            "x": 61,
+            "value": 47.65
+          },
+          {
+            "x": 92,
+            "value": 48.53
+          },
+          {
+            "x": 183,
+            "value": 48.7
+          }
+        ]
+      },
+      {
+        "key": "bd8ca735-45d0-4945-aefc-cd9d330938d2",
+        "title": "Premium Annual",
+        "is_total": false,
+        "value": 47.544637020738215,
+        "cohort_size": 170,
+        "values": [
+          {
+            "x": 0,
+            "value": 47.54
+          },
+          {
+            "x": 3,
+            "value": 47.54
+          },
+          {
+            "x": 7,
+            "value": 47.54
+          },
+          {
+            "x": 14,
+            "value": 47.54
+          },
+          {
+            "x": 28,
+            "value": 47.54
+          },
+          {
+            "x": 31,
+            "value": 47.54
+          },
+          {
+            "x": 61,
+            "value": 47.54
+          },
+          {
+            "x": 92,
+            "value": 47.54
+          },
+          {
+            "x": 183,
+            "value": 47.54
+          }
+        ]
+      },
+      {
+        "key": "db187773-c682-49f5-9be1-648178c284c1",
+        "title": "Premium Weekly (3-day trial)",
+        "is_total": false,
+        "value": 36.12859697012516,
+        "cohort_size": 152,
+        "values": [
+          {
+            "x": 0,
+            "value": 0
+          },
+          {
+            "x": 3,
+            "value": 7.49
+          },
+          {
+            "x": 7,
+            "value": 7.49
+          },
+          {
+            "x": 14,
+            "value": 13.41
+          },
+          {
+            "x": 28,
+            "value": 22.13
+          },
+          {
+            "x": 31,
+            "value": 25.34
+          },
+          {
+            "x": 61,
+            "value": 33.03
+          },
+          {
+            "x": 92,
+            "value": 35.53
+          },
+          {
+            "x": 183,
+            "value": 36.13
+          }
+        ]
+      },
+      {
+        "key": "play_store:lumen_annual",
+        "title": "lumen_annual",
+        "is_total": false,
+        "value": 43.758952590861256,
+        "cohort_size": 131,
+        "values": [
+          {
+            "x": 0,
+            "value": 43.76
+          },
+          {
+            "x": 3,
+            "value": 43.76
+          },
+          {
+            "x": 7,
+            "value": 43.76
+          },
+          {
+            "x": 14,
+            "value": 43.76
+          },
+          {
+            "x": 28,
+            "value": 43.76
+          },
+          {
+            "x": 31,
+            "value": 43.76
+          },
+          {
+            "x": 61,
+            "value": 43.76
+          },
+          {
+            "x": 92,
+            "value": 43.76
+          },
+          {
+            "x": 183,
+            "value": 43.76
+          }
+        ]
+      },
+      {
+        "key": "play_store:lumen_weekly",
+        "title": "lumen_weekly",
+        "is_total": false,
+        "value": 33.211551809458854,
+        "cohort_size": 83,
+        "values": [
+          {
+            "x": 0,
+            "value": 0
+          },
+          {
+            "x": 3,
+            "value": 6.79
+          },
+          {
+            "x": 7,
+            "value": 6.79
+          },
+          {
+            "x": 14,
+            "value": 12.06
+          },
+          {
+            "x": 28,
+            "value": 20.62
+          },
+          {
+            "x": 31,
+            "value": 23.71
+          },
+          {
+            "x": 61,
+            "value": 30.96
+          },
+          {
+            "x": 92,
+            "value": 32.55
+          },
+          {
+            "x": 183,
+            "value": 33.21
+          }
+        ]
+      },
+      {
+        "key": "ff76ad13-624f-4771-a9bc-313c27b2239a",
+        "title": "Premium Lifetime",
+        "is_total": false,
+        "value": 99.36748861642518,
+        "cohort_size": 63,
+        "values": [
+          {
+            "x": 0,
+            "value": 99.37
+          },
+          {
+            "x": 3,
+            "value": 99.37
+          },
+          {
+            "x": 7,
+            "value": 99.37
+          },
+          {
+            "x": 14,
+            "value": 99.37
+          },
+          {
+            "x": 28,
+            "value": 99.37
+          },
+          {
+            "x": 31,
+            "value": 99.37
+          },
+          {
+            "x": 61,
+            "value": 99.37
+          },
+          {
+            "x": 92,
+            "value": 99.37
+          },
+          {
+            "x": 183,
+            "value": 99.37
+          }
+        ]
+      },
+      {
+        "key": "69cec9be-a51c-44f9-b80a-33737947277e",
+        "title": "Pro Annual - AI Studio",
+        "is_total": false,
+        "value": 82.99495414671267,
+        "cohort_size": 59,
+        "values": [
+          {
+            "x": 0,
+            "value": 82.99
+          },
+          {
+            "x": 3,
+            "value": 82.99
+          },
+          {
+            "x": 7,
+            "value": 82.99
+          },
+          {
+            "x": 14,
+            "value": 82.99
+          },
+          {
+            "x": 28,
+            "value": 82.99
+          },
+          {
+            "x": 31,
+            "value": 82.99
+          },
+          {
+            "x": 61,
+            "value": 82.99
+          },
+          {
+            "x": 92,
+            "value": 82.99
+          },
+          {
+            "x": 183,
+            "value": 82.99
+          }
+        ]
+      },
+      {
+        "key": "0c94bfa2-0b08-4cdd-a27e-2f2327e315dd",
+        "title": "Premium Annual (7-day trial)",
+        "is_total": false,
+        "value": 45.2484459653651,
+        "cohort_size": 55,
+        "values": [
+          {
+            "x": 0,
+            "value": 0
+          },
+          {
+            "x": 3,
+            "value": 0
+          },
+          {
+            "x": 7,
+            "value": 45.25
+          },
+          {
+            "x": 14,
+            "value": 45.25
+          },
+          {
+            "x": 28,
+            "value": 45.25
+          },
+          {
+            "x": 31,
+            "value": 45.25
+          },
+          {
+            "x": 61,
+            "value": 45.25
+          },
+          {
+            "x": 92,
+            "value": 45.25
+          },
+          {
+            "x": 183,
+            "value": 45.25
+          }
+        ]
+      },
+      {
+        "key": "9bf9b354-5e29-40f0-96d9-072c0ee54700",
+        "title": "Premium Monthly",
+        "is_total": false,
+        "value": 28.96001866903292,
+        "cohort_size": 52,
+        "values": [
+          {
+            "x": 0,
+            "value": 12.88
+          },
+          {
+            "x": 3,
+            "value": 12.88
+          },
+          {
+            "x": 7,
+            "value": 12.88
+          },
+          {
+            "x": 14,
+            "value": 12.88
+          },
+          {
+            "x": 28,
+            "value": 12.88
+          },
+          {
+            "x": 31,
+            "value": 21.38
+          },
+          {
+            "x": 61,
+            "value": 26.33
+          },
+          {
+            "x": 92,
+            "value": 28.96
+          },
+          {
+            "x": 183,
+            "value": 28.96
+          }
+        ]
+      },
+      {
+        "key": "play_store:lumen_monthly",
+        "title": "lumen_monthly",
+        "is_total": false,
+        "value": 28.704180929781185,
+        "cohort_size": 43,
+        "values": [
+          {
+            "x": 0,
+            "value": 11.8
+          },
+          {
+            "x": 3,
+            "value": 11.8
+          },
+          {
+            "x": 7,
+            "value": 11.8
+          },
+          {
+            "x": 14,
+            "value": 11.8
+          },
+          {
+            "x": 28,
+            "value": 11.8
+          },
+          {
+            "x": 31,
+            "value": 20.5
+          },
+          {
+            "x": 61,
+            "value": 25.84
+          },
+          {
+            "x": 92,
+            "value": 28.7
+          },
+          {
+            "x": 183,
+            "value": 28.7
+          }
+        ]
+      },
+      {
+        "key": "play_store:lumen_pro_annual",
+        "title": "lumen_pro_annual",
+        "is_total": false,
+        "value": 77.58493904708833,
+        "cohort_size": 35,
+        "values": [
+          {
+            "x": 0,
+            "value": 77.58
+          },
+          {
+            "x": 3,
+            "value": 77.58
+          },
+          {
+            "x": 7,
+            "value": 77.58
+          },
+          {
+            "x": 14,
+            "value": 77.58
+          },
+          {
+            "x": 28,
+            "value": 77.58
+          },
+          {
+            "x": 31,
+            "value": 77.58
+          },
+          {
+            "x": 61,
+            "value": 77.58
+          },
+          {
+            "x": 92,
+            "value": 77.58
+          },
+          {
+            "x": 183,
+            "value": 77.58
+          }
+        ]
+      },
+      {
+        "key": "play_store:lumen_annual_trial",
+        "title": "lumen_annual_trial",
+        "is_total": false,
+        "value": 45.25839953301872,
+        "cohort_size": 32,
+        "values": [
+          {
+            "x": 0,
+            "value": 0
+          },
+          {
+            "x": 3,
+            "value": 0
+          },
+          {
+            "x": 7,
+            "value": 45.26
+          },
+          {
+            "x": 14,
+            "value": 45.26
+          },
+          {
+            "x": 28,
+            "value": 45.26
+          },
+          {
+            "x": 31,
+            "value": 45.26
+          },
+          {
+            "x": 61,
+            "value": 45.26
+          },
+          {
+            "x": 92,
+            "value": 45.26
+          },
+          {
+            "x": 183,
+            "value": 45.26
+          }
+        ]
+      }
+    ]
+  },
+  "meta": {
+    "query": {
+      "timezone": "UTC",
+      "timezone_source": "app",
+      "filters": {
+        "date": [
+          "2026-07-01",
+          "2026-11-06"
+        ]
+      },
+      "segmentation": "store_product_id",
+      "revenue_basis": "gross",
+      "period_type": "days",
+      "renewal_days": [
+        0,
+        3,
+        7,
+        14,
+        28,
+        31,
+        61,
+        92,
+        183,
+        366,
+        550,
+        731
+      ]
+    },
+    "definitions": {
+      "value": "LTV (Lifetime Value) is calculated as revenue for the period / number of subscribers on start.",
+      "revenue_basis": "Gross revenue: the total revenue, including taxes and store commission fees.",
+      "freshness": "Transactions, installs, paywall views and flow events reach the analytics at least 15 minutes after Adapty receives them. Numbers of past days can still change: a refund that the store reports later takes the revenue out of the day of its purchase."
+    }
+  }
+}
