@@ -99,16 +99,30 @@ def test_onboarding_store_keys_merge_through_catalog():
     assert products <= set(ids.values())
 
 
-def test_main_merges_and_warns_on_lagging_funnel(caplog):
+def test_main_scales_lagging_funnel_to_metrics(caplog):
     cli, _ = replay(MAIN)
     with caplog.at_level(logging.WARNING, logger="verdict_agent.live"):
         test = live_test(cli, APP, MAIN.name, TODAY)
     ids = catalog_ids(MAIN)
     a = test.arms[0]
-    assert by(a, "active")[ids["Premium Monthly"]].n == 2 + 1
-    assert by(a, "trial")[ids["Premium Weekly (3-day trial)"]].n == 1
+    assert by(a, "trial") == {}
+    assert {p: g.n for p, g in by(a, "active").items()} == {ids["Premium Monthly"]: 1}
+    assert by(a, "active")[ids["Premium Monthly"]].received == pytest.approx(49.99)
     assert [a.users for a in test.arms] == [40, 37]
-    assert "do not add up" in caplog.text
+    assert "scaled per product" in caplog.text
+
+
+@pytest.mark.parametrize("bundle", [ONBOARDING, MAIN], ids=["onboarding", "main"])
+def test_groups_reproduce_test_metrics(bundle):
+    cli, _ = replay(bundle)
+    test = live_test(cli, APP, bundle.name, TODAY)
+    rows = metrics_rows(bundle)
+    for arm in test.arms:
+        row = rows[arm.title]
+        assert sum(g.n * g.received for g in arm.groups) == pytest.approx(arm.revenue_received)
+        trial_starts = sum(g.n for g in arm.groups if g.status == "trial") + row["trials_paid"]
+        assert trial_starts == arm.trials == row["trials"]
+        assert sum(g.n for g in arm.groups if g.status == "active") == arm.paid_users
 
 
 def test_live_test_reads_five_commands_and_reuses_catalog():
@@ -185,7 +199,7 @@ def test_one_period_conversions_go_to_active():
 def test_converted_reconciled_to_metrics_trials_paid():
     cli = fake([seg("Weekly Plan", [("Trial", 30), ("1 period", 1)]),
                 seg("com.x.year", [("Trial", 3), ("Paid", 0)])],
-               {**ROW, "trials": 33, "trials_paid": 10, "purchases": 0})
+               {**ROW, "trials": 33, "trials_paid": 10, "purchases": 0, "unique_paid_subscribers": 10})
     arm = live_test(cli, APP, "t1", TODAY).arms[0]
     active = {p: g.n for p, g in by(arm, "active").items()}
     trial = {p: g.n for p, g in by(arm, "trial").items()}
@@ -272,3 +286,34 @@ def test_one_period_step_decides_which_product_converted():
     arm = live_test(cli, APP, "t1", TODAY).arms[0]
     assert {p: g.n for p, g in by(arm, "active").items()} == {"u-week": 10}
     assert {p: g.n for p, g in by(arm, "trial").items()} == {"u-week": 10, "u-year": 20}
+
+
+def test_funnel_counts_scaled_to_metrics_by_largest_remainder(caplog):
+    cli = fake([seg("Weekly Plan", [("Trial", 6)]), seg("x_year", [("Trial", 3)]),
+                seg("com.x.week", [("Paid", 4)]), seg("Yearly Plan", [("Paid", 2)])],
+               {**ROW, "trials": 6, "trials_paid": 0, "purchases": 3, "unique_paid_subscribers": 3, "revenue": 90.0})
+    with caplog.at_level(logging.WARNING, logger="verdict_agent.live"):
+        arm = live_test(cli, APP, "t1", TODAY).arms[0]
+    assert {p: g.n for p, g in by(arm, "trial").items()} == {"u-week": 4, "u-year": 2}
+    assert {p: g.n for p, g in by(arm, "active").items()} == {"u-week": 2, "u-year": 1}
+    assert sum(g.n * g.received for g in arm.groups) == pytest.approx(90.0)
+    assert "scaled per product" in caplog.text
+
+
+def test_metrics_without_row_for_arm_raise_clear_error():
+    cli = fake([], ROW)
+    cli.responses["metrics"] = {"data": {"metrics": []}}
+    with pytest.raises(ValueError, match="metrics have no row for arm A"):
+        live_test(cli, APP, "t1", TODAY)
+
+
+def test_product_without_conversion_trials_has_zero_trial_days_so_its_trials_expire_at_once():
+    conversion = {"data": {"value_from": 10, "value_to": 5, "segments": [
+        {"key": "u-week", "value_from": 10, "value_to": 5}]}}
+    ltv = {"data": {"segments": [
+        {"key": "u-week", "cohort_size": 5, "values": [{"x": 0, "value": 0}, {"x": 3, "value": 5}]},
+        {"key": "u-year", "cohort_size": 5, "values": [{"x": 0, "value": 0}, {"x": 3, "value": 40}]}]}}
+    cal = build_from_adapty(conversion, {}, ltv, 60, product_map_from_catalog(CATALOG))
+    assert cal.trial_days["u-year"] == 0
+    test = expire_trials(make_test([("trial", "u-year", 4, 0.0), ("trial", "u-week", 4, 0.0)], age=1), cal.trial_days)
+    assert {g.product: g.status for g in test.arms[0].groups} == {"u-year": "ended", "u-week": "trial"}

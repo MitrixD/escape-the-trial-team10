@@ -9,6 +9,7 @@ from verdict_agent.model import DEFAULT_TRIAL_DAYS, Arm, Calibration, Group, Tes
 log = logging.getLogger(__name__)
 
 HISTORY_DAYS = 180
+UNKNOWN = "-"
 ARM_KINDS = (("flows", "flow_id"), ("paywalls", "paywall_id"))
 
 
@@ -61,53 +62,77 @@ def _product_counts(funnel: dict, labels: dict[str, str]) -> dict[str, list[int]
     return counts
 
 
-def _reconcile(title: str, counts: dict[str, list[int]], target: int) -> dict[str, int]:
-    trials = {p: c[0] for p, c in counts.items() if c[0]}
-    seen = {p: min(counts[p][1], n) for p, n in trials.items()}
+def _largest_remainder(weights: dict[str, int], target: int, caps: dict[str, int] | None = None) -> dict[str, int]:
+    total = sum(weights.values())
+    if target <= 0:
+        return {p: 0 for p in weights}
+    if not total:
+        return {UNKNOWN: target}
+    raw = {p: target * w / total for p, w in weights.items()}
+    out = {p: int(v) for p, v in raw.items()}
+    if caps is not None:
+        out = {p: min(n, caps[p]) for p, n in out.items()}
+    for p in sorted(raw, key=lambda p: (int(raw[p]) - raw[p], p)):
+        if sum(out.values()) >= target:
+            break
+        if caps is None or out[p] < caps[p]:
+            out[p] += 1
+    for p in sorted(caps or {}):
+        while sum(out.values()) < target and out[p] < caps[p]:
+            out[p] += 1
+    return out
+
+
+def _scaled(title: str, what: str, counts: dict[str, int], target: int) -> dict[str, int]:
+    if sum(counts.values()) == target:
+        return dict(counts)
+    log.warning("arm %s: funnel %s %d differ from the test metrics %d; scaled per product",
+                title, what, sum(counts.values()), target)
+    return _largest_remainder(counts, target)
+
+
+def _reconcile(title: str, trials: dict[str, int], seen: dict[str, int], target: int) -> dict[str, int]:
+    trials = {p: n for p, n in trials.items() if n}
+    seen = {p: min(seen.get(p, 0), n) for p, n in trials.items()}
     target = min(max(0, target), sum(trials.values()))
     if sum(seen.values()) == target:
         return seen
     log.warning("arm %s: funnel trial->paid %d differs from metrics trials_paid %d; scaled per product",
                 title, sum(seen.values()), target)
     weights = seen if sum(seen.values()) else trials
-    total = sum(weights.values())
-    raw = {p: target * w / total for p, w in weights.items()}
-    out = {p: min(int(raw.get(p, 0)), n) for p, n in trials.items()}
-    for p in sorted(raw, key=lambda p: raw[p] - int(raw[p]), reverse=True):
-        if sum(out.values()) >= target:
-            break
-        if out[p] < trials[p]:
-            out[p] += 1
-    for p in sorted(trials):
-        while sum(out.values()) < target and out[p] < trials[p]:
-            out[p] += 1
-    return out
+    return _largest_remainder(weights, target, caps=trials)
 
 
 def _live_arm(title: str, row: dict, funnel: dict, labels: dict[str, str], age: float) -> Arm:
     paid_users = int(row.get("unique_paid_subscribers") or 0)
     revenue = float(row.get("revenue") or 0)
-    per_paid = revenue / max(1, paid_users)
-    counts = _product_counts(funnel, labels)
-    converted = _reconcile(title, counts, int(row.get("trials_paid") or 0))
-    groups = []
-    for product, (trials, _, direct) in sorted(counts.items()):
-        conv = converted.get(product, 0)
-        if trials - conv:
-            groups.append(Group("trial", product, age, trials - conv, 0.0))
-        if direct + conv:
-            groups.append(Group("active", product, age, direct + conv, per_paid))
     metric_trials = int(row.get("trials") or 0)
-    if sum(c[0] for c in counts.values()) != metric_trials:
-        log.warning("arm %s: per-product funnel trials do not add up to the metrics trials", title)
-    if sum(g.n for g in groups if g.status == "active") != paid_users:
-        log.warning("arm %s: per-product paid users do not add up to the metrics paid subscribers", title)
+    counts = _product_counts(funnel, labels)
+    trials = _scaled(title, "trials", {p: c[0] for p, c in counts.items() if c[0]}, metric_trials)
+    seen = {p: c[1] for p, c in counts.items()}
+    converted = _reconcile(title, trials, seen, int(row.get("trials_paid") or 0))
+    direct_target = max(0, paid_users - sum(converted.values()))
+    direct = _scaled(title, "direct purchases", {p: c[2] for p, c in counts.items() if c[2]}, direct_target)
+    active = {p: direct.get(p, 0) + converted.get(p, 0) for p in set(direct) | set(converted)}
+    active_n = sum(active.values())
+    if active_n != paid_users:
+        log.warning("arm %s: %d converted trials exceed the metrics paid subscribers %d", title, active_n, paid_users)
+    if revenue and not active_n:
+        log.warning("arm %s: revenue %.2f has no paying users to carry it", title, revenue)
+    per_paid = revenue / max(1, active_n)
+    groups = []
+    for product in sorted(set(trials) | set(active)):
+        still = trials.get(product, 0) - converted.get(product, 0)
+        if still:
+            groups.append(Group("trial", product, age, still, 0.0))
+        if active.get(product):
+            groups.append(Group("active", product, age, active[product], per_paid))
     none_n = int(row.get("users") or 0) - sum(g.n for g in groups)
     if none_n < 0:
         log.warning("arm %s: product groups exceed arm users by %d; none group clamped to 0", title, -none_n)
         none_n = 0
     if none_n:
-        groups.append(Group("none", "-", age, none_n, 0.0))
+        groups.append(Group("none", UNKNOWN, age, none_n, 0.0))
     return Arm(title, groups, int(row.get("purchases") or 0), metric_trials, paid_users, revenue)
 
 
@@ -124,7 +149,9 @@ def _metrics_row(rows: list[dict], arm: dict, id_field: str, index: int) -> dict
             match = next((r for r in rows if r.get(field) == arm[field]), None)
             if match:
                 return match
-    return rows[index]
+    if index < len(rows):
+        return rows[index]
+    raise ValueError(f"metrics have no row for arm {arm.get('title') or arm.get(id_field)}")
 
 
 def live_test(cli, app_id: str, test_id: str, today: date, products: dict | None = None) -> TestData:

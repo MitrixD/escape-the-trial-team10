@@ -34,6 +34,10 @@ The system SHALL read each arm's trials and purchases grouped by store product, 
 - **WHEN** the funnel reports a product once under its App Store title and once under its Play key, and both IDs belong to one product in the catalog
 - **THEN** their counts are merged under that one product
 
+#### Scenario: Funnel lags the test metrics
+- **WHEN** the funnel's per-product trials or purchases do not add up to the arm's metrics
+- **THEN** the per-product counts are scaled to the metrics `trials` and `unique_paid_subscribers`, the arm's groups add up to the metrics revenue, and a warning is written to stderr
+
 #### Scenario: Flow used in several places
 - **WHEN** an arm's flow also serves another audience or test
 - **THEN** only events from the test's placement are counted
@@ -59,9 +63,9 @@ The system SHALL build the calibration table from analytics of the same app, rea
 - **WHEN** the recorded `conversion` and `ltv` responses of the test app are given for horizon 60
 - **THEN** the table has a renewal value curve for every product in `ltv`, a trial→paid rate for every product with trials in `conversion`, and `calibration_source` is `product`
 
-#### Scenario: History window ends at the test start
+#### Scenario: History window ends before the test start
 - **WHEN** the analytics commands accept a date range
-- **THEN** the calibration reads are issued with `--date-to` at the test start date
+- **THEN** the calibration reads are issued with `--date-from` 180 days before the test start and `--date-to` the day before the test start
 
 #### Scenario: Trial length from the LTV curve
 - **WHEN** a product with trials in `conversion` has an `ltv` curve that is 0 until day 3 and positive from day 3
