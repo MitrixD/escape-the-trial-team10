@@ -31,7 +31,8 @@ HORIZON = 60
 CONFIDENT = 0.95
 WAIT_RULE_DAY = 14
 VERDICTS = ["not_enough_data", "keep_running", "confirmed", "tie"]
-SHARES = ["wrong_confirmed", "right_confirmed", "raw_wrong", *VERDICTS]
+SHIPS = ["wrong_ship", "right_ship", "money_ship", "money_wrong_ship"]
+SHARES = ["wrong_confirmed", "right_confirmed", "raw_wrong", *VERDICTS, *SHIPS]
 
 
 def score_cell(dataset: Path, test: str, day: int, traffic: int, reps: int = REPS, seed: int = SEED) -> dict:
@@ -50,6 +51,11 @@ def score_cell(dataset: Path, test: str, day: int, traffic: int, reps: int = REP
             counts[r["verdict"]] += 1
             if r["verdict"] == "confirmed":
                 counts["right_confirmed" if right else "wrong_confirmed"] += 1
+            if r["next_action"] == "ship_leader":
+                counts["right_ship" if right else "wrong_ship"] += 1
+                if r["next_action_basis"] == "money":
+                    counts["money_ship"] += 1
+                    counts["money_wrong_ship"] += not right
             p_raw = r["p2bb_raw"]
             if (not right and p_raw >= CONFIDENT) or (right and p_raw <= 1 - CONFIDENT):
                 counts["raw_wrong"] += 1
@@ -85,8 +91,9 @@ def print_tables(tests: list[tuple[Path, str]], cells: list[dict]) -> None:
               + ", ".join(f"`{arm}` ${v:.2f}" for arm, v in values.items())
               + f"; winner `{mine[0]['winner']}`.\n")
         print("| Traffic/day | Day | wrong_confirmed | right_confirmed | raw_wrong "
-              "| not_enough_data | keep_running | confirmed | tie |")
-        print("|---|---|---|---|---|---|---|---|---|")
+              "| not_enough_data | keep_running | confirmed | tie | wrong_ship | right_ship | money_ship "
+              "| money_wrong_ship |")
+        print("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
         for c in mine:
             print(f"| {c['traffic']} | {c['day']} | " + " | ".join(_pct(c[k]) for k in SHARES) + " |")
     print("\n### First safe day vs the 14-day rule\n")
