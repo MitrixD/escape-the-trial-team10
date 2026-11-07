@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "A/B test verdict",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ab_test_id",
+    "verdict",
+    "reason",
+    "leader",
+    "p2bb_expected",
+    "p2bb_raw",
+    "maturity",
+    "horizon_days",
+    "come_back_on",
+    "arms",
+    "calibration_source"
+  ],
+  "properties": {
+    "ab_test_id": {"type": "string"},
+    "verdict": {"enum": ["not_enough_data", "confirmed", "tie", "keep_running"]},
+    "reason": {
+      "type": ["string", "null"],
+      "enum": ["min_events", "no_calibration", "pending_revenue", "underpowered", null]
+    },
+    "leader": {"type": "string"},
+    "p2bb_expected": {"type": "number", "minimum": 0, "maximum": 1},
+    "p2bb_raw": {"type": "number", "minimum": 0, "maximum": 1},
+    "maturity": {"type": "number"},
+    "horizon_days": {"type": "integer", "minimum": 1},
+    "come_back_on": {"type": ["string", "null"], "format": "date"},
+    "arms": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "users", "revenue_received", "revenue_expected_trials", "revenue_expected_renewals"],
+        "properties": {
+          "title": {"type": "string"},
+          "users": {"type": "integer", "minimum": 0},
+          "revenue_received": {"type": "number"},
+          "revenue_expected_trials": {"type": "number"},
+          "revenue_expected_renewals": {"type": "number"}
+        }
+      }
+    },
+    "calibration_source": {"enum": ["product", "app", "none"]}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"verdict": {"enum": ["confirmed", "tie"]}}},
+      "then": {"properties": {"reason": {"type": "null"}, "come_back_on": {"type": "null"}}}
+    },
+    {
+      "if": {"properties": {"verdict": {"enum": ["not_enough_data"]}}},
+      "then": {"properties": {"reason": {"enum": ["min_events", "no_calibration"]}}}
+    },
+    {
+      "if": {"properties": {"verdict": {"enum": ["keep_running"]}}},
+      "then": {"properties": {"reason": {"enum": ["pending_revenue", "underpowered"]}, "come_back_on": {"type": "string"}}}
+    }
+  ]
+}

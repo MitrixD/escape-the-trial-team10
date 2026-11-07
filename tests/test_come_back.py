@@ -6,8 +6,9 @@ import pytest
 from verdict_agent.estimator import estimate, pseudo_values
 from verdict_agent.model import Group
 from verdict_agent.stats import users_needed
-from verdict_agent.verdict import build_verdict, check_horizon
+from verdict_agent.verdict import check_horizon
 from tests.helpers import START, make_arm, make_cal, make_test, step_curve
+from tests.helpers import build_checked_verdict as build_verdict
 
 
 def two_arms(gain, users, payers_a, payers_b, **kw):

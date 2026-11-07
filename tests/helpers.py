@@ -35,3 +35,12 @@ def make_test(arms, days_running=3, users_per_day=100.0, started_on=START, title
         users_per_day=users_per_day,
         arms=arms,
     )
+
+
+def build_checked_verdict(test, cal, horizon=None):
+    from tests.schema_check import assert_valid
+    from verdict_agent.verdict import build_verdict
+
+    out = build_verdict(test, cal, horizon)
+    assert_valid(out)
+    return out

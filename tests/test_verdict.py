@@ -5,8 +5,8 @@ import pytest
 from verdict_agent import verdict as verdict_module
 from verdict_agent.estimator import pseudo_values
 from verdict_agent.stats import diff_ci, p2bb
-from verdict_agent.verdict import build_verdict
 from tests.helpers import make_arm, make_cal, make_test, step_curve
+from tests.helpers import build_checked_verdict as build_verdict
 
 
 def floor4(p):
