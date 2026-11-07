@@ -149,6 +149,8 @@ Data flow: test ID, then `live.py` reads the test, per-variant metrics, funnel, 
 
 Full tables: [eval/RESULTS.md](eval/RESULTS.md) (spike and Verdict Agent v2) and [eval/synthetic_test/RESULTS.md](eval/synthetic_test/RESULTS.md). Run: `eval/verdict_eval.py`. Each run builds an Adapty-shaped replay bundle with `eval/make_replay.py` and calls the product through `--replay`.
 
+How AI was used to build the tool, and three Claude answers through MCP checked number by number against the verdict JSON: [AI_LOG.md](AI_LOG.md).
+
 Key results (60-day truth, 150 repetitions, seed 7, days 1 to 28, 30 and 100 users per day per variant):
 
 - Wrong confirmations: none in Main and Onboarding. At most 1% in Settings at day 14. None in the synthetic test at day 14.
