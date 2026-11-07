@@ -16,7 +16,7 @@ Parallel start: after group 1, track A (groups 2–3) and track C (group 4) run 
 
 ## 3. Track A — estimator and verdict (needs 2)
 
-- [ ] 3.1 Write failing tests, then `verdict_agent/estimator.py`: pending trials raise expected revenue above received; an up-front-only arm has renewals ≤ 0; group mean equals a per-user computation with the same calibration within $0.01; zero users → zeros; verify the tests pass
+- [x] 3.1 Write failing tests, then `verdict_agent/estimator.py`: pending trials raise expected revenue above received; an up-front-only arm has renewals ≤ 0; group mean equals a per-user computation with the same calibration within $0.01; zero users → zeros; verify the tests pass
 - [ ] 3.2 Write failing tests for every scenario under "Verdict rules", "Raw P2BB shown next to expected P2BB", "Probabilities never round up into confirmed" and "At least two arms" in specs/ab-test-verdict, then implement `build_verdict` in `verdict_agent/verdict.py` with the four verdicts and `reason`; verify the tests pass
 - [ ] 3.3 Write failing tests for the horizon parameter (60 when omitted, error below 1, the goal is not parsed) and for `come_back_on` (min-events date, pending-revenue date, underpowered date via `users_needed`, cap at horizon, `null` when decided), then implement; verify the tests pass
 - [ ] 3.4 Write `verdict_agent/schema.json` per "Output contract" and a stdlib checker test that every verdict produced in tests validates; verify it passes
