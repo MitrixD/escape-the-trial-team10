@@ -7,7 +7,7 @@ Exposes the verdict to people and AI agents through a CLI command and an MCP too
 ## ADDED Requirements
 
 ### Requirement: CLI command
-The system SHALL provide a command that takes an A/B test ID, an optional `--horizon` in days, an optional `--replay <dir>`, an optional `--app <app id>` and an optional `--as-of YYYY-MM-DD`, and prints the verdict JSON to stdout with exit code 0, or a JSON error with a non-zero exit code.
+The system SHALL provide a command that takes an A/B test ID, an optional `--horizon` in days, an optional `--after-days` (days the shipped arm serves traffic after the stop, for money at stake), an optional `--replay <dir>`, an optional `--app <app id>` and an optional `--as-of YYYY-MM-DD`, and prints the verdict JSON to stdout with exit code 0, or a JSON error with a non-zero exit code.
 
 #### Scenario: Live test
 - **WHEN** a user runs the command with the ID of a live test of the configured app
@@ -26,7 +26,7 @@ The system SHALL provide a command that takes an A/B test ID, an optional `--hor
 - **THEN** the test is judged as of 20 Nov 2026 instead of the bundle's recording day
 
 ### Requirement: MCP tool
-The system SHALL provide a stdio MCP server with one tool `ab_test_verdict` that takes a test ID, an optional horizon in days, an optional replay directory and an optional app ID, and returns the same JSON as the CLI. The tool description SHALL tell calling agents to run it before stopping a test or choosing a winner, to explain the verdict using only numbers from the JSON, and to pass `horizon` as the number of days the test goal names (for example "60-day revenue" → 60) or omit it when the goal names none. The server SHALL work when started outside the repository: it reads `.env` from the repository root when its working directory has none.
+The system SHALL provide a stdio MCP server with one tool `ab_test_verdict` that takes a test ID, an optional horizon in days, an optional `after_days`, an optional replay directory and an optional app ID, and returns the same JSON as the CLI. The tool description SHALL tell calling agents to run it before stopping a test or choosing a winner, to explain the verdict using only numbers from the JSON, and to pass `horizon` as the number of days the test goal names (for example "60-day revenue" → 60) or omit it when the goal names none. The server SHALL work when started outside the repository: it reads `.env` from the repository root when its working directory has none.
 
 #### Scenario: Same answer on both paths
 - **WHEN** the CLI and the MCP tool run on the same test with the same inputs
@@ -41,11 +41,11 @@ The system SHALL provide a stdio MCP server with one tool `ab_test_verdict` that
 - **THEN** it reads the `.env` in the repository root
 
 ### Requirement: Units in the tool description
-The MCP tool description SHALL state that revenue fields in `arms` and `expected_gap_per_user` are USD per user and that the renewals part includes expected refunds and can be negative.
+The MCP tool description SHALL state that revenue fields in `arms` and `expected_gap_per_user` are USD per user and that the renewals part includes expected refunds and can be negative. It SHALL state that USD values in `money` are totals for the test's traffic, and that `next_action` with basis `money` means the leader is not proven but waiting is expected to cost more than shipping it.
 
 #### Scenario: Description states units
 - **WHEN** an agent lists the tool
-- **THEN** its description contains "USD per user" and "can be negative"
+- **THEN** its description contains "USD per user", "can be negative" and "totals for the test's traffic"
 
 ### Requirement: Safe errors
 Errors from the CLI and the MCP tool SHALL be JSON `{"error": ...}` with no traceback. They SHALL NOT contain values from `.env`, `whoami` output or raw Adapty stderr. The tool's own validation messages (horizon, arms, missing metrics row, more than 3 arms, missing `as_of.json`, app ID not set) SHALL be shown as written; every other exception, including other `ValueError`s and their subclasses such as `JSONDecodeError`, SHALL show only `unexpected <TypeName>`, with details written to stderr as one line.

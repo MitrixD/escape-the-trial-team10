@@ -116,8 +116,67 @@ The system SHALL reject a test with fewer than two arms with the error "an A/B t
 - **WHEN** the test has one arm
 - **THEN** the system returns that error and no verdict
 
+### Requirement: Money at stake
+For every verdict except `not_enough_data` the system SHALL report `money`, the cost in USD of the two choices the reader has, for the leader against the best other arm (the same pair as `p2bb_expected`). Let Δ be the best other arm's expected revenue per user minus the leader's, modelled as a normal distribution with the mean and standard error of the difference of the pseudo-user values used for `p2bb_expected`, and E⁺[X] = E[max(0, X)]. Traffic per arm per day is the arm's users divided by the days since the test start (at least 1); traffic per day is the test's users per day.
+- `traffic_per_day`: the test's users per day, rounded to 1 decimal.
+- `after_days`: days the shipped arm is assumed to serve all the test's traffic after the stop; a call parameter, 180 when omitted, rejected below 1.
+- `cost_per_day`: the expected revenue lost by one more day of the test, because part of the traffic sees the worse arm: traffic of the best other arm per day × E⁺[−Δ] + traffic of the leader per day × E⁺[Δ].
+- `loss_if_ship_leader_now`: the expected revenue lost by stopping now and shipping the leader: `after_days` × traffic per day × E⁺[Δ].
+- `cost_until_come_back`: for `keep_running`, `cost_per_day` × days from the judging day to `come_back_on`; `null` otherwise.
+- `chance_leader_is_wrong`: 1 − `p2bb_expected`, rounded to 4 decimals.
+USD values are totals for the test's traffic, not per user, rounded to 2 decimals from unrounded values. For `not_enough_data`, `money` SHALL be `null`.
+
+#### Scenario: Wrong leader costs more than a day
+- **WHEN** the leader's expected P2BB is 0.9994, both arms get 100 users per day, the expected gap is $1.49 per user and `after_days` is 180
+- **THEN** `cost_per_day` is about $149 and `loss_if_ship_leader_now` is below $100, while shipping the other arm would lose 200 × 180 × $1.49 ≈ $53,640
+
+#### Scenario: Certain difference
+- **WHEN** the standard error of Δ is 0 and Δ = −$2 per user with 50 users per day per arm
+- **THEN** `cost_per_day` is 50 × $2 = $100 and `loss_if_ship_leader_now` is 0
+
+#### Scenario: No money without data
+- **WHEN** the verdict is `not_enough_data`
+- **THEN** `money` is `null`
+
+#### Scenario: After days below one
+- **WHEN** the caller passes `after_days` 0
+- **THEN** the system returns an error and no verdict
+
+### Requirement: Next action
+The system SHALL report `next_action` and its `next_action_basis`:
+- `confirmed` → `ship_leader`, basis `verdict`;
+- `tie` → `ship_either`, basis `verdict`;
+- `not_enough_data` → `come_back`, basis `verdict`;
+- `keep_running` when `come_back_on` is the judging day (the horizon is reached, so there is nothing left to wait for) → `ship_leader` when `p2bb_expected` ≥ 0.80, otherwise `ship_either`, basis `horizon`;
+- `keep_running` otherwise → `ship_leader`, basis `money`, when `p2bb_expected` ≥ 0.80 and `loss_if_ship_leader_now` is below `cost_until_come_back`; otherwise `come_back`, basis `verdict`.
+The verdict itself SHALL NOT change because of money: `keep_running` with `ship_leader` means the leader is not proven, but waiting is expected to cost more than shipping it. Below 0.80 the system SHALL never advise shipping the leader, however expensive waiting is.
+
+#### Scenario: Unsure leader is not shipped on money
+- **WHEN** the verdict is `keep_running`, `p2bb_expected` is 0.70, `cost_until_come_back` is $3,282 and `loss_if_ship_leader_now` is $3,273
+- **THEN** `next_action` is `come_back` and `next_action_basis` is `verdict`
+
+#### Scenario: Horizon reached without a winner
+- **WHEN** the verdict is `keep_running`, the test is older than the horizon so `come_back_on` is the judging day, and `p2bb_expected` is 0.70
+- **THEN** `next_action` is `ship_either` and `next_action_basis` is `horizon`
+
+#### Scenario: Horizon reached with a likely leader
+- **WHEN** the verdict is `keep_running`, `come_back_on` is the judging day and `p2bb_expected` is 0.90
+- **THEN** `next_action` is `ship_leader` and `next_action_basis` is `horizon`
+
+#### Scenario: Waiting costs more than the risk
+- **WHEN** the verdict is `keep_running`, `cost_until_come_back` is $4,000 and `loss_if_ship_leader_now` is $900
+- **THEN** `next_action` is `ship_leader` and `next_action_basis` is `money`
+
+#### Scenario: Risk costs more than waiting
+- **WHEN** the verdict is `keep_running`, `cost_until_come_back` is $300 and `loss_if_ship_leader_now` is $2,500
+- **THEN** `next_action` is `come_back` and `next_action_basis` is `verdict`
+
+#### Scenario: Confirmed ships the leader
+- **WHEN** the verdict is `confirmed`
+- **THEN** `next_action` is `ship_leader` and `next_action_basis` is `verdict`
+
 ### Requirement: Output contract
-The system SHALL return one JSON object with exactly these fields: `ab_test_id`, `verdict`, `reason`, `leader`, `p2bb_expected`, `p2bb_raw`, `maturity`, `horizon_days`, `come_back_on`, `arms[]`, `calibration_source`, `expected_gap_per_user`. Each arm has `title`, `users`, `revenue_received`, `revenue_expected_trials`, `revenue_expected_renewals` and `revenue_expected_total` (received + trials + renewals), in USD per user, rounded to 2 decimals from unrounded values. `expected_gap_per_user` SHALL be the leader's expected total minus the best other arm's expected total, in USD per user, 2 decimals, never below 0. The JSON SHALL contain no free text written by a model.
+The system SHALL return one JSON object with exactly these fields: `ab_test_id`, `verdict`, `reason`, `leader`, `p2bb_expected`, `p2bb_raw`, `maturity`, `horizon_days`, `come_back_on`, `arms[]`, `calibration_source`, `expected_gap_per_user`, `money`, `next_action`, `next_action_basis`. Each arm has `title`, `users`, `revenue_received`, `revenue_expected_trials`, `revenue_expected_renewals` and `revenue_expected_total` (received + trials + renewals), in USD per user, rounded to 2 decimals from unrounded values. `expected_gap_per_user` SHALL be the leader's expected total minus the best other arm's expected total, in USD per user, 2 decimals, never below 0. `money` follows "Money at stake" and is an object with exactly `traffic_per_day`, `after_days`, `cost_per_day`, `loss_if_ship_leader_now`, `cost_until_come_back`, `chance_leader_is_wrong`, or `null`. The JSON SHALL contain no free text written by a model.
 
 #### Scenario: Valid output
 - **WHEN** a verdict is produced for any test
