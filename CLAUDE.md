@@ -11,16 +11,21 @@
   4. What is the smallest version that proves it by Sunday 15:00?
 - The team talks in Russian. Code, comments, commit messages and this file are in English.
 
+## Run and test
+
+- Setup, `.env` (`ADAPTY_APP_ID`, `ADAPTY_EXPECTED_COMPANY`), the replay quick start, MCP and the stop guard: `README.md`.
+- Tests: `.venv/bin/pytest`. With `VERDICT_DATASET=<adapty-seed-data-hack>/data/offline` the eval tests run too; without it they are skipped.
+- Demo without a live test: replay bundles in `tests/fixtures/` (Onboarding recorded live; the synthetic test for days 7, 14, 28).
+
 ## How to build and change this project
 
-The Verdict Agent is planned as one OpenSpec change: `openspec/changes/add-verdict-agent/` (proposal, specs, design, tasks). Read `docs/2026-11-07-verdict-agent-design.md` for the why, then the change. `tasks.md` is the plan: tasks are grouped into tracks that two people can build in parallel.
+The Verdict Agent is built as one OpenSpec change: `openspec/changes/add-verdict-agent/` (proposal, specs, design, tasks). Read `docs/2026-11-07-verdict-agent-design.md` for the why, then the change. Every task in `tasks.md` is done (groups 1–10: core, money at stake, stop guard); the change is not archived yet, so `openspec/specs/` does not exist.
 
 **Tooling.** OpenSpec CLI is required: `npm install -g @fission-ai/openspec@latest`, check with `openspec --version`. The `openspec-*` skills are in `.claude/skills/`; run `openspec update` after a CLI upgrade to refresh them.
 
-**Pick a task.**
-1. Read `tasks.md` and choose an unchecked task whose "Needs" are already merged into `main`.
-2. Check open PRs and branches so you don't take a task someone else claimed.
-3. Branch from `main`: `git switch -c feat/<task-number>-<short-name> origin/main`.
+**Add work.** While `add-verdict-agent` is not archived, new behaviour goes into it as a new task group through `openspec-update-change` (as groups 9 and 10 did), then gets built.
+1. Check open PRs and branches so you don't take work someone else claimed.
+2. Branch from `main`: `git switch -c feat/<short-name> origin/main`.
 
 **Implement a task.** Use `openspec-apply-change` with change `add-verdict-agent`, limited to the task you claimed.
 - Start every behaviour with a failing test, then make it pass (`openspec/config.yaml` requires it).
@@ -34,7 +39,7 @@ The Verdict Agent is planned as one OpenSpec change: `openspec/changes/add-verdi
 2. `openspec validate add-verdict-agent --strict`.
 3. Open one PR per task into `main`, title in English, description in Russian: what changed in behaviour and which task it closes.
 
-**When everything is done:** `openspec-verify-change`, then `openspec-sync-specs` and `openspec-archive-change`.
+**Archive.** When the team stops adding to this change: `openspec-verify-change`, then `openspec-sync-specs` and `openspec-archive-change`. After that, every new capability starts with `openspec-propose`.
 
 **Rules.**
 - Secrets only in `.env`; never commit or print them.
@@ -67,7 +72,7 @@ Almost nothing can be deleted through the CLI or API. These operations are one-w
 
 ## Hackathon app: Lumen (our mock app)
 
-Lumen is our own mock app. We are the only ones writing to it. We can change it, or seed more data for a demo, for example with `setTransaction`, profiles and segments.
+Lumen is our own mock app. We are the only ones writing to it. The Verdict Agent and its tests only read it. People may seed more demo data by hand, for example with `setTransaction`, profiles and segments, without corrupting existing data; `seed_adapty.py` is not run again.
 
 ### App and configuration
 
@@ -110,6 +115,8 @@ All four are flow tests.
 | Settings: upgrade vs lifetime anchor | completed | Ran for 0.8 s, has no data and no winner field |
 | AI limit: Pro vs 3 plans | draft | — |
 
+The eval's synthetic test "AI limit: annual upfront vs weekly trial" (ID `50e46448-6692-54c6-b1e0-1b2e2fa62cdd`) does not exist in Lumen: it lives only in replay bundles (`tests/fixtures/synthetic/`).
+
 ### Headline numbers
 
 All USD gross, UTC, Jul – 7 Nov 2026.
@@ -145,7 +152,7 @@ All USD gross, UTC, Jul – 7 Nov 2026.
 | **Ads Manager** (CLI `asa`) | CLI token plus a connected Apple Ads account and subscription | `adapty asa …` | Campaigns, keywords, metrics, change history | Campaigns, ad groups, keywords, automations, Apple Ads segments; `--idempotency-key` | **Lumen: 402 `ads_manager_subscription_required`** |
 | **Adapty Mail API** | `Bearer <mail secret>` | `https://api-mail.adapty.io/api/v1/` | — | Ingests profiles and transaction events | Saving a Mail flow sends real email |
 
-**Hack:** a CLI login is enough to get the app's secret key (`adapty apps get <id> --json` → `secret_key`), and that key unlocks the Server-side and Export APIs.
+**Forbidden here:** a CLI login is enough to read the app's secret key through `adapty apps get`, and that key unlocks the Server-side and Export APIs. This project never runs `apps get` (see Rules).
 
 ### Server-side API v2 endpoints
 
@@ -291,7 +298,7 @@ Found on live data. These are not documented anywhere else.
 - Filter `store_product_id` as `app_store:<id>`, but `--group-by store_product_id` returns UUID keys.
 
 **A/B readouts**
-- P2BB on arms with many trials compares realized revenue only, so it is wrong early on. See the onboarding test.
+- P2BB compares realized revenue only, so it is biased toward up-front arms while trials and renewals are pending. On the live Onboarding test the gap is large and the dashboard is right; the trap shows on the synthetic test (`eval/synthetic_test/RESULTS.md`).
 - At `--depth 3`, A/B metrics show 0 purchases at screen and product level.
 - Completed tests have no winner or stop-reason field.
 - Cohort predictions disappear when you filter by placement, paywall or A/B test, and need at least 30 payers per cohort.
