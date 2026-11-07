@@ -5,7 +5,7 @@
 See proposal.md for why and `docs/2026-11-07-verdict-agent-design.md` for the full reasoning. Constraints that shape the approach:
 
 - Per-user data from Adapty is an open question: the Server-side API reads one profile at a time, the S3/GCS export is daily and configured in the dashboard, and neither has been tried for a test's users. How to obtain it is a time-boxed investigation (task 4.5). This version uses per-arm aggregates: `ab-tests metrics total` and `analytics funnel` filtered by flow and placement, grouped by store product (verified on Lumen: arm B gives 71 trials and 35 purchases, same as the test metrics).
-- The tool must work on any Adapty app, so every input comes from Adapty itself through whichever API provides it: the Developer CLI, the Export Analytics API or the Server-side API. Calibration comes from the same app's analytics (`conversion`, `cohort`, `ltv` by product), never from files outside Adapty.
+- The tool must work on any Adapty app, so every input comes from Adapty itself through whichever API provides it: the Developer CLI, the Export Analytics API or the Server-side API. Calibration comes from the same app's analytics (`conversion` and `ltv` by product; `cohort` is read but has no product grouping), never from files outside Adapty.
 - The tool is not tied to one app: the app ID comes from `ADAPTY_APP_ID` or the call, and products are mapped through the app's own catalog. Lumen is the test app for development, fixtures and the demo; its offline dataset is the eval's ground truth only.
 - Live Lumen tests contain only users who installed on 7 Nov, so every live user has the same age. Behaviour over weeks exists only in the offline dataset, which the eval turns into Adapty-shaped replay bundles.
 - A spike eval (`eval/ab_verdict_eval.py`, 7 Nov) and a first implementation (`feature/verdict-agent`, PR #9) exist. They are references for interfaces and for what was verified on Lumen; the first implementation calibrated from the offline dataset, which this change replaces.
@@ -29,7 +29,7 @@ See proposal.md for why and `docs/2026-11-07-verdict-agent-design.md` for the fu
 
 **1. Counts, not users, as the estimator's input.** The verdict core takes, per arm, a list of groups `(status, product, age_days, n_users, received_usd_per_user)`, status in `none | trial | active | ended`. Mean expected revenue is the weighted sum of `received + E[future | status, product, age]`. For P2BB the core expands groups into pseudo-users (one value per group member), which keeps the mean exact and ignores spread inside a group. *Alternative:* per-user input — impossible without scraping.
 
-**2. Calibration from Adapty analytics of the same app.** `Calibration` holds, per product: trial→paid conversion `c_P` (from `analytics conversion --conversion trial-paid --group-by store_product_id`) and expected net revenue per paying subscriber over the next `d` days `V_P(d)` (from `analytics cohort` by product over renewal periods, cross-checked with `analytics ltv`). Expected future revenue to horizon `h` for a group at age `a`: trial of product `P` with trial length `t_P` → `c_P · V_P(h − a − t_P)`; active → `V_P(h − a)` minus the current period already counted in received; `none` and `ended` → 0. Products missing from the app's history fall back to app-wide rates; with no history at all the verdict is `not_enough_data` with reason `no_calibration`. `calibration_source` is `product`, `app` or `none`. The history window excludes the test's own period when possible (date filter up to the test start). *Alternative:* the first implementation's per-user table from the offline CSV — not available on any other app; dropped.
+**2. Calibration from Adapty analytics of the same app.** `Calibration` holds, per product key (the catalog UUID; `product_map_from_catalog` maps the UUID and every `<store>:<store product id>` from `products list` to it, unknown keys map to themselves): trial→paid conversion `c_P = Σ value_to / Σ value_from` over the product's rows of `analytics conversion --conversion trial-paid --group-by store_product_id` (no `c_P` when `Σ value_from = 0`); the curve `L_P(d)`, cumulative gross revenue per subscriber from day 0 to day `d`, from the product's rows of `analytics ltv --group-by store_product_id` (rows of one product merged by day with a `cohort_size`-weighted mean, interpolated linearly to every day `0..h`, flat after the last point); trial length `t_P` = the first ltv day `> 0` with value `> 0` for products with trials in `conversion`, 0 for the others. The app-wide `c` and curve come from the total rows. `analytics cohort` cannot group by product: it is read and accepted but not used. Revenue basis is gross, as Adapty returns it and as the test metrics report it. Expected future revenue to horizon `h` for a group at age `a`, with `L` the product's curve or the app curve: unconverted trial → `L(h) − L(a)`, never below 0; active → `(L(h) − L(a)) / c_P` when the product has a trial and `c_P > 0` (`c_P` falls back to the app value), otherwise `L(h) − L(a)` (may be negative only if the curve falls, e.g. refunds); `none` and `ended` → 0; 0 once `a ≥ h`. Products missing from the app's history fall back to the app curve and rate; with no curve at all the verdict is `not_enough_data` with reason `no_calibration`. `calibration_source` is `product` (at least one product has its own curve), `app` (only the app curve) or `none`. The history window excludes the test's own period when possible (date filter up to the test start). *Alternative:* the first implementation's per-user table from the offline CSV — not available on any other app; dropped. *Alternative:* `analytics cohort` per product over renewal periods — the command has no product grouping.
 
 **3. P2BB by normal approximation of the difference in means**, as in the spike's `p2bb()`, floored to 4 decimals. *Alternative:* Beta-Gamma or Adapty's lognormal model — next step.
 
@@ -53,7 +53,7 @@ See proposal.md for why and `docs/2026-11-07-verdict-agent-design.md` for the fu
 verdict_agent/
   model.py        # Group, Arm, TestData, Calibration
   stats.py        # p2bb, confidence interval of a difference in means, sample size
-  calibration.py  # Calibration from Adapty analytics responses (conversion, cohort, ltv)
+  calibration.py  # Calibration from Adapty analytics responses (conversion, ltv; cohort accepted, unused)
   estimator.py    # expected revenue and pseudo-users from groups
   verdict.py      # horizon, verdict rules, dates, JSON
   adapty_cli.py   # read-only CLI wrapper, replay runner, optional Export API
@@ -69,7 +69,7 @@ scripts/          # record_fixtures.sh
 
 ## Risks / Trade-offs
 
-- [Calibration from `conversion`, `cohort`, `ltv` by product is unverified on Lumen; `conversion` returned rows only for products with trials and duplicate keys per product] → first task of track C records the responses; a product-key mapping normalises store keys and UUIDs; fallback to app-wide rates; honest `not_enough_data` when nothing is available.
+- [Calibration from `conversion` and `ltv` by product: on Lumen `conversion` returned rows only for products with trials and duplicate keys per product, `ltv` reports days 0..183 only, `cohort` has no product grouping] → first task of track C records the responses; a product-key mapping normalises store keys and UUIDs; fallback to app-wide rates; honest `not_enough_data` when nothing is available.
 - [Pseudo-user variance understates spread] → labelled approximate; the eval measures the error on replay bundles.
 - [Live Lumen tests are one day old] → the live demo accepts any verdict; the synthetic test on replay shows the trap.
 
@@ -86,7 +86,7 @@ class Arm: title: str; groups: list[Group]; purchases: int; trials: int; paid_us
 @dataclass
 class TestData: ab_test_id: str; title: str; placement_id: str | None; started_on: date; as_of: date; users_per_day: float; arms: list[Arm]
 @dataclass
-class Calibration: trial_to_paid: dict[str, float]; renewal_value: dict[str, list[float]]; trial_days: dict[str, int]; app_trial_to_paid: float | None; app_renewal_value: list[float] | None; source: str   # renewal_value[product][d] = expected net USD per paying subscriber over the next d days; source: product|app|none
+class Calibration: trial_to_paid: dict[str, float]; renewal_value: dict[str, list[float]]; trial_days: dict[str, int]; app_trial_to_paid: float | None; app_renewal_value: list[float] | None; source: str   # renewal_value[product][d] = cumulative gross USD per subscriber from day 0 to day d (analytics ltv), d = 0..horizon; trial_days 0 = no trial; source: product|app|none
     def expected(self, status, product, age_days, horizon) -> float
     def source_for(self, product) -> str
 
@@ -96,7 +96,8 @@ diff_ci(xa, xb, level=0.95) -> tuple[float, float]     # interval of mean b − 
 users_needed(delta, sd, level=0.95, power=0.8) -> int  # per arm, to detect delta
 
 # verdict_agent/calibration.py
-build_from_adapty(conversion: dict, cohort: dict, ltv: dict | None, horizon: int, product_map: dict[str, str]) -> Calibration
+build_from_adapty(conversion: dict, cohort: dict, ltv: dict | None, horizon: int, product_map: dict[str, str]) -> Calibration   # cohort unused
+product_map_from_catalog(products_list: dict) -> dict[str, str]   # UUID and <store>:<store product id> -> UUID
 load(path) -> Calibration; save(cal, path)
 
 # verdict_agent/estimator.py

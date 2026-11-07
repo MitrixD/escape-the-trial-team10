@@ -53,19 +53,19 @@ The system SHALL treat every user of the test as installed on the test's start d
 - **THEN** that product has no `trial` group and its expected trial revenue is 0
 
 ### Requirement: Calibration from the app's own history
-The system SHALL build the calibration table from analytics of the same app, read through any Adapty API (Developer CLI, Export Analytics API or Server-side API): trial→paid conversion per product (`conversion`, `trial-paid`, by store product) and expected net revenue per paying subscriber over the next N days per product (`cohort` by store product over renewal periods). The system SHALL NOT read any dataset outside Adapty at run time.
+The system SHALL build the calibration table from analytics of the same app, read through any Adapty API (Developer CLI, Export Analytics API or Server-side API): trial→paid conversion per product (`conversion`, `trial-paid`, by store product), cumulative revenue per subscriber by day since start per product (`ltv` by store product, revenue basis as Adapty returns it) and each product's trial length, taken from the first day its `ltv` curve turns positive. The system SHALL NOT read any dataset outside Adapty at run time.
 
 #### Scenario: Calibration from recorded analytics of the test app
-- **WHEN** the recorded `conversion`, `cohort` and `ltv` responses of the test app are given for horizon 60
-- **THEN** the table has a trial→paid rate and a renewal value curve for every product that appears in them, and `calibration_source` is `product`
+- **WHEN** the recorded `conversion` and `ltv` responses of the test app are given for horizon 60
+- **THEN** the table has a renewal value curve for every product in `ltv`, a trial→paid rate for every product with trials in `conversion`, and `calibration_source` is `product`
 
 #### Scenario: History window ends at the test start
 - **WHEN** the analytics commands accept a date range
 - **THEN** the calibration reads are issued with `--date-to` at the test start date
 
-#### Scenario: Cross-check with LTV
-- **WHEN** a product's renewal value at the horizon differs from its `analytics ltv` value by more than 25%
-- **THEN** a warning naming the product is written to stderr and the verdict is still produced
+#### Scenario: Trial length from the LTV curve
+- **WHEN** a product with trials in `conversion` has an `ltv` curve that is 0 until day 3 and positive from day 3
+- **THEN** its trial length is 3 days, and a product without trials has trial length 0
 
 #### Scenario: Product keys normalised
 - **WHEN** the same product appears under a store key and a product UUID in the analytics responses
@@ -75,11 +75,11 @@ The system SHALL build the calibration table from analytics of the same app, rea
 When a product has no history, the system SHALL use the app-wide trial→paid rate and renewal value and SHALL report `calibration_source` as `app`. When the app has no usable history at all, the verdict SHALL be `not_enough_data` with reason `no_calibration` and `calibration_source` `none`.
 
 #### Scenario: New product
-- **WHEN** an arm sells a product with no rows in the app's conversion and cohort history
+- **WHEN** an arm sells a product with no rows in the app's conversion and ltv history
 - **THEN** its groups use the app-wide rates and the output says `calibration_source: app`
 
 #### Scenario: Empty app history
-- **WHEN** the conversion and cohort responses contain no rows
+- **WHEN** the ltv response contains no rows
 - **THEN** the verdict is `not_enough_data` with reason `no_calibration`
 
 ### Requirement: Gentle on the API
