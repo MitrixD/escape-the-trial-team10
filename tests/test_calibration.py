@@ -98,10 +98,12 @@ def test_source_product_and_unknown_product_is_app(cal):
     assert cal.source_for("not-in-history") == "app"
 
 
-def test_expected_on_recorded_calibration(cal):
-    gain = cal.renewal_value[WEEKLY][60] - cal.renewal_value[WEEKLY][0]
-    assert cal.expected("trial", WEEKLY, 0, 60) == pytest.approx(gain)
-    assert cal.expected("active", WEEKLY, 0, 60) == pytest.approx(gain / cal.trial_to_paid[WEEKLY])
+def test_expected_on_recorded_weekly_curve(cal):
+    weekly = cal.renewal_value[WEEKLY]
+    gain = weekly[60] - weekly[0]
+    assert gain == pytest.approx(32.05, abs=0.01)
+    assert cal.expected("trial", WEEKLY, 0, 60) == pytest.approx(260 / 541 * gain)
+    assert cal.expected("active", WEEKLY, 0, 60) == pytest.approx(gain)
     assert cal.expected("active", LIFETIME, 0, 60) == pytest.approx(0)
 
 
@@ -113,6 +115,7 @@ def test_empty_ltv_reports_none(recorded):
         assert c.app_renewal_value is None
         assert c.source_for(WEEKLY) == "none"
         assert c.expected("trial", WEEKLY, 0, 60) == 0
+        assert c.expected("active", WEEKLY, 0, 60) == 0
 
 
 def test_empty_responses_report_none():

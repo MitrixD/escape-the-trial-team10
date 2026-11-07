@@ -53,7 +53,7 @@ The system SHALL treat every user of the test as installed on the test's start d
 - **THEN** that product has no `trial` group and its expected trial revenue is 0
 
 ### Requirement: Calibration from the app's own history
-The system SHALL build the calibration table from analytics of the same app, read through any Adapty API (Developer CLI, Export Analytics API or Server-side API): trial→paid conversion per product (`conversion`, `trial-paid`, by store product), cumulative revenue per subscriber by day since start per product (`ltv` by store product, revenue basis as Adapty returns it) and each product's trial length, taken from the first day its `ltv` curve turns positive. The system SHALL NOT read any dataset outside Adapty at run time.
+The system SHALL build the calibration table from analytics of the same app, read through any Adapty API (Developer CLI, Export Analytics API or Server-side API): trial→paid conversion per product (`conversion`, `trial-paid`, by store product), cumulative revenue per paying subscriber by day since subscription start per product (`ltv` by store product, revenue basis as Adapty returns it) and each product's trial length, taken from the first day its `ltv` curve turns positive. The system SHALL NOT read any dataset outside Adapty at run time.
 
 #### Scenario: Calibration from recorded analytics of the test app
 - **WHEN** the recorded `conversion` and `ltv` responses of the test app are given for horizon 60

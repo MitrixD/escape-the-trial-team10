@@ -73,12 +73,10 @@ class Calibration:
         if not curve:
             return 0.0
         gain = _value_at(curve, horizon) - _value_at(curve, age_days)
-        if status == "trial":
-            return max(gain, 0.0)
+        if status == "active":
+            return gain
         conv = self._conversion(product)
-        if self.trial_days.get(product, DEFAULT_TRIAL_DAYS) > 0 and conv:
-            return gain / conv
-        return gain
+        return max(conv * gain, 0.0) if conv else 0.0
 
     def source_for(self, product: str) -> str:
         if self.renewal_value.get(product):

@@ -29,9 +29,19 @@ def test_arm_users_sums_group_sizes():
 LINEAR = [float(d) for d in range(11)]
 
 
-def test_expected_trial_is_curve_gain():
+def test_expected_trial_is_conversion_times_curve_gain():
     c = cal(trial_to_paid={"p": 0.5}, renewal_value={"p": LINEAR}, trial_days={"p": 3})
-    assert c.expected("trial", "p", 2, 10) == 8
+    assert c.expected("trial", "p", 2, 10) == 4
+
+
+def test_expected_trial_conversion_falls_back_to_app():
+    c = cal(renewal_value={"p": LINEAR}, trial_days={"p": 3}, app_trial_to_paid=0.25)
+    assert c.expected("trial", "p", 2, 10) == 2
+
+
+def test_expected_trial_without_conversion_is_zero():
+    c = cal(renewal_value={"p": LINEAR}, trial_days={"p": 3})
+    assert c.expected("trial", "p", 2, 10) == 0
 
 
 def test_expected_trial_never_negative():
@@ -39,24 +49,15 @@ def test_expected_trial_never_negative():
     assert c.expected("trial", "p", 0, 2) == 0
 
 
-def test_expected_active_with_trial_divides_by_conversion():
-    c = cal(trial_to_paid={"p": 0.5}, renewal_value={"p": LINEAR}, trial_days={"p": 3})
-    assert c.expected("active", "p", 2, 10) == 16
-
-
-def test_expected_active_without_trial_is_curve_gain():
-    c = cal(renewal_value={"p": LINEAR}, trial_days={"p": 0}, app_trial_to_paid=0.5)
+def test_expected_active_is_curve_gain_without_conversion():
+    c = cal(trial_to_paid={"p": 0.5}, renewal_value={"p": LINEAR}, trial_days={"p": 3},
+            app_trial_to_paid=0.25)
     assert c.expected("active", "p", 2, 10) == 8
 
 
-def test_expected_active_conversion_falls_back_to_app():
-    c = cal(renewal_value={"p": LINEAR}, trial_days={"p": 3}, app_trial_to_paid=0.25)
-    assert c.expected("active", "p", 2, 10) == 32
-
-
-def test_expected_active_with_trial_but_no_conversion_is_curve_gain():
-    c = cal(renewal_value={"p": LINEAR}, trial_days={"p": 3})
-    assert c.expected("active", "p", 2, 10) == 8
+def test_expected_active_unknown_product_uses_app_curve_only():
+    c = cal(app_trial_to_paid=0.25, app_renewal_value=LINEAR)
+    assert c.expected("active", "unknown", 2, 10) == 8
 
 
 def test_expected_active_may_be_negative_on_falling_curve():
@@ -89,8 +90,8 @@ def test_expected_none_and_ended_zero():
 
 def test_expected_fallback_to_app():
     c = cal(app_trial_to_paid=0.2, app_renewal_value=[0, 10, 20], source="app")
-    assert c.expected("trial", "x", 0, 2) == 20
-    assert c.expected("active", "x", 0, 2) == 100
+    assert c.expected("trial", "x", 0, 2) == 0.2 * 20
+    assert c.expected("active", "x", 0, 2) == 20
 
 
 def test_expected_empty_product_curve_falls_back():
