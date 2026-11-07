@@ -19,6 +19,12 @@ cp .env.example .env   # fill in LUMEN_APP_ID, ADAPTY_EXPECTED_COMPANY, VERDICT_
 .venv/bin/pytest
 ```
 
+## Live data
+
+`scripts/record_fixtures.sh` records read-only Adapty responses for the Lumen onboarding test into `tests/fixtures/live/` (needs `LUMEN_APP_ID` and `ADAPTY_EXPECTED_COMPANY` in `.env`; the whoami fixture keeps only a redacted company field).
+
+Working live reads: `auth whoami`, `ab-tests get`, `ab-tests metrics total --type flow`, `analytics funnel` (per arm, grouped by `store_product_id`), and `analytics conversion --conversion trial-paid --group-by store_product_id`. The conversion call returned per-product rows, but only for the products with trials so far; products without trials show 0, and the same product appears under a store key and a product UUID. Live mode still uses the offline calibration for products or statuses the live rows do not cover.
+
 ## Made before the hackathon core
 
 Written on 7 Nov 2026, before the core was built:
