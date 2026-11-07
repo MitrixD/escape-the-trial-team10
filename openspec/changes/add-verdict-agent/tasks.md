@@ -31,7 +31,7 @@ Parallel start: after group 1, track A (groups 2–3) and track C (group 4) run 
 
 ## 5. Interfaces (needs 3, 4)
 
-- [ ] 5.1 Write failing tests, then `verdict_agent/service.py` and `verdict_agent/cli.py` (`<id> [--horizon N] [--replay DIR]`): JSON on stdout and exit 0; any error → `{"error": ...}` and exit 1 with no traceback and no `.env`/account values; verify the tests pass
+- [x] 5.1 Write failing tests, then `verdict_agent/service.py` and `verdict_agent/cli.py` (`<id> [--horizon N] [--replay DIR]`): JSON on stdout and exit 0; any error → `{"error": ...}` and exit 1 with no traceback and no `.env`/account values; verify the tests pass
 - [ ] 5.2 Write failing tests, then `verdict_agent/mcp_server.py` with one tool `ab_test_verdict(ab_test_id, horizon, replay)` whose description tells agents to call it before stopping a test, to use only JSON numbers, and states the units; verify the handler returns the same JSON as the service
 - [ ] 5.3 Run `python -m verdict_agent.cli <onboarding test id>` once against Adapty; verify valid JSON and ≤ 10 read-only calls; save the output and the responses as the replay bundle after a secret grep
 
