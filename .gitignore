@@ -5,6 +5,7 @@
 
 # Local agent worktrees and scratch
 .claude/worktrees/
+.playwright-mcp
 tmp/
 
 # OS / editors
