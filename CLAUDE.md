@@ -30,7 +30,7 @@ The Verdict Agent is planned as one OpenSpec change: `openspec/changes/add-verdi
 **Change the plan or the behaviour.** Anything that changes what the system does (verdict rules, thresholds, JSON fields, inputs, data reads) goes through `openspec-update-change` on `add-verdict-agent` while it is not archived; it is not archived while `openspec/changes/add-verdict-agent/` exists. Use `openspec-propose` for a new, unrelated capability or after archive. Never edit change files outside these skills. Typos and doc wording: just edit.
 
 **Before the PR.**
-1. Run the full test suite with `VERDICT_DATASET` exported (see README; the dataset is `data/offline` in `https://github.com/kpotehin/adapty-seed-data-hack`).
+1. Run the full test suite with `VERDICT_DATASET` exported (the dataset is `data/offline` in `https://github.com/kpotehin/adapty-seed-data-hack`; it is used only by the eval tests, the tool itself reads Adapty only).
 2. `openspec validate add-verdict-agent --strict`.
 3. Run the secret grep on the staged diff (below).
 4. Open one PR per task into `main`, title in English, description in Russian: what changed in behaviour and which task it closes.
@@ -41,6 +41,7 @@ The Verdict Agent is planned as one OpenSpec change: `openspec/changes/add-verdi
 - Commit and push only when the user asks.
 - Secrets only in `.env`; never commit or print them.
 - Adapty is read-only for this project: no start, stop, create or update; never `apps get` (it returns the secret key).
+- The tool's inputs come only from Adapty: the Developer CLI, or the Export Analytics API where the CLI lacks a breakdown. No external datasets at run time; recorded Adapty responses may be replayed with `--replay`.
 - Use synthetic data only. Do not run `seed_adapty.py`. Do not load the API: sequential calls, about 2 per second.
 - Commits in English, Conventional Commits. Add files by name (never `git add .`). Before committing run:
   `git diff --cached | grep -nEi 'secret_live|secret_test|api[_-]?key|token|password|private key|sk-[a-z0-9]|ghp_|gho_'` — any match stops the commit until a human checks it.
