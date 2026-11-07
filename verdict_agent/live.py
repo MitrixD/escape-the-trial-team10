@@ -110,6 +110,7 @@ def _reconcile(title: str, trials: dict[str, int], seen: dict[str, int], target:
 
 
 def _spread(status: str, product: str, n: int, days: int, received: float) -> list[Group]:
+    """Split n users of one status evenly over ages 0.5..days-0.5."""
     counts = [((2 * (d + 1) * n + days) // (2 * days)) - ((2 * d * n + days) // (2 * days)) for d in range(days)]
     return [Group(status, product, d + 0.5, c, received) for d, c in enumerate(counts) if c]
 
