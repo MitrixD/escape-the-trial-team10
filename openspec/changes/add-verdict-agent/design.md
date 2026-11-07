@@ -24,6 +24,10 @@ See proposal.md for why and `docs/2026-11-07-verdict-agent-design.md` for the fu
 - A new UI for the A/B test screen with our estimates.
 - Per-arm updating of calibration from the arm's own finished trials; Adapty's lognormal P2BB model.
 - Starting, stopping or changing tests.
+- A demo script and the check of the agent's text (every number in Claude's answer exists in the JSON).
+- A `doctor` command that checks a clean machine (CLI installed and logged in, `.env`, dependencies) and says what is missing.
+- A per-user estimator instead of group counts, depending on task 4.5; reading profiles one by one is forbidden by the hackathon rules.
+- Spread inside a group: live P2BB is approximate because every user of a group gets the same value.
 
 ## Decisions
 

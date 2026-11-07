@@ -43,5 +43,5 @@ Parallel start: after group 1, track A (groups 2–3) and track C (group 4) run 
 
 ## 7. Delivery (needs 5, 6)
 
-- [ ] 7.1 Write README: what it does and for whom (the two-piggy-bank story), how to run from a clean clone (Adapty CLI login, `.env`, replay bundle for the no-network path), architecture, eval numbers with limits, next steps (money at stake, next step advice, validity checks, guardrails, segments, UI, per-arm calibration, lognormal P2BB), who did what, what was made before the hackathon core; verify a clean clone runs the replay command from README alone
+- [ ] 7.1 Write README: what it does and for whom (the two-piggy-bank story), how to run from a clean clone (Adapty CLI login, `.env`, replay bundle for the no-network path), architecture, eval numbers with limits, next steps (the full Non-Goals list in design.md: money at stake, next step advice, validity checks, guardrails, segments, UI, per-arm calibration, lognormal P2BB, demo script and agent-text check, `doctor`, per-user estimator, spread inside a group), who did what, what was made before the hackathon core; verify a clean clone runs the replay command from README alone
 - [ ] 7.2 Run the full test suite with `VERDICT_DATASET` exported and `openspec validate add-verdict-agent --strict`; verify both pass
