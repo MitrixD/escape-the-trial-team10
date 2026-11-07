@@ -7,7 +7,15 @@ Tells a growth manager or an AI agent whether the leader of an Adapty A/B test c
 ## ADDED Requirements
 
 ### Requirement: Expected revenue per arm
-The system SHALL estimate each arm's revenue per user at the test horizon as received revenue plus expected revenue from pending trials plus expected revenue from future renewals. Expectations SHALL come from a calibration table of mean future revenue by user state (none, trial, active, ended), product and age, built from users outside the test. The horizon SHALL be the number of days in the test goal when present, otherwise 60.
+The system SHALL estimate each arm's revenue per user at the test horizon as received revenue plus expected revenue from pending trials plus expected revenue from future renewals. Expectations SHALL come from a calibration table of mean future revenue by user state (none, trial, active, ended), product and age, built from users outside the test. The horizon SHALL be, in order of precedence: the horizon passed by the caller; the number of days in the test goal; 60 days. The output SHALL state which one was used in `horizon_source` (`parameter`, `goal` or `default`). A caller horizon outside 1–120 days SHALL be rejected with an error, because the offline data that calibrates and validates the estimate covers 120 days.
+
+#### Scenario: Caller horizon wins
+- **WHEN** the caller passes a horizon of 30 days and the goal says "60-day revenue"
+- **THEN** the horizon is 30 days and `horizon_source` is `parameter`
+
+#### Scenario: Horizon out of range
+- **WHEN** the caller passes a horizon of 365 days
+- **THEN** the system returns an error naming the allowed range 1–120
 
 #### Scenario: Pending trials count toward expected revenue
 - **WHEN** an arm has $0 received and 66 users in an active trial of a product whose calibrated future value is positive
@@ -15,7 +23,11 @@ The system SHALL estimate each arm's revenue per user at the test horizon as rec
 
 #### Scenario: Horizon from goal
 - **WHEN** the test goal reads "Find which onboarding offer maximises 60-day revenue per install"
-- **THEN** the horizon is 60 days
+- **THEN** the horizon is 60 days and `horizon_source` is `goal`
+
+#### Scenario: Default horizon
+- **WHEN** the goal has no number of days and no horizon is passed
+- **THEN** the horizon is 60 days and `horizon_source` is `default`
 
 #### Scenario: Counts and per-user data agree
 - **WHEN** the estimate is computed from per-arm state counts and from the same users one by one
@@ -88,7 +100,7 @@ The system SHALL attach a next step whose type follows the verdict: `extend` for
 - **THEN** `next_step.type` is `change_lever` and the reason says not to repeat the same test
 
 ### Requirement: Output contract
-The system SHALL return one JSON object with the fields `ab_test_id`, `verdict`, `leader`, `p2bb_expected`, `p2bb_raw`, `horizon_days`, `maturity`, `come_back_on`, `money_at_stake_usd`, `arms[]` (`title`, `users`, `revenue_received`, `revenue_expected_trials`, `revenue_expected_renewals`, `warnings[]`), `segments_checked`, `segments_found[]` and `next_step`. The JSON SHALL contain no free text written by a model.
+The system SHALL return one JSON object with the fields `ab_test_id`, `verdict`, `leader`, `p2bb_expected`, `p2bb_raw`, `horizon_days`, `horizon_source`, `maturity`, `come_back_on`, `money_at_stake_usd`, `arms[]` (`title`, `users`, `revenue_received`, `revenue_expected_trials`, `revenue_expected_renewals`, `warnings[]`), `segments_checked`, `segments_found[]` and `next_step`. The JSON SHALL contain no free text written by a model.
 
 #### Scenario: Valid output
 - **WHEN** a verdict is produced for any test

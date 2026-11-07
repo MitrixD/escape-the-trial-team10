@@ -42,7 +42,7 @@
 
 ## 8. Interfaces
 
-- [ ] 8.1 Write a failing test for `cli.py`: prints the verdict JSON and exits 0; unknown ID → JSON error and non-zero; then implement; verify it passes
+- [ ] 8.1 Write a failing test for `cli.py`: prints the verdict JSON and exits 0; unknown ID → JSON error and non-zero; `--horizon 90` gives `horizon_days` 90 and `horizon_source` `parameter`; horizon 365 → JSON error; then implement; verify it passes
 - [ ] 8.2 Implement `mcp_server.py` with one tool and the agent instructions in its description; verify a test calls the tool handler and gets the same JSON as the CLI
 - [ ] 8.3 Register the MCP server in a local Claude Code config and ask Claude for a verdict on Onboarding; verify the answer quotes only numbers from the JSON and save the transcript to `AI_LOG.md`
 
