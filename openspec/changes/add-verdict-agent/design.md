@@ -18,7 +18,7 @@ See proposal.md for why and `docs/2026-11-07-verdict-agent-design.md` for the fu
 - Every input of the verdict is obtainable from Adapty for the app being judged.
 
 **Non-Goals (next steps, listed in README):**
-- Money at stake and typed next steps.
+- Money at stake for tests with more than two arms beyond the leader and the best other arm.
 - Test validity checks (SRM, dead arm).
 - Guardrails (refunds, trial cancels) and segments.
 - A new UI for the A/B test screen with our estimates.
@@ -72,6 +72,8 @@ eval/             # spike (reference), replay generator, verdict eval, synthetic
 scripts/          # record_fixtures.sh
 ```
 
+**12. Money at stake as Bayesian expected loss.** The P2BB pair (leader L, best other O) and its pseudo-user values give Δ = mean_O − mean_L with standard error `se`, as in `p2bb`. `stats.expected_positive(mu, sd)` = E[max(0, X)] for X ~ N(mu, sd) = mu·Φ(mu/sd) + sd·φ(mu/sd), and max(0, mu) when sd = 0. Per-arm traffic per day = arm users / max(1, days since start), the same days live mode uses for `users_per_day`. `cost_per_day` = traffic_O · E⁺[−Δ] + traffic_L · E⁺[Δ] (the part of today's traffic that sees the worse arm); `loss_if_ship_leader_now` = `after_days` · `users_per_day` · E⁺[Δ] (the whole traffic sees L after the stop); `cost_until_come_back` = `cost_per_day` · (come_back_on − as_of) for `keep_running`. `after_days` defaults to 180, as in the spike. `next_action` follows the verdict except for `keep_running`. When `come_back_on` is the judging day (the test has passed its horizon), waiting gives nothing, so it is `ship_leader` with `p2bb_expected` ≥ 0.80 and `ship_either` below, basis `horizon`. Otherwise it is `ship_leader` with basis `money` when `p2bb_expected` ≥ 0.80 and `loss_if_ship_leader_now < cost_until_come_back`. The 0.80 floor (`P_MONEY_MIN`) exists because a far come-back date makes the waiting cost large enough to outweigh almost any risk: without it the rule advised shipping at 0.70 (found by review, reproduced in tests). The rule is the expected-loss stopping rule (stop when the expected loss of the decision is smaller than the cost of more data), kept separate from the 95% verdict so the verdict's guarantees and eval stay unchanged. The estimate ignores calibration error, so `money` understates the uncertainty; the eval reports how often a money-based ship picks the wrong arm. *Alternative:* the spike's formula with the true gap — unknown at run time. *Alternative:* converting raw P2BB to dollars — inherits raw P2BB's bias.
+
 ## Risks / Trade-offs
 
 - [Calibration from `conversion` and `ltv` by product: on Lumen `conversion` returned rows only for products with trials and duplicate keys per product, `ltv` reports days 0..183 only, `cohort` has no product grouping and is not read] → first task of track C records the responses; a product-key mapping normalises store keys and UUIDs; fallback to app-wide rates; honest `not_enough_data` when nothing is available.
@@ -101,6 +103,8 @@ class Calibration: trial_to_paid: dict[str, float]; renewal_value: dict[str, lis
 p2bb(xa, xb) -> float                                  # P(mean b > mean a), normal approximation (spike)
 diff_ci(xa, xb, level=0.95) -> tuple[float, float]     # interval of mean b − mean a
 users_needed(delta, sd, level=0.95, power=0.8) -> int  # per arm, to detect delta
+diff_mean_se(xa, xb) -> tuple[float, float]            # mean b − mean a and its standard error (normal approximation)
+expected_positive(mu, sd) -> float                     # E[max(0, X)], X ~ N(mu, sd)
 
 # verdict_agent/calibration.py
 build_from_adapty(conversion: dict, ltv: dict | None, horizon: int, product_map: dict[str, str]) -> Calibration
@@ -113,7 +117,8 @@ pseudo_values(arm, cal, horizon) -> list[float]
 
 # verdict_agent/verdict.py
 check_horizon(horizon: int | None) -> int                                # 60 when None; raises below 1
-build_verdict(test, cal, horizon=None) -> dict                           # JSON per spec Output contract
+check_after_days(after_days: int | None) -> int                          # 180 when None; raises below 1
+build_verdict(test, cal, horizon=None, after_days=None) -> dict          # JSON per spec Output contract
 
 # verdict_agent/adapty_cli.py
 class AdaptyCLI(runner=subprocess.run, clock=time.monotonic, sleep=time.sleep, min_interval=0.5): run(args) -> dict; check_account(expected_company)
@@ -126,13 +131,13 @@ live_test(cli, app_id, test_id, today, products: dict | None = None, test: dict 
           trial_days: dict[str, int] | None = None) -> TestData   # reuses products / test when passed; trial_days from the calibration
 live_calibration(cli, app_id, products, horizon, until: date) -> Calibration
 run_live(test_id, today=None, horizon=None, replay: Path | None = None, env_path: Path | None = None,
-         app_id: str | None = None) -> dict   # replay: today from as_of.json when None, .env not read
+         app_id: str | None = None, after_days: int | None = None) -> dict   # replay: today from as_of.json when None, .env not read
 default_env_path() -> Path; replay_as_of(replay) -> date
 
 # verdict_agent/service.py, cli.py, mcp_server.py
-verdict(ab_test_id, horizon=None, replay=None, app_id=None, as_of=None) -> dict; safe_verdict(**kw) -> dict
-python -m verdict_agent.cli <id> [--horizon N] [--replay DIR] [--app APP_ID] [--as-of YYYY-MM-DD]
-MCP tool ab_test_verdict(ab_test_id, horizon, replay, app_id)
+verdict(ab_test_id, horizon=None, replay=None, app_id=None, as_of=None, after_days=None) -> dict; safe_verdict(**kw) -> dict
+python -m verdict_agent.cli <id> [--horizon N] [--after-days N] [--replay DIR] [--app APP_ID] [--as-of YYYY-MM-DD]
+MCP tool ab_test_verdict(ab_test_id, horizon, replay, app_id, after_days)
 ```
 
 ## Decisions kept from the first implementation

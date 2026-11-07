@@ -17,6 +17,9 @@ def test_one_cell_with_two_reps_has_every_share(dataset_path):
     assert sum(cell[v] for v in VERDICTS) == pytest.approx(1.0)
     assert cell["confirmed"] == pytest.approx(cell["right_confirmed"] + cell["wrong_confirmed"])
     assert all(0 <= cell[k] <= 1 for k in SHARES)
+    assert cell["right_ship"] + cell["wrong_ship"] >= cell["confirmed"] - 1e-9
+    assert cell["money_ship"] == pytest.approx(cell["right_ship"] + cell["wrong_ship"] - cell["confirmed"])
+    assert cell["money_wrong_ship"] <= cell["money_ship"] + 1e-9
 
 
 def test_first_safe_day_needs_half_right_and_at_most_five_percent_wrong():

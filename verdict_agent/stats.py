@@ -38,3 +38,22 @@ def users_needed(delta, sd, level=0.95, power=0.8):
     nd = NormalDist()
     z = nd.inv_cdf(1 - (1 - level) / 2) + nd.inv_cdf(power)
     return math.ceil(2 * (z * sd / delta) ** 2)
+
+
+def diff_mean_se(xa, xb):
+    na, nb = len(xa), len(xb)
+    if na < 2 or nb < 2:
+        return (sum(xb) / nb if nb else 0.0) - (sum(xa) / na if na else 0.0), math.inf
+    ma, va = _mean_var(xa)
+    mb, vb = _mean_var(xb)
+    return mb - ma, math.sqrt(va / na + vb / nb)
+
+
+def expected_positive(mu, sd):
+    if sd == 0:
+        return max(0.0, mu)
+    if math.isinf(sd):
+        return math.inf
+    nd = NormalDist()
+    z = mu / sd
+    return mu * nd.cdf(z) + sd * nd.pdf(z)

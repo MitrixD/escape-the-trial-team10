@@ -41,6 +41,19 @@ def test_horizon_flag_reaches_verdict(capsys):
     assert out["horizon_days"] == 60
 
 
+def test_after_days_flag_reaches_money(capsys):
+    code, out, _ = run(capsys, [ONBOARDING.name, "--replay", str(ONBOARDING), "--after-days", "90"])
+    assert code == 0
+    assert out["money"]["after_days"] == 90
+
+
+def test_after_days_zero_is_json_error(capsys):
+    code, out, err = run(capsys, [ONBOARDING.name, "--replay", str(ONBOARDING), "--after-days", "0"])
+    assert code == 1
+    assert out == {"error": "after_days must be at least 1"}
+    assert "Traceback" not in err
+
+
 def test_unknown_replay_dir_is_json_error(capsys, tmp_path):
     code, out, err = run(capsys, ["some-id", "--replay", str(tmp_path / "missing")])
     assert code == 1
@@ -78,7 +91,8 @@ def test_service_passes_replay_as_path(monkeypatch):
     monkeypatch.setattr(service, "run_live", lambda *a, **kw: seen.update(args=a, kw=kw) or {})
     service.verdict("abc", horizon=7, replay="/tmp/x")
     assert seen["args"] == ("abc",)
-    assert seen["kw"] == {"horizon": 7, "replay": Path("/tmp/x"), "app_id": None, "today": None}
+    assert seen["kw"] == {"horizon": 7, "replay": Path("/tmp/x"), "app_id": None, "today": None,
+                          "after_days": None}
 
 
 def test_unknown_test_error_names_the_id(capsys, tmp_path):

@@ -23,6 +23,7 @@ def test_schema_is_a_json_schema_document():
     assert set(schema["required"]) == {
         "ab_test_id", "verdict", "reason", "leader", "p2bb_expected", "p2bb_raw",
         "maturity", "horizon_days", "come_back_on", "arms", "calibration_source", "expected_gap_per_user",
+        "money", "next_action", "next_action_basis",
     }
     assert set(schema["properties"]["arms"]["items"]["required"]) == {
         "title", "users", "revenue_received", "revenue_expected_trials", "revenue_expected_renewals",
@@ -70,6 +71,9 @@ def mutate(out, change):
     lambda o: o.update(verdict="keep_running", reason="min_events"),
     lambda o: o.update(verdict="keep_running", reason="pending_revenue", come_back_on="14 Dec"),
     lambda o: o.update(verdict="not_enough_data", reason="no_calibration", come_back_on="2026-12-14"),
+    lambda o: o.update(verdict="not_enough_data", reason="min_events", next_action="come_back"),
+    lambda o: o.update(next_action="come_back", next_action_basis="money"),
+    lambda o: o.update(money=dict(o["money"], cost_until_come_back=12.0)),
     lambda o: o.pop("expected_gap_per_user"),
     lambda o: o.update(expected_gap_per_user=-0.5),
     lambda o: o["arms"][0].pop("revenue_expected_total"),
@@ -83,6 +87,7 @@ def test_checker_accepts_a_produced_verdict(confirmed):
 
 
 def test_min_events_may_carry_a_date_and_no_calibration_may_not(confirmed):
-    ok = dict(confirmed, verdict="not_enough_data", reason="min_events", come_back_on="2026-12-14")
+    ok = dict(confirmed, verdict="not_enough_data", reason="min_events", come_back_on="2026-12-14",
+              money=None, next_action="come_back")
     assert errors(ok, load_schema()) == []
     assert errors(dict(ok, reason="no_calibration", come_back_on=None), load_schema()) == []
