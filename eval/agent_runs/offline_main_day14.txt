@@ -1,0 +1,5 @@
+The verdict for "Main: 3 plans vs lifetime anchor (NA)" at day 14 is **confirmed**, with the `main_lifetime` arm (the lifetime anchor) as the leader. Both arms have 1,400 users. The lifetime arm has received $11.30 in revenue against $5.27 for the 3-plans arm, and the verdict puts the probability that it is truly best at 1.0 (p2bb) on a 60-day net-revenue-per-user goal. Its refund rate per payer is also lower (0.0089 vs 0.0185), no segment contradicted the result (14 checked), and the data is about 75% mature.
+
+The recommended next step is to stop the test and roll out the lifetime anchor, while keeping an eye on refund rate per payer. The JSON shows $0.00 money at stake and no come-back date.
+
+This is offline data, not live. The revenue figures are small in absolute terms, so treat them as the test's own scale and not as projected business revenue.

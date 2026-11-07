@@ -1,0 +1,5 @@
+The verdict for "Settings: upgrade vs lifetime anchor" at day 14 is a **tie**. This is offline data, not live. `main_lifetime` leads, but the expected probability that it beats `settings` is only 0.8353 (raw 0.7015), which isn't decisive. Each arm has 1,400 users, and the test is 0.8263 mature against a 60-day horizon.
+
+The revenue gap is tiny: 8.68 for `main_lifetime` against 8.24 for `settings`. Refund rates are fine, at 0.0199 per payer for `main_lifetime` and 0.0 for `settings`. None of the 13 segments checked showed a winner.
+
+I wouldn't ship either arm yet, and repeating the same test won't help. The tool recommends changing the lever or making the variant bolder, then measuring net revenue per user over 60 days while watching the refund rate. About $4,641 is at stake.

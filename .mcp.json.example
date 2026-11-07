@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "verdict": {
+      "command": ".venv/bin/python",
+      "args": ["-m", "verdict_agent.mcp_server"]
+    }
+  }
+}

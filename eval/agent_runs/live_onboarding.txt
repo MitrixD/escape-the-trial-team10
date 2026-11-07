@@ -1,0 +1,3 @@
+This is live data, and the verdict is **confirmed**: Variant B is the leader, and the tool's next step is to stop the test and roll B out. B has 285 users and $5.36 in revenue received. A has 254 users and $0.00 received. The tool puts the probability that B is best at 1.0, measured on net revenue per user over 60 days.
+
+Two caveats before you act. Maturity is only 0.1931, so the test has covered a small share of the 60-day horizon. The absolute revenue is also tiny, and the tool reports $0.00 at stake. B's win is clear, but the dollar impact is small so far. The tool checked no segments, so it can't say whether B wins for every audience.

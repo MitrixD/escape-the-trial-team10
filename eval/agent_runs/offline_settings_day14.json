@@ -1,0 +1,58 @@
+{
+  "ab_test_id": "Settings: upgrade vs lifetime anchor",
+  "verdict": "tie",
+  "leader": "main_lifetime",
+  "p2bb_expected": 0.8353,
+  "p2bb_raw": 0.7015,
+  "horizon_days": 60,
+  "horizon_source": "goal",
+  "maturity": 0.8263,
+  "come_back_on": null,
+  "money_at_stake_usd": 4641.15,
+  "arms": [
+    {
+      "title": "main_lifetime",
+      "users": 1400,
+      "revenue_received": 8.68,
+      "revenue_expected_trials": 0.0,
+      "revenue_expected_renewals": 0.3,
+      "warnings": [
+        {
+          "metric": "refund_rate_per_payer",
+          "value": 0.0199,
+          "vs_other": 0.0,
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "title": "settings",
+      "users": 1400,
+      "revenue_received": 8.24,
+      "revenue_expected_trials": 0.0,
+      "revenue_expected_renewals": -0.08,
+      "warnings": [
+        {
+          "metric": "refund_rate_per_payer",
+          "value": 0.0,
+          "vs_other": 0.0199,
+          "status": "ok"
+        }
+      ]
+    }
+  ],
+  "segments_checked": 13,
+  "segments_found": [],
+  "next_step": {
+    "type": "change_lever",
+    "reason": "Do not repeat the same test: change the lever or make the variant bolder.",
+    "placement_id": null,
+    "primary_metric": "net revenue per user, 60 days",
+    "watch": [
+      "refund_rate_per_payer"
+    ],
+    "alternative": null
+  },
+  "source": "offline",
+  "calibration_source": "offline"
+}
