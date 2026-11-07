@@ -11,8 +11,9 @@ KNOWN_ERRORS = (VerdictError, WrongAccount, RateLimited, ReadOnlyViolation)
 
 
 def verdict(ab_test_id: str, horizon: int | None = None, replay: str | None = None,
-            app_id: str | None = None, as_of: date | None = None) -> dict:
-    return run_live(ab_test_id, horizon=horizon, replay=Path(replay) if replay else None, app_id=app_id, today=as_of)
+            app_id: str | None = None, as_of: date | None = None, after_days: int | None = None) -> dict:
+    return run_live(ab_test_id, horizon=horizon, replay=Path(replay) if replay else None, app_id=app_id, today=as_of,
+                    after_days=after_days)
 
 
 def _log_detail(exc: Exception) -> None:

@@ -68,3 +68,27 @@ def test_users_needed_edges():
     for delta, sd in [(0.0, 1.0), (-1.0, 1.0), (1.0, -1.0)]:
         with pytest.raises(ValueError):
             users_needed(delta, sd)
+
+
+def test_expected_positive_of_standard_normal_is_density_at_zero():
+    from verdict_agent.stats import expected_positive
+    assert expected_positive(0.0, 1.0) == pytest.approx(1 / math.sqrt(2 * math.pi))
+
+
+def test_expected_positive_without_spread_is_positive_part():
+    from verdict_agent.stats import expected_positive
+    assert expected_positive(2.5, 0.0) == 2.5
+    assert expected_positive(-2.5, 0.0) == 0.0
+
+
+def test_expected_positive_far_below_zero_is_near_zero():
+    from verdict_agent.stats import expected_positive
+    assert expected_positive(-10.0, 1.0) < 1e-20
+
+
+def test_diff_mean_se_agrees_with_p2bb():
+    from statistics import NormalDist
+    from verdict_agent.stats import diff_mean_se
+    mean, se = diff_mean_se(SAMPLE_A, SAMPLE_B)
+    assert mean == pytest.approx(sum(SAMPLE_B) / 12 - sum(SAMPLE_A) / 12)
+    assert NormalDist().cdf(mean / se) == pytest.approx(p2bb(SAMPLE_A, SAMPLE_B))

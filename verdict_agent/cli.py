@@ -24,6 +24,8 @@ def _parser() -> argparse.ArgumentParser:
     parser = _Parser(prog="python -m verdict_agent.cli", description="Read-only verdict for an Adapty A/B test.")
     parser.add_argument("ab_test_id")
     parser.add_argument("--horizon", type=int)
+    parser.add_argument("--after-days", dest="after_days", type=int, metavar="N",
+                        help="days the shipped arm serves the test's traffic after the stop (default 180)")
     parser.add_argument("--replay", metavar="DIR")
     parser.add_argument("--app", dest="app_id", metavar="APP_ID", help="Adapty app id; wins over ADAPTY_APP_ID")
     parser.add_argument("--as-of", dest="as_of", type=_as_of, metavar="YYYY-MM-DD",

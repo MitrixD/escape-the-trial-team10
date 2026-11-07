@@ -9,7 +9,7 @@ from pathlib import Path
 from verdict_agent.adapty_cli import AdaptyCLI, CliError, replay_runner
 from verdict_agent.calibration import build_from_adapty, product_map_from_catalog
 from verdict_agent.model import DEFAULT_TRIAL_DAYS, Arm, Calibration, Group, TestData, VerdictError
-from verdict_agent.verdict import build_verdict, check_horizon
+from verdict_agent.verdict import build_verdict, check_after_days, check_horizon
 
 log = logging.getLogger(__name__)
 
@@ -280,8 +280,10 @@ def replay_as_of(replay: Path) -> date:
 
 
 def run_live(test_id: str, today: date | None = None, horizon: int | None = None,
-             replay: Path | None = None, env_path: Path | None = None, app_id: str | None = None) -> dict:
+             replay: Path | None = None, env_path: Path | None = None, app_id: str | None = None,
+             after_days: int | None = None) -> dict:
     horizon = check_horizon(horizon)
+    after_days = check_after_days(after_days)
     if replay is not None:
         today = today or replay_as_of(replay)
         cli = AdaptyCLI(runner=replay_runner(replay), min_interval=0)
@@ -300,4 +302,4 @@ def run_live(test_id: str, today: date | None = None, horizon: int | None = None
     cal = live_calibration(cli, app_id, catalog, horizon, until=_started_on(raw))
     test = live_test(cli, app_id, test_id, today, products=catalog, test=raw, trial_days=cal.trial_days)
     test = expire_trials(test, cal.trial_days)
-    return build_verdict(test, cal, horizon)
+    return build_verdict(test, cal, horizon, after_days)
