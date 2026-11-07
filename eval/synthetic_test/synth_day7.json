@@ -1,58 +1,28 @@
 {
-  "ab_test_id": "AI limit: annual upfront vs weekly trial",
-  "verdict": "early",
-  "leader": "weekly_trial",
-  "p2bb_expected": 0.9345,
-  "p2bb_raw": 0.0,
+  "ab_test_id": "50e46448-6692-54c6-b1e0-1b2e2fa62cdd",
+  "verdict": "keep_running",
+  "reason": "pending_revenue",
+  "leader": "annual_upfront",
+  "p2bb_expected": 0.8101,
+  "p2bb_raw": 0.9999,
+  "maturity": 0.6163,
   "horizon_days": 60,
-  "horizon_source": "parameter",
-  "maturity": 0.2449,
-  "come_back_on": "2026-11-29",
-  "money_at_stake_usd": 1890.67,
+  "come_back_on": "2026-12-30",
   "arms": [
     {
       "title": "annual_upfront",
       "users": 700,
       "revenue_received": 3.38,
       "revenue_expected_trials": 0.0,
-      "revenue_expected_renewals": -0.06,
-      "warnings": [
-        {
-          "metric": "refund_rate_per_payer",
-          "value": 0.0,
-          "vs_other": 0.0492,
-          "status": "ok"
-        }
-      ]
+      "revenue_expected_renewals": 0.02
     },
     {
       "title": "weekly_trial",
       "users": 700,
       "revenue_received": 0.51,
-      "revenue_expected_trials": 2.49,
-      "revenue_expected_renewals": 2.25,
-      "warnings": [
-        {
-          "metric": "refund_rate_per_payer",
-          "value": 0.0492,
-          "vs_other": 0.0,
-          "status": "ok"
-        }
-      ]
+      "revenue_expected_trials": 0.0,
+      "revenue_expected_renewals": 2.4
     }
   ],
-  "segments_checked": 13,
-  "segments_found": [],
-  "next_step": {
-    "type": "extend",
-    "reason": "Keep the test running until pending trials and first renewals have matured.",
-    "placement_id": null,
-    "primary_metric": "net revenue per user, 60 days",
-    "watch": [
-      "refund_rate_per_payer"
-    ],
-    "alternative": null
-  },
-  "source": "offline",
-  "calibration_source": "offline"
+  "calibration_source": "product"
 }
