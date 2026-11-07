@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Verdict Agent output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ab_test_id", "verdict", "leader", "p2bb_expected", "p2bb_raw", "horizon_days", "maturity",
+    "come_back_on", "money_at_stake_usd", "arms", "segments_checked", "segments_found", "next_step",
+    "source", "calibration_source"
+  ],
+  "properties": {
+    "ab_test_id": {"type": "string"},
+    "verdict": {"type": "string", "enum": ["not_enough_data", "confirmed", "early", "tie"]},
+    "leader": {"type": "string"},
+    "p2bb_expected": {"type": "number", "minimum": 0, "maximum": 1},
+    "p2bb_raw": {"type": "number", "minimum": 0, "maximum": 1},
+    "horizon_days": {"type": "integer", "minimum": 1},
+    "maturity": {"type": "number", "minimum": 0},
+    "come_back_on": {"type": ["string", "null"], "format": "date"},
+    "money_at_stake_usd": {"type": "number", "minimum": 0},
+    "arms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "title", "users", "revenue_received", "revenue_expected_trials",
+          "revenue_expected_renewals", "warnings"
+        ],
+        "properties": {
+          "title": {"type": "string"},
+          "users": {"type": "integer", "minimum": 0},
+          "revenue_received": {"type": "number"},
+          "revenue_expected_trials": {"type": "number"},
+          "revenue_expected_renewals": {"type": "number"},
+          "warnings": {"type": "array", "items": {"type": "object"}}
+        }
+      }
+    },
+    "segments_checked": {"type": "integer", "minimum": 0},
+    "segments_found": {"type": "array", "items": {"type": "object"}},
+    "next_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "reason", "placement_id", "primary_metric", "watch", "alternative"],
+      "properties": {
+        "type": {"type": "string", "enum": ["extend", "stop_with_winner", "next_test_same_lever", "change_lever"]},
+        "reason": {"type": "string"},
+        "placement_id": {"type": ["string", "null"]},
+        "primary_metric": {"type": "string"},
+        "watch": {"type": "array", "items": {"type": "string"}},
+        "alternative": {"type": ["object", "null"]}
+      }
+    },
+    "source": {"type": "string"},
+    "calibration_source": {"type": "string"}
+  }
+}
