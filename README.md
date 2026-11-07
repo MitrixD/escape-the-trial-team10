@@ -52,15 +52,21 @@ python3 -m venv .venv
 
 The command prints one JSON object. Options: `--horizon N` (days, default 60), `--replay DIR`, `--app APP_ID` (wins over `ADAPTY_APP_ID`) and `--as-of YYYY-MM-DD` (the day to judge the test on). Every replay bundle records its day in `as_of.json`, so the replay prints the same JSON on any day. Replay never reads `.env`.
 
-The synthetic test "annual upfront vs weekly trial" (100 users per day per variant, seed 7) is committed as replay bundles for days 7, 14 and 28. Each command prints raw P2BB next to expected P2BB:
+The synthetic test "annual upfront vs weekly trial" (100 users per day per variant, seed 7) is committed as a replay bundle for day 14. The command prints raw P2BB next to expected P2BB:
 
 ```bash
-.venv/bin/python -m verdict_agent.cli 50e46448-6692-54c6-b1e0-1b2e2fa62cdd --replay tests/fixtures/synthetic/day7 | python3 -c "import json,sys; o=json.load(sys.stdin); print(o['verdict'], o['leader'], 'raw', o['p2bb_raw'], 'expected', o['p2bb_expected'])"
 .venv/bin/python -m verdict_agent.cli 50e46448-6692-54c6-b1e0-1b2e2fa62cdd --replay tests/fixtures/synthetic/day14 | python3 -c "import json,sys; o=json.load(sys.stdin); print(o['verdict'], o['leader'], 'raw', o['p2bb_raw'], 'expected', o['p2bb_expected'])"
-.venv/bin/python -m verdict_agent.cli 50e46448-6692-54c6-b1e0-1b2e2fa62cdd --replay tests/fixtures/synthetic/day28 | python3 -c "import json,sys; o=json.load(sys.stdin); print(o['verdict'], o['leader'], 'raw', o['p2bb_raw'], 'expected', o['p2bb_expected'])"
 ```
 
-Output: day 7 `confirmed weekly_trial raw 0.0 expected 0.9774`, day 14 `raw 0.0 expected 0.9994`, day 28 `raw 0.0 expected 0.9999`. Raw P2BB of `weekly_trial` is 0.0, so the dashboard picks `annual_upfront`; expected P2BB confirms `weekly_trial`, the 60-day winner.
+Output: `confirmed weekly_trial raw 0.0 expected 0.9994`. Days 7 and 28 from the same run ([eval/synthetic_test/RESULTS.md](eval/synthetic_test/RESULTS.md)):
+
+| Day | Verdict | Leader | `p2bb_raw` | `p2bb_expected` |
+|---|---|---|---|---|
+| 7 | `confirmed` | `weekly_trial` | 0.0000 | 0.9774 |
+| 14 | `confirmed` | `weekly_trial` | 0.0000 | 0.9994 |
+| 28 | `confirmed` | `weekly_trial` | 0.0000 | 0.9999 |
+
+Raw P2BB of `weekly_trial` is 0.0, so the dashboard picks `annual_upfront`; expected P2BB confirms `weekly_trial`, the 60-day winner.
 
 Live, against your own Adapty account:
 
@@ -205,7 +211,7 @@ Plan and specs: [openspec/changes/add-verdict-agent/](openspec/changes/add-verdi
 
 ## Live data
 
-`scripts/record_fixtures.sh <ab_test_id>` records read-only Adapty responses into `tests/fixtures/live/<test_id>/` (7 calls plus `auth whoami`, under the 10-call budget) and writes `as_of.json` with the recording day. It refuses an empty `ADAPTY_EXPECTED_COMPANY` and exits 3 without recording when `adapty auth whoami` does not match it. Recorded for the Onboarding and Main tests on 2026-11-07; history window 2026-07-01 to 2026-11-06.
+`scripts/record_fixtures.sh <ab_test_id>` records read-only Adapty responses into `tests/fixtures/live/<test_id>/` (7 calls plus `auth whoami`, under the 10-call budget) and writes `as_of.json` with the recording day. It refuses an empty `ADAPTY_EXPECTED_COMPANY` and exits 3 without recording when `adapty auth whoami` does not match it. Recorded on 2026-11-07; history window 2026-07-01 to 2026-11-06. The committed bundle is the Onboarding test.
 
 - `analytics funnel`, `conversion` and `ltv` return per-product rows with `--group-by store_product_id`.
 - `analytics cohort` has no `--group-by`: it returns only the total plus one row per install month. It is not usable per product, so the tool does not read it.

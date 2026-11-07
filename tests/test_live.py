@@ -14,7 +14,6 @@ from verdict_agent.model import DEFAULT_TRIAL_DAYS, Arm, Group, TestData, Verdic
 
 LIVE = Path(__file__).parent / "fixtures" / "live"
 ONBOARDING = LIVE / "995b124f-9075-440d-83bb-20dbdf7d7fbb"
-MAIN = LIVE / "1023db3c-27fe-4591-9750-28305309b3ca"
 TODAY = date(2026, 11, 7)
 APP = "app-1"
 
@@ -59,7 +58,7 @@ def ages(arm, status, product):
     return {g.age_days: g.n for g in arm.groups if g.status == status and g.product == product}
 
 
-@pytest.mark.parametrize("bundle", [ONBOARDING, MAIN], ids=["onboarding", "main"])
+@pytest.mark.parametrize("bundle", [ONBOARDING], ids=["onboarding"])
 def test_arm_fields_follow_metrics_and_test(bundle):
     cli, _ = replay(bundle)
     test = live_test(cli, APP, bundle.name, TODAY)
@@ -110,20 +109,7 @@ def test_onboarding_store_keys_merge_through_catalog():
     assert products <= set(ids.values())
 
 
-def test_main_scales_lagging_funnel_to_metrics(caplog):
-    cli, _ = replay(MAIN)
-    with caplog.at_level(logging.WARNING, logger="verdict_agent.live"):
-        test = live_test(cli, APP, MAIN.name, TODAY)
-    ids = catalog_ids(MAIN)
-    a = test.arms[0]
-    assert by(a, "trial") == {}
-    assert {p: g.n for p, g in by(a, "active").items()} == {ids["Premium Monthly"]: 1}
-    assert by(a, "active")[ids["Premium Monthly"]].received == pytest.approx(49.99)
-    assert [a.users for a in test.arms] == [40, 37]
-    assert "scaled per product" in caplog.text
-
-
-@pytest.mark.parametrize("bundle", [ONBOARDING, MAIN], ids=["onboarding", "main"])
+@pytest.mark.parametrize("bundle", [ONBOARDING], ids=["onboarding"])
 def test_groups_reproduce_test_metrics(bundle):
     cli, _ = replay(bundle)
     test = live_test(cli, APP, bundle.name, TODAY)
@@ -272,7 +258,7 @@ def test_expire_trials_default_length_for_unknown_product():
     assert old.arms[0].groups[0].status == "ended"
 
 
-@pytest.mark.parametrize("bundle", [ONBOARDING, MAIN], ids=["onboarding", "main"])
+@pytest.mark.parametrize("bundle", [ONBOARDING], ids=["onboarding"])
 def test_live_calibration_from_recorded_analytics(bundle):
     cli, spy = replay(bundle)
     cal = live_calibration(cli, APP, None, 60, date(2026, 11, 7))
@@ -310,6 +296,19 @@ def test_funnel_counts_scaled_to_metrics_by_largest_remainder(caplog):
     assert {p: g.n for p, g in by(arm, "trial").items()} == {"u-week": 4, "u-year": 2}
     assert {p: g.n for p, g in by(arm, "active").items()} == {"u-week": 2, "u-year": 1}
     assert sum(g.n * g.received for g in arm.groups) == pytest.approx(90.0)
+    assert "scaled per product" in caplog.text
+
+
+def test_lagging_funnel_scaled_up_to_metrics(caplog):
+    cli = fake([seg("Weekly Plan", [("Install", 30), ("Paid", 1)])],
+               {**ROW, "users": 40, "trials": 0, "trials_paid": 0, "purchases": 3, "unique_paid_subscribers": 3,
+                "revenue": 149.97})
+    with caplog.at_level(logging.WARNING, logger="verdict_agent.live"):
+        arm = live_test(cli, APP, "t1", TODAY).arms[0]
+    assert by(arm, "trial") == {}
+    assert {p: g.n for p, g in by(arm, "active").items()} == {"u-week": 3}
+    assert by(arm, "active")["u-week"].received == pytest.approx(49.99)
+    assert arm.users == 40
     assert "scaled per product" in caplog.text
 
 

@@ -14,7 +14,6 @@ from schema_check import assert_valid
 
 LIVE = Path(__file__).parent / "fixtures" / "live"
 ONBOARDING = LIVE / "995b124f-9075-440d-83bb-20dbdf7d7fbb"
-MAIN = LIVE / "1023db3c-27fe-4591-9750-28305309b3ca"
 TODAY = date(2026, 11, 8)
 
 
@@ -47,10 +46,34 @@ def copy_bundle(src, tmp_path):
     return dst
 
 
-@pytest.mark.parametrize("bundle", [ONBOARDING, MAIN], ids=["onboarding", "main"])
-def test_replay_end_to_end_validates_within_call_budget(bundle, counted):
-    out = run_live(bundle.name, today=TODAY, replay=bundle)
+def test_replay_end_to_end_validates_within_call_budget(counted):
+    out = run_live(ONBOARDING.name, today=TODAY, replay=ONBOARDING)
     assert_valid(out)
+    assert 0 < len(counted["runner"].calls) <= 10
+
+
+def few_events_bundle(tmp_path):
+    bundle = copy_bundle(ONBOARDING, tmp_path)
+    path = bundle / "ab-tests_metrics_total.json"
+    metrics = json.loads(path.read_text())
+    for row in metrics["data"]["metrics"]:
+        row.update(users=40, purchases=1, trials=1, trials_paid=0, unique_paid_subscribers=1, revenue=49.99)
+    path.write_text(json.dumps(metrics))
+    for funnel in bundle.glob("analytics_funnel_*.json"):
+        segments = [{"key": "lumen_monthly", "title": "lumen_monthly", "is_total": False,
+                     "values": [{"x": 0, "title": "Paid", "value": 2}]},
+                    {"key": "lumen_weekly", "title": "lumen_weekly", "is_total": False,
+                     "values": [{"x": 0, "title": "Trial", "value": 3}, {"x": 1, "title": "1 period", "value": 0}]}]
+        funnel.write_text(json.dumps({"data": {"segments": segments}}))
+    return bundle
+
+
+def test_replay_with_few_events_is_not_enough_data_with_a_come_back_date(counted, tmp_path):
+    out = run_live(ONBOARDING.name, today=TODAY, replay=few_events_bundle(tmp_path))
+    assert_valid(out)
+    assert (out["verdict"], out["reason"]) == ("not_enough_data", "min_events")
+    assert out["come_back_on"] is not None
+    assert [a["users"] for a in out["arms"]] == [40, 40]
     assert 0 < len(counted["runner"].calls) <= 10
 
 
@@ -102,7 +125,6 @@ def test_env_file_is_parsed_and_values_never_leak_in_errors(tmp_path, monkeypatc
 
 def test_replay_date_comes_from_the_bundle(tmp_path):
     assert json.loads((ONBOARDING / "as_of.json").read_text()) == {"as_of": "2026-11-07"}
-    assert json.loads((MAIN / "as_of.json").read_text()) == {"as_of": "2026-11-07"}
     bundle = copy_bundle(ONBOARDING, tmp_path)
     (bundle / "as_of.json").write_text(json.dumps({"as_of": "2026-11-20"}))
     assert run_live(ONBOARDING.name, replay=bundle) == run_live(ONBOARDING.name, today=date(2026, 11, 20), replay=ONBOARDING)

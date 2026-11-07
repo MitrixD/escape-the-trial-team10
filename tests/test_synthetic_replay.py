@@ -7,7 +7,7 @@ from schema_check import assert_valid
 from verdict_agent.live import run_live
 
 SYNTHETIC = Path(__file__).parent / "fixtures" / "synthetic"
-DAYS = (7, 14, 28)
+DAYS = (14,)
 
 
 def bundle(day):

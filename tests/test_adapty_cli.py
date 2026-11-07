@@ -7,8 +7,8 @@ import pytest
 from verdict_agent.adapty_cli import AdaptyCLI, CliError, RateLimited, ReadOnlyViolation, WrongAccount, replay_runner
 
 COMPANY = "Synthetic Co"
-LIVE = Path(__file__).parent / "fixtures" / "live"
-BUNDLES = sorted(p for p in LIVE.iterdir() if p.is_dir())
+FIXTURES = Path(__file__).parent / "fixtures"
+BUNDLES = sorted(p for kind in ("live", "synthetic") for p in (FIXTURES / kind).iterdir() if p.is_dir())
 
 
 class FakeRunner:
