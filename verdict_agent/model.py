@@ -41,9 +41,13 @@ class TestData:
 
 
 def _value_at(curve: list[float], days: float) -> float:
-    if days < 0:
-        return 0.0
-    return curve[min(int(days), len(curve) - 1)]
+    if days <= 0:
+        return curve[0]
+    last = len(curve) - 1
+    if days >= last:
+        return curve[last]
+    lo = int(days)
+    return curve[lo] + (curve[lo + 1] - curve[lo]) * (days - lo)
 
 
 @dataclass
@@ -63,20 +67,22 @@ class Calibration:
         return self.app_trial_to_paid if c is None else c
 
     def expected(self, status: str, product: str, age_days: float, horizon: float) -> float:
+        if status not in ("trial", "active") or age_days >= horizon:
+            return 0.0
         curve = self._curve(product)
-        if status == "active":
-            return _value_at(curve, horizon - age_days) if curve else 0.0
+        if not curve:
+            return 0.0
+        gain = _value_at(curve, horizon) - _value_at(curve, age_days)
         if status == "trial":
-            conv = self._conversion(product)
-            if conv is None or not curve:
-                return 0.0
-            length = self.trial_days.get(product, DEFAULT_TRIAL_DAYS)
-            return conv * _value_at(curve, horizon - age_days - length)
-        return 0.0
+            return max(gain, 0.0)
+        conv = self._conversion(product)
+        if self.trial_days.get(product, DEFAULT_TRIAL_DAYS) > 0 and conv:
+            return gain / conv
+        return gain
 
     def source_for(self, product: str) -> str:
-        if product in self.trial_to_paid or self.renewal_value.get(product):
+        if self.renewal_value.get(product):
             return "product"
-        if self.app_trial_to_paid is not None or self.app_renewal_value:
+        if self.app_renewal_value:
             return "app"
         return "none"

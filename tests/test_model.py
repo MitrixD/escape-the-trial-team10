@@ -26,28 +26,59 @@ def test_arm_users_sums_group_sizes():
     assert Arm("B", [], 0, 0, 0, 0.0).users == 0
 
 
-def test_expected_trial_uses_conversion_and_shifted_curve():
-    c = cal(trial_to_paid={"p": 0.5}, renewal_value={"p": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]},
-            trial_days={"p": 3})
-    assert c.expected("trial", "p", 2, 10) == 0.5 * 5
+LINEAR = [float(d) for d in range(11)]
 
 
-def test_expected_trial_default_length_7():
-    c = cal(trial_to_paid={"p": 1.0}, renewal_value={"p": list(range(100))})
-    assert c.expected("trial", "p", 1, 20) == 12
+def test_expected_trial_is_curve_gain():
+    c = cal(trial_to_paid={"p": 0.5}, renewal_value={"p": LINEAR}, trial_days={"p": 3})
+    assert c.expected("trial", "p", 2, 10) == 8
 
 
-def test_expected_active_and_clamp():
-    c = cal(trial_to_paid={"p": 1.0}, renewal_value={"p": [0, 1, 2]})
-    assert c.expected("active", "p", 5, 10) == 2
-    assert c.expected("active", "p", 9, 10) == 1
+def test_expected_trial_never_negative():
+    c = cal(trial_to_paid={"p": 0.5}, renewal_value={"p": [5.0, 4.0, 3.0]}, trial_days={"p": 3})
+    assert c.expected("trial", "p", 0, 2) == 0
 
 
-def test_expected_negative_remaining_is_zero():
-    c = cal(trial_to_paid={"p": 1.0}, renewal_value={"p": [0, 1, 2]})
+def test_expected_active_with_trial_divides_by_conversion():
+    c = cal(trial_to_paid={"p": 0.5}, renewal_value={"p": LINEAR}, trial_days={"p": 3})
+    assert c.expected("active", "p", 2, 10) == 16
+
+
+def test_expected_active_without_trial_is_curve_gain():
+    c = cal(renewal_value={"p": LINEAR}, trial_days={"p": 0}, app_trial_to_paid=0.5)
+    assert c.expected("active", "p", 2, 10) == 8
+
+
+def test_expected_active_conversion_falls_back_to_app():
+    c = cal(renewal_value={"p": LINEAR}, trial_days={"p": 3}, app_trial_to_paid=0.25)
+    assert c.expected("active", "p", 2, 10) == 32
+
+
+def test_expected_active_with_trial_but_no_conversion_is_curve_gain():
+    c = cal(renewal_value={"p": LINEAR}, trial_days={"p": 3})
+    assert c.expected("active", "p", 2, 10) == 8
+
+
+def test_expected_active_may_be_negative_on_falling_curve():
+    c = cal(renewal_value={"p": [5.0, 4.0, 3.0]}, trial_days={"p": 0})
+    assert c.expected("active", "p", 0, 2) == -2
+
+
+def test_expected_fractional_age_interpolates():
+    c = cal(renewal_value={"p": LINEAR}, trial_days={"p": 0})
+    assert c.expected("active", "p", 2.5, 10) == 7.5
+
+
+def test_expected_horizon_past_curve_is_flat():
+    c = cal(renewal_value={"p": [0.0, 1.0, 2.0]}, trial_days={"p": 0})
+    assert c.expected("active", "p", 1, 10) == 1
+
+
+def test_expected_past_horizon_is_zero():
+    c = cal(trial_to_paid={"p": 1.0}, renewal_value={"p": LINEAR}, trial_days={"p": 3})
     assert c.expected("active", "p", 10, 10) == 0
     assert c.expected("active", "p", 12, 10) == 0
-    assert c.expected("trial", "p", 5, 10) == 0
+    assert c.expected("trial", "p", 12, 10) == 0
 
 
 def test_expected_none_and_ended_zero():
@@ -58,12 +89,12 @@ def test_expected_none_and_ended_zero():
 
 def test_expected_fallback_to_app():
     c = cal(app_trial_to_paid=0.2, app_renewal_value=[0, 10, 20], source="app")
-    assert c.expected("trial", "x", 0, 8) == 0.2 * 10
-    assert c.expected("active", "x", 0, 8) == 20
+    assert c.expected("trial", "x", 0, 2) == 20
+    assert c.expected("active", "x", 0, 2) == 100
 
 
 def test_expected_empty_product_curve_falls_back():
-    c = cal(renewal_value={"p": []}, app_trial_to_paid=0.5, app_renewal_value=[0, 4])
+    c = cal(renewal_value={"p": []}, trial_days={"p": 0}, app_renewal_value=[0, 4])
     assert c.expected("active", "p", 0, 5) == 4
 
 
@@ -81,3 +112,4 @@ def test_source_for():
     assert c.source_for("p") == "product"
     assert c.source_for("q") == "app"
     assert cal().source_for("q") == "none"
+    assert cal(trial_to_paid={"p": 0.5}, app_trial_to_paid=0.5).source_for("p") == "none"
