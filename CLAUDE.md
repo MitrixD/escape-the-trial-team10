@@ -9,9 +9,6 @@
   2. What changes for them: money, time or risk?
   3. Why does it need Adapty? If it uses AI, why does it need AI?
   4. What is the smallest version that proves it by Sunday 15:00?
-- Research notes (Russian):
-  - [research/01-adapty-product-report.md](research/01-adapty-product-report.md): feature catalog, persona scenarios, API map and gaps, account snapshot, CLI rough edges.
-  - [research/02-extension-ideas.md](research/02-extension-ideas.md): candidate ideas checked against the judges' questions.
 - The team talks in Russian. Code, comments, commit messages and this file are in English.
 
 ## Adapty's object model
