@@ -12,7 +12,9 @@ Say:
 Do: in Claude Code ask "Use the ab_test_verdict tool for live test 995b124f-9075-440d-83bb-20dbdf7d7fbb and explain the verdict to a growth manager in 3 sentences."
 
 Say:
-"This is live. The tool reads Adapty through the CLI, read-only, about five calls. Arm A has received nothing yet; its users are still in trials. The tool adds the expected revenue from those trials and from renewals. B is still ahead: verdict confirmed, P2BB 1.0, maturity 0.19. So here the dashboard is right, and we can say so at day one instead of waiting two weeks. The calibration comes from the offline data, without this test's users."
+"This is live. The tool reads Adapty through the CLI, read-only, about five calls. Much of arm A's revenue has not arrived yet; its users are still in trials. The tool adds the expected revenue from those trials and from renewals. B is still ahead: verdict confirmed, P2BB [read from the output], maturity [read from the output]. So here the dashboard is right, and we can say so early instead of waiting two weeks. The calibration comes from the offline data, without this test's users."
+
+Expected: verdict `confirmed` for B, P2BB about 0.9999. Maturity and per-arm revenue change every day the test runs: read them from the output, do not quote numbers from this script.
 
 ## 1:30–2:15 OFFLINE: Settings, the hard case
 
@@ -39,7 +41,7 @@ Dry run read aloud at about 130 words per minute: 333 spoken words, about 2 min 
 
 | Number | Source |
 |---|---|
-| Onboarding: confirmed B, P2BB 1.0, maturity 0.19, about 5 calls | live run, `tests/fixtures/live_run_onboarding.json` |
+| Onboarding: expected confirmed B, P2BB about 0.9999, about 5 calls; maturity and per-arm numbers read live | live run; recorded day-0 run in `tests/fixtures/live_run_onboarding.json` |
 | Settings day 14: tie, P2BB 0.84, maturity 0.83, 13 segments | `eval/agent_runs/offline_settings_day14.json` |
 | wrong confirmed 0%, right confirmed 43%, 150 runs per cell | `eval/RESULTS.md`, Settings, day 14, 100 users/day |
 | 800 fake segments, 0 reported | `eval/RESULTS.md` |

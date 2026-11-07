@@ -24,23 +24,22 @@ Follow this section for every behaviour change; for typos and doc wording just e
 
 **Tooling check (do this first)**
 - The OpenSpec CLI is required: `npm install -g @fission-ai/openspec@latest`. The `openspec-*` skills live in `.claude/skills/`. Run `openspec update` after a CLI upgrade: it refreshes the generated skills in `.claude/skills`.
-- Superpowers is optional. It is installed if `superpowers:*` skills appear in your available skills.
-- If installed and the user has not said which flow, ask once: "Superpowers is installed. Use the full flow (brainstorming + plan) or OpenSpec only?". If not installed, use Flow B without asking.
+- If `superpowers:*` skills appear in your available skills, use Flow A without asking. Otherwise use Flow B.
 - `add-verdict-agent` is not archived while `openspec/changes/add-verdict-agent/` exists (`openspec list` shows it). Use `openspec-update-change` on it only for changes to the Verdict Agent; use `openspec-propose` for a new, unrelated capability or after the change is archived.
 
-**Flow A: Superpowers installed and the user wants it**
+**Flow A: Superpowers is installed**
 1. `superpowers:brainstorming`
 2. OpenSpec change: `openspec-update-change` on `add-verdict-agent` while it is not archived; `openspec-propose` for a new change after it is archived.
 3. `superpowers:writing-plans`: append tasks to `docs/superpowers/plans/2026-11-07-verdict-agent.md`, or write a new plan in `docs/superpowers/plans/YYYY-MM-DD-<name>.md`.
 4. Implement with `superpowers:test-driven-development`.
 5. `openspec validate <change> --strict`, then open the PR.
 
-**Flow B: no Superpowers, or the user does not want it**
+**Flow B: Superpowers is not installed**
 1. `openspec-explore`
 2. `openspec-update-change` or `openspec-propose`
 3. `openspec-apply-change` (tasks.md is the plan)
 4. `openspec validate <change> --strict`, then open the PR.
-- Do not suggest installing Superpowers unless the user asks.
+- Do not mention Superpowers or suggest installing it.
 
 **Both flows**
 - The rule in `openspec/config.yaml` applies: every implementation task starts with a failing test.

@@ -11,7 +11,7 @@ Team 10 project for the Adapty First Commit hackathon in Belgrade, 7–8 Novembe
 
 | Verdict | Rule | Next step |
 |---|---|---|
-| `not_enough_data` | Fewer than 30 purchases or trials per arm | Keep running; date when the minimum is reached |
+| `not_enough_data` | Fewer than 30 purchases plus trials per arm | Keep running; date when the minimum is reached |
 | `confirmed` | P2BB on expected revenue ≥ 95% | Stop with this winner |
 | `early` | P2BB < 95%, received revenue < 80% of expected | Extend to the date trials and the first renewal mature |
 | `tie` | P2BB < 95%, revenue mature | Change the lever or make the variant bolder |
@@ -26,7 +26,9 @@ python3 -m venv .venv
 cp .env.example .env   # fill in LUMEN_APP_ID, ADAPTY_EXPECTED_COMPANY, VERDICT_DATASET
 ```
 
-`VERDICT_DATASET` is the folder with the offline Lumen dataset (`adapty-seed-data-hack/data/offline`).
+`VERDICT_DATASET` is the folder with the offline Lumen dataset. Get it with `git clone https://github.com/kpotehin/adapty-seed-data-hack` and point `VERDICT_DATASET` to its `data/offline` folder.
+
+Live mode also needs the Adapty CLI installed and logged in: `npm install -g adapty`, then `adapty auth login`.
 
 **Live** (needs `adapty auth login` to the team account; about 5 read-only Adapty calls, 0.5 s apart):
 
@@ -64,7 +66,7 @@ export VERDICT_DATASET=/path/to/adapty-seed-data-hack/data/offline
 | Guardrail: trial cancels within one product | No | Yes |
 | Segments | No: live metrics have no per-attribute split | Yes |
 
-Only read commands run against Adapty (`auth whoami`, `* get`, `* list`, `ab-tests metrics *`, `analytics *`); anything else raises before running. The tool checks the logged-in company first, never reads individual profiles, and stops on 429. The live run on the Onboarding test is recorded in `tests/fixtures/live_run_onboarding.json`; the raw read-only responses are in `tests/fixtures/live/`.
+Only read commands run against Adapty (`auth whoami`, `* get`, `* list`, `ab-tests metrics *`, `analytics *`); anything else raises before running. The tool checks the logged-in company first, never reads individual profiles, and stops on 429. Live assumes all users installed on the test's start day (true for Lumen's seeded tests) and treats unconverted trials past their trial length as ended. The live run on the Onboarding test is recorded in `tests/fixtures/live_run_onboarding.json`; the raw read-only responses are in `tests/fixtures/live/`.
 
 `analytics conversion --conversion trial-paid --group-by store_product_id` returned per-product rows, but only for products with trials so far, and the same product appears under a store key and a product UUID. It is recorded for comparison and not used in the calibration yet.
 
@@ -104,11 +106,12 @@ Limits:
 - Resamples draw with replacement from small populations (Settings: 854 and 929 users per arm). At 100 users per day the sample outgrows the population by day 28, so `confirmed` rates are an upper bound.
 - The truth horizon is 60 days, while Adapty's goal is 12 months; the dataset covers at most 120 days, so second payments of annual plans are missing.
 - P2BB uses a normal approximation, not Adapty's lognormal model with zeros.
+- Live P2BB is approximate: live data has no within-group variance, so all users of a group get the same value.
 - Three synthetic tests only.
 
 **Known limitation.** On Settings the verdict is `tie` in 57% of day-14 runs, although the 60-day truth favours `main_lifetime`. `tie` currently means "the difference is smaller than this data can prove", not "the variants are equal", and its advice "change the lever" can mislead on an underpowered test. Splitting `tie` into a true tie (effect below the minimum detectable effect) and "keep running" is the first next step.
 
-The live Onboarding test gives `confirmed` for B with P2BB 1.0 at maturity 0.19. The dashboard is right on this test: B wins at 60 and 90 days in the offline data.
+The recorded live run of the Onboarding test (day 0) gives `confirmed` for B with P2BB 1.0 at maturity 0.19; probabilities are now floored to 4 decimals, so the same run prints 0.9999. The dashboard is right on this test: B wins at 60 and 90 days in the offline data.
 
 ## Next steps
 
