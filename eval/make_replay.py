@@ -326,6 +326,18 @@ def _cohort(window: tuple[date, date]) -> dict:
                                "period_unit": "month", "revenue_basis": "gross", "period_type": "renewals"}}}
 
 
+@lru_cache(maxsize=8)
+def _test_independent_files(dataset_dir: str, test_name: str) -> tuple[tuple[str, str], ...]:
+    users = _load(dataset_dir)
+    history = [u for u in users if u.test != test_name]
+    window = _window(users)
+    files = {"products_list.json": _products(users),
+             "analytics_conversion_trial-paid.json": _conversion(history, window),
+             "analytics_cohort.json": _cohort(window),
+             "analytics_ltv.json": _ltv(history, window)}
+    return tuple((name, json.dumps(body, indent=2) + "\n") for name, body in files.items())
+
+
 def _write(out_dir: Path, name: str, body: dict) -> None:
     (out_dir / name).write_text(json.dumps(body, indent=2) + "\n")
 
@@ -350,8 +362,6 @@ def make_replay(dataset_dir: Path, test_name: str, day: int, traffic: int, out_d
     goal = "Find which arm maximises revenue per user"
     weight = 100 // len(pop)
     flows = [{"flow_id": arm, "flow_name": arm, "weight": weight, "title": arm, "variation_id": arm} for arm in pop]
-    history = [u for u in users if u.test != test_name]
-    window = _window(users)
 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -368,12 +378,10 @@ def make_replay(dataset_dir: Path, test_name: str, day: int, traffic: int, out_d
                     "vars": {}, "created_at": started_at},
         "state": "live", "started_at": started_at, "stopped_at": None, "active_trials_rate": 0,
     }})
-    _write(out_dir, "products_list.json", _products(users))
     for arm, seen in observed.items():
         _write(out_dir, f"analytics_funnel_{arm}.json", _funnel(arm, placement, start, as_of, seen))
-    _write(out_dir, "analytics_conversion_trial-paid.json", _conversion(history, window))
-    _write(out_dir, "analytics_cohort.json", _cohort(window))
-    _write(out_dir, "analytics_ltv.json", _ltv(history, window))
+    for name, text in _test_independent_files(str(dataset_dir), test_name):
+        (out_dir / name).write_text(text)
     return out_dir
 
 
