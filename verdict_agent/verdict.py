@@ -1,3 +1,4 @@
+import logging
 import re
 from datetime import timedelta
 
@@ -5,6 +6,8 @@ from verdict_agent.calibration import Calibration
 from verdict_agent.estimator import estimate, pseudo_values
 from verdict_agent.model import Arm, TestData
 from verdict_agent.stats import p2bb
+
+log = logging.getLogger(__name__)
 
 MIN_EVENTS = 30
 P_CONFIRM = 0.95
@@ -43,7 +46,7 @@ def resolve_horizon(horizon: int | None, goal: str) -> tuple[int, str]:
     if horizon is not None:
         return horizon, "parameter"
     days = _goal_days(goal)
-    return (DEFAULT_HORIZON, "default") if days is None else (days, "goal")
+    return (DEFAULT_HORIZON, "default") if days is None else (min(days, MAX_HORIZON), "goal")
 
 
 def _events(arm: Arm) -> int:
@@ -81,6 +84,8 @@ def build_verdict(
     horizon: int | None = None,
 ) -> dict:
     horizon, horizon_source = resolve_horizon(horizon, test.goal)
+    if horizon_source == "goal" and _goal_days(test.goal) > MAX_HORIZON:
+        log.warning("goal horizon %d days is above %d; clamped to %d", _goal_days(test.goal), MAX_HORIZON, MAX_HORIZON)
     estimates = [estimate(arm, cal) for arm in test.arms]
     totals = [e.total for e in estimates]
     leader_i = max(range(len(test.arms)), key=lambda i: (totals[i], -i))

@@ -17,10 +17,13 @@ class WrongAccount(Exception):
 
 
 class CliError(Exception):
-    def __init__(self, exit_code: int, stderr: str):
+    def __init__(self, exit_code: int, stderr: str, context: str | None = None):
         self.exit_code = exit_code
         self.stderr = stderr[:STDERR_LIMIT]
-        super().__init__(f"adapty exited with code {exit_code}: {self.stderr}")
+        self.context = context
+        base = f"adapty exited with code {exit_code}"
+        self.public = f"{context}: {base}" if context else base
+        super().__init__(f"{self.public}: {self.stderr}")
 
 
 class RateLimited(Exception):
@@ -102,4 +105,7 @@ class AdaptyCLI:
             raise WrongAccount("expected Adapty company is not set (ADAPTY_EXPECTED_COMPANY)")
         whoami = self.run(["auth", "whoami"])
         if expected_company not in set(_strings(whoami)):
-            raise WrongAccount(f"Adapty CLI is not logged in to the expected company {expected_company!r}")
+            raise WrongAccount(
+                "Adapty CLI is not logged in to the expected company; "
+                "run `adapty auth whoami` and check ADAPTY_EXPECTED_COMPANY in .env"
+            )

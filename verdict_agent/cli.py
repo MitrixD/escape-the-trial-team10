@@ -6,7 +6,7 @@ import sys
 from verdict_agent import service
 from verdict_agent.adapty_cli import CliError, RateLimited, ReadOnlyViolation, WrongAccount
 
-KNOWN_ERRORS = (ValueError, WrongAccount, RateLimited, CliError, ReadOnlyViolation)
+KNOWN_ERRORS = (ValueError, WrongAccount, RateLimited, ReadOnlyViolation)
 
 
 class _Parser(argparse.ArgumentParser):
@@ -33,8 +33,17 @@ def safe_verdict(**kwargs) -> dict:
         return service.verdict(**kwargs)
     except KNOWN_ERRORS as exc:
         return {"error": str(exc)}
+    except CliError as exc:
+        _log_detail(exc)
+        return {"error": exc.public}
     except Exception as exc:
-        return {"error": f"unexpected {type(exc).__name__}: {exc}"}
+        _log_detail(exc)
+        return {"error": f"unexpected {type(exc).__name__}"}
+
+
+def _log_detail(exc: Exception) -> None:
+    detail = " ".join(str(exc).split())
+    print(f"verdict-agent: {type(exc).__name__}: {detail}", file=sys.stderr)
 
 
 def main(argv: list[str] | None = None) -> int:

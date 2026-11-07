@@ -88,6 +88,13 @@ def test_cli_error():
         cli.run(["ab-tests", "get", "x"])
     assert err.value.exit_code == 2
     assert err.value.stderr == "x" * 300
+    assert err.value.public == "adapty exited with code 2"
+
+
+def test_cli_error_public_message_has_context_without_stderr():
+    err = CliError(1, "secret detail", context="cannot read A/B test abc")
+    assert err.public == "cannot read A/B test abc: adapty exited with code 1"
+    assert "secret detail" in str(err) and "secret detail" not in err.public
 
 
 def test_check_account_passes_on_any_string_value():
@@ -104,7 +111,8 @@ def test_wrong_account(expected):
     assert COMPANY not in str(err.value)
     assert "dev@example.test" not in str(err.value)
     if expected:
-        assert expected in str(err.value)
+        assert expected not in str(err.value)
+        assert "adapty auth whoami" in str(err.value) and "ADAPTY_EXPECTED_COMPANY" in str(err.value)
 
 
 def test_exit_4_without_retry_after_still_stops():

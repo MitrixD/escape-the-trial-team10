@@ -189,6 +189,10 @@ def run_offline(
     path: Path, test_name: str, day: int, traffic: int, seed: int = 7, horizon: int | None = None,
 ) -> dict:
     check_horizon(horizon)
+    if day < 1:
+        raise ValueError("day must be at least 1")
+    if traffic < 1:
+        raise ValueError("traffic must be at least 1")
     resolved = DEFAULT_HORIZON if horizon is None else horizon
     users, trial_days = _cached_users(path, resolved)
     pop = _population(users, test_name)

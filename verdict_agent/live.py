@@ -131,7 +131,7 @@ def live_test(cli: AdaptyCLI, app_id: str, test_id: str, today: date, cal: Calib
     try:
         test = cli.run(["ab-tests", "get", test_id, "--app", app_id])
     except CliError as exc:
-        raise CliError(exc.exit_code, f"cannot read A/B test {test_id}: {exc.stderr}") from None
+        raise CliError(exc.exit_code, exc.stderr, context=f"cannot read A/B test {test_id}") from None
     test = test.get("data", test)
     placement_id = (test.get("placement") or {}).get("placement_id")
     started_on = datetime.fromisoformat(test["started_at"].replace("Z", "+00:00")).date()

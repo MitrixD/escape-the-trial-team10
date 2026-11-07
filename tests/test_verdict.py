@@ -296,3 +296,14 @@ def test_horizon_out_of_range(horizon):
 def test_horizon_range_edges(horizon):
     test, cal = fake()
     assert build_verdict(test, cal, horizon=horizon)["horizon_days"] == horizon
+
+
+def test_goal_horizon_above_120_is_clamped(caplog):
+    import logging
+
+    test, cal = fake()
+    test.goal = "Maximise 365-day revenue"
+    with caplog.at_level(logging.WARNING, logger="verdict_agent.verdict"):
+        out = build_verdict(test, cal)
+    assert out["horizon_days"] == 120 and out["horizon_source"] == "goal"
+    assert any("365" in r.getMessage() and "120" in r.getMessage() for r in caplog.records)

@@ -68,8 +68,9 @@ def test_unknown_live_id_prints_error(capsys, env_file, fake_adapty):
     env_file()
     code, out, err = run(capsys, ["live", UNKNOWN_ID])
     assert code == 1
-    assert set(out) == {"error"} and UNKNOWN_ID in out["error"]
-    assert "Traceback" not in err
+    assert out == {"error": f"cannot read A/B test {UNKNOWN_ID}: adapty exited with code 1"}
+    assert "A/B test not found" in err and "Traceback" not in err
+    assert len(err.strip().splitlines()) == 1
 
 
 def test_horizon_out_of_range_errors_before_adapty(capsys, env_file, fake_adapty):
@@ -85,7 +86,8 @@ def test_wrong_account_prints_error(capsys, tmp_path, monkeypatch, fake_adapty):
     path.write_text(f"LUMEN_APP_ID={APP}\nADAPTY_EXPECTED_COMPANY=Another Company\nVERDICT_DATASET=/nowhere\n")
     monkeypatch.setattr(service, "ENV_PATH", path)
     code, out, _ = run(capsys, ["live", ONB_ID])
-    assert code == 1 and "Another Company" in out["error"]
+    assert code == 1 and "Another Company" not in out["error"]
+    assert out["error"].startswith("Adapty CLI is not logged in to the expected company")
 
 
 def test_unknown_offline_test_prints_error(capsys, env_file, monkeypatch):
@@ -104,3 +106,26 @@ def test_service_needs_exactly_one_source():
         service.verdict()
     with pytest.raises(ValueError):
         service.verdict(ab_test_id=ONB_ID, offline_test=SETTINGS)
+
+
+def test_unexpected_error_hides_detail(capsys, monkeypatch):
+    monkeypatch.setattr(service, "verdict", functools.partial(_raise, KeyError("/private/dataset/path")))
+    code, out, err = run(capsys, ["offline", SETTINGS])
+    assert code == 1 and out == {"error": "unexpected KeyError"}
+    assert "/private/dataset/path" in err and "Traceback" not in err
+    assert len(err.strip().splitlines()) == 1
+
+
+def test_rate_limited_keeps_retry_after(capsys, monkeypatch):
+    from verdict_agent.adapty_cli import RateLimited
+
+    monkeypatch.setattr(service, "verdict", functools.partial(_raise, RateLimited(12)))
+    code, out, _ = run(capsys, ["live", ONB_ID])
+    assert code == 1 and "retry after 12 seconds" in out["error"]
+
+
+@pytest.mark.parametrize("flag,message", [("--day", "day must be at least 1"), ("--traffic", "traffic must be at least 1")])
+def test_day_and_traffic_must_be_positive(capsys, env_file, flag, message):
+    env_file()
+    code, out, _ = run(capsys, ["offline", SETTINGS, flag, "0"])
+    assert code == 1 and out == {"error": message}
