@@ -18,8 +18,8 @@
       "warnings": [
         {
           "metric": "refund_rate_per_payer",
-          "value": 0.0189,
-          "vs_other": 0.009,
+          "value": 0.0185,
+          "vs_other": 0.0089,
           "status": "ok"
         }
       ]
@@ -33,8 +33,8 @@
       "warnings": [
         {
           "metric": "refund_rate_per_payer",
-          "value": 0.009,
-          "vs_other": 0.0189,
+          "value": 0.0089,
+          "vs_other": 0.0185,
           "status": "ok"
         }
       ]

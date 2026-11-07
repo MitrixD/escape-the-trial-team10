@@ -18,9 +18,9 @@
       "warnings": [
         {
           "metric": "refund_rate_per_payer",
-          "value": 0.0203,
+          "value": 0.0199,
           "vs_other": 0.0,
-          "status": "worse"
+          "status": "ok"
         }
       ]
     },
@@ -34,7 +34,7 @@
         {
           "metric": "refund_rate_per_payer",
           "value": 0.0,
-          "vs_other": 0.0203,
+          "vs_other": 0.0199,
           "status": "ok"
         }
       ]
@@ -50,9 +50,7 @@
     "watch": [
       "refund_rate_per_payer"
     ],
-    "alternative": {
-      "targets": "refund_rate_per_payer"
-    }
+    "alternative": null
   },
   "source": "offline",
   "calibration_source": "offline"

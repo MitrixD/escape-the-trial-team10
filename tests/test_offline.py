@@ -1,9 +1,11 @@
 import json
+import os
+import random
 from pathlib import Path
 
 import pytest
 
-from tests.helpers import groups_from_sample, load_spike, spike_sample
+from tests.helpers import groups_from_sample, load_spike
 from verdict_agent.offline import load_users, offline_test, run_offline, trial_days_from
 
 SETTINGS = "Settings: upgrade vs lifetime anchor"
@@ -45,16 +47,18 @@ def test_settings_two_arms_of_1400(users):
 @pytest.mark.dataset
 def test_groups_match_spike_sampling(users, spike_users):
     test = offline_test(users, SETTINGS, 14, 100)
-    first = test.arms[0]
     spike = load_spike()
-    pop = [u for u in spike_users.values() if u["test"] == SETTINGS and u["arm"] == first.title]
-    expected = groups_from_sample(spike, *spike_sample(spike, pop, 100, 14))
+    random.seed(7)
     key = lambda g: (g.status, g.product, g.age_days)
-    got = sorted(first.groups, key=key)
-    want = sorted(expected, key=key)
-    assert [(key(g), g.n) for g in got] == [(key(g), g.n) for g in want]
-    for g, w in zip(got, want):
-        assert g.received == pytest.approx(w.received)
+    for arm in test.arms:
+        pop = [u for u in spike_users.values() if u["test"] == SETTINGS and u["arm"] == arm.title]
+        sample = [random.choice(pop) for _ in range(1400)]
+        ages = [14 - (i // 100) - random.random() for i in range(1400)]
+        got = sorted(arm.groups, key=key)
+        want = sorted(groups_from_sample(spike, sample, ages), key=key)
+        assert [(key(g), g.n) for g in got] == [(key(g), g.n) for g in want]
+        for g, w in zip(got, want):
+            assert g.received == pytest.approx(w.received)
 
 
 @pytest.mark.dataset
@@ -72,7 +76,13 @@ def test_run_offline_day14(dataset_path, name, slug):
     assert out["ab_test_id"] == name
     if name == SETTINGS:
         assert out["segments_checked"] > 0
-    (FIXTURES / f"offline_day14_{slug}.json").write_text(json.dumps(out, indent=2) + "\n")
+    path = FIXTURES / f"offline_day14_{slug}.json"
+    if os.environ.get("VERDICT_WRITE_FIXTURES") == "1":
+        path.write_text(json.dumps(out, indent=2) + "\n")
+    saved = json.loads(path.read_text())
+    for field in ("verdict", "leader", "p2bb_expected", "maturity"):
+        assert out[field] == saved[field]
+    assert [a["users"] for a in out["arms"]] == [a["users"] for a in saved["arms"]]
 
 
 @pytest.mark.dataset

@@ -1,3 +1,4 @@
+"""Offline mode: verdicts on the offline Lumen dataset as of a given test day. Trial-cancel timing uses the dataset's final renew_status/renew_status_changed_at, so reactivations are not visible."""
 import csv
 import gzip
 import random
@@ -16,6 +17,7 @@ DATA_END = datetime.fromisoformat("2026-11-03T00:00:00+00:00")
 AS_OF = date(2026, 11, 3)
 TRIAL_CANCEL_WINDOW_DAYS = 1.0
 _CACHE: dict[tuple[str, int], dict[str, dict]] = {}
+_TRIAL_DAYS: dict[tuple[str, int], dict[str, int]] = {}
 
 
 def _ts(s: str) -> datetime:
@@ -101,11 +103,12 @@ def _arm(title: str, sample: list[dict], ages: list[float], cal: Calibration):
         received = _revenue(u, age)
         acc[(status, product, int(age))].append(received)
         revenue += received
-        paid_users += received > 0
         rows.append((u["attrs"], received + cal.expected(status, product, age)))
         started = [t for t in u["tx"] if t["start"] <= age]
         trials += any(t["is_trial"] for t in started)
-        purchases += any(t["price_usd"] > 0 for t in started)
+        paid = any(t["price_usd"] > 0 for t in started)
+        purchases += paid
+        paid_users += paid
         refunds += sum(1 for t in u["tx"] if t["refund"] is not None and t["refund"] <= age)
         trial_products = {}
         for t in started:
@@ -147,6 +150,10 @@ def offline_test(
     pop = _population(users, test_name)
     if cal is None:
         cal = build_offline(users, test_name, horizon)
+    return _sampled_test(pop, test_name, day, traffic, seed, horizon, cal)
+
+
+def _sampled_test(pop, test_name, day, traffic, seed, horizon, cal) -> TestData:
     rng = random.Random(seed)
     arms, segment_rows = [], {}
     for name in sorted(pop):
@@ -170,22 +177,23 @@ def offline_test(
     )
 
 
-def _cached_users(path: Path, horizon: int) -> dict[str, dict]:
+def _cached_users(path: Path, horizon: int) -> tuple[dict[str, dict], dict[str, int]]:
     key = (str(Path(path).resolve()), horizon)
     if key not in _CACHE:
         _CACHE[key] = load_users(path, horizon)
-    return _CACHE[key]
+        _TRIAL_DAYS[key] = trial_days_from(_CACHE[key])
+    return _CACHE[key], _TRIAL_DAYS[key]
 
 
 def run_offline(path: Path, test_name: str, day: int, traffic: int, seed: int = 7, horizon: int = 60) -> dict:
-    users = _cached_users(path, horizon)
-    _population(users, test_name)
+    users, trial_days = _cached_users(path, horizon)
+    pop = _population(users, test_name)
     cal = build_offline(users, test_name, horizon)
-    test = offline_test(users, test_name, day, traffic, seed, horizon, cal)
+    test = _sampled_test(pop, test_name, day, traffic, seed, horizon, cal)
     return build_verdict(
         test,
         cal,
         warnings=warnings_for(test),
         segments=check_segments(test.segment_rows),
-        trial_days=trial_days_from(users),
+        trial_days=trial_days,
     )
