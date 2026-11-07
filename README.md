@@ -50,7 +50,17 @@ python3 -m venv .venv
 .venv/bin/python -m verdict_agent.cli 995b124f-9075-440d-83bb-20dbdf7d7fbb --replay tests/fixtures/live/995b124f-9075-440d-83bb-20dbdf7d7fbb
 ```
 
-The command prints one JSON object. Options: `--horizon N` (days, default 60) and `--replay DIR`.
+The command prints one JSON object. Options: `--horizon N` (days, default 60), `--replay DIR`, `--app APP_ID` (wins over `ADAPTY_APP_ID`) and `--as-of YYYY-MM-DD` (the day to judge the test on). Every replay bundle records its day in `as_of.json`, so the replay prints the same JSON on any day. Replay never reads `.env`.
+
+The synthetic test "annual upfront vs weekly trial" (100 users per day per variant, seed 7) is committed as replay bundles for days 7, 14 and 28. Each command prints raw P2BB next to expected P2BB:
+
+```bash
+.venv/bin/python -m verdict_agent.cli 50e46448-6692-54c6-b1e0-1b2e2fa62cdd --replay tests/fixtures/synthetic/day7 | python3 -c "import json,sys; o=json.load(sys.stdin); print(o['verdict'], o['leader'], 'raw', o['p2bb_raw'], 'expected', o['p2bb_expected'])"
+.venv/bin/python -m verdict_agent.cli 50e46448-6692-54c6-b1e0-1b2e2fa62cdd --replay tests/fixtures/synthetic/day14 | python3 -c "import json,sys; o=json.load(sys.stdin); print(o['verdict'], o['leader'], 'raw', o['p2bb_raw'], 'expected', o['p2bb_expected'])"
+.venv/bin/python -m verdict_agent.cli 50e46448-6692-54c6-b1e0-1b2e2fa62cdd --replay tests/fixtures/synthetic/day28 | python3 -c "import json,sys; o=json.load(sys.stdin); print(o['verdict'], o['leader'], 'raw', o['p2bb_raw'], 'expected', o['p2bb_expected'])"
+```
+
+Output: day 7 `confirmed weekly_trial raw 0.0 expected 0.9774`, day 14 `raw 0.0 expected 0.9994`, day 28 `raw 0.0 expected 0.9999`. Raw P2BB of `weekly_trial` is 0.0, so the dashboard picks `annual_upfront`; expected P2BB confirms `weekly_trial`, the 60-day winner.
 
 Live, against your own Adapty account:
 
@@ -60,7 +70,7 @@ adapty auth login
 cp .env.example .env
 ```
 
-Fill in `.env`: `ADAPTY_APP_ID` (the app to read) and `ADAPTY_EXPECTED_COMPANY` (the company name; the tool checks `adapty auth whoami` against it before reading). Leave `ADAPTY_SECRET_KEY` and `VERDICT_DATASET` empty unless you need them. Then:
+Fill in `.env`: `ADAPTY_APP_ID` (the app to read) and `ADAPTY_EXPECTED_COMPANY` (the company name; the tool checks `adapty auth whoami` against it before reading). The tool needs no API keys: it reads through the logged-in Developer CLI. `VERDICT_DATASET` is only for the eval tests. Precedence: `--app` (or MCP `app_id`) wins over configuration, and an environment variable wins over the same key in the `.env` file. `.env` is read from the working directory, or from the repo root when the working directory has none. Then:
 
 ```bash
 .venv/bin/python -m verdict_agent.cli <ab_test_id>
@@ -68,7 +78,21 @@ Fill in `.env`: `ADAPTY_APP_ID` (the app to read) and `ADAPTY_EXPECTED_COMPANY` 
 
 ### MCP
 
-Copy `.mcp.json.example` to `.mcp.json` in your agent's project. It starts `python -m verdict_agent.mcp_server` over stdio and exposes one tool, `ab_test_verdict(ab_test_id, horizon, replay)`. The tool description tells agents to call it before stopping a test and to quote only numbers from the JSON.
+Copy `.mcp.json.example` to `.mcp.json` in your agent's project and replace `<absolute path to this repo>` with the real path, for example:
+
+```json
+{
+  "mcpServers": {
+    "verdict-agent": {
+      "command": "/Users/you/escape-the-trial-team10/.venv/bin/python",
+      "args": ["-m", "verdict_agent.mcp_server"],
+      "cwd": "/Users/you/escape-the-trial-team10"
+    }
+  }
+}
+```
+
+Use absolute paths: the agent's project is usually another directory. The server starts `python -m verdict_agent.mcp_server` over stdio and exposes one tool, `ab_test_verdict(ab_test_id, horizon, replay, app_id)`. If the server's working directory has no `.env`, it reads the `.env` in this repo's root. The tool description tells agents to call it before stopping a test, to quote only numbers from the JSON, and to pass `horizon` as the number of days the test goal names (omit it otherwise).
 
 ### Tests
 
@@ -77,7 +101,7 @@ Copy `.mcp.json.example` to `.mcp.json` in your agent's project. It starts `pyth
 VERDICT_DATASET=<path to adapty-seed-data-hack/data/offline> .venv/bin/pytest
 ```
 
-Without `VERDICT_DATASET`, tests that need the offline dataset are skipped. `tests/fixtures/live_run_onboarding.json` is a snapshot of a live run taken before the user-age fix (`00f5990`). It is used only for the schema test.
+Without `VERDICT_DATASET`, tests that need the offline dataset are skipped. `tests/fixtures/replay_onboarding.json` is the output of the Quick start replay command at the bundle's `as_of` (2026-11-07); a test checks that the command still prints exactly it.
 
 ## Output
 
@@ -90,13 +114,14 @@ JSON that validates against [verdict_agent/schema.json](verdict_agent/schema.jso
 | `leader` | Title of the variant with the higher expected revenue |
 | `p2bb_expected` | Probability that the leader is better, counting expected revenue to the horizon |
 | `p2bb_raw` | The same on received revenue only |
-| `maturity` | Share of expected revenue that has been received already, 0 to 1 |
+| `maturity` | Share of expected revenue that has been received already, 0 to 1, floored to 4 decimals |
 | `horizon_days` | Horizon of the estimate |
 | `come_back_on` | Date to look again for `keep_running` and `min_events`, else `null` |
-| `arms[]` | Per variant: `users`, `revenue_received`, `revenue_expected_trials`, `revenue_expected_renewals` |
-| `calibration_source` | `product`, `app` or `none` |
+| `arms[]` | Per variant: `users`, `revenue_received`, `revenue_expected_trials`, `revenue_expected_renewals`, `revenue_expected_total` (the sum of the three) |
+| `calibration_source` | `product` (some product has its own history; products without it use app-wide rates), `app` or `none` |
+| `expected_gap_per_user` | Leader's `revenue_expected_total` minus the best other variant's, never below 0 |
 
-Revenue fields are USD per user.
+Revenue fields and `expected_gap_per_user` are USD per user, rounded to cents from unrounded values.
 
 ## Architecture
 
@@ -109,7 +134,7 @@ verdict_agent/
   verdict.py      Horizon, verdict rules, dates, JSON
   adapty_cli.py   Read-only Adapty CLI wrapper and replay runner
   live.py         Test ID to TestData and Calibration through the wrapper
-  service.py      verdict(ab_test_id, horizon, replay) and safe_verdict
+  service.py      verdict(ab_test_id, horizon, replay, app_id, as_of) and safe_verdict
   cli.py          python -m verdict_agent.cli
   mcp_server.py   stdio MCP tool
   schema.json     Output contract
@@ -143,7 +168,7 @@ Limits:
 ## Rules we follow
 
 - Read-only: only `auth whoami`, `get`, `list`, `ab-tests metrics` and `analytics` commands. The tool never starts, stops or changes a test.
-- At most 10 Adapty calls per verdict, with a pause between calls.
+- At most 10 Adapty calls per verdict (8 for a two-variant test), with a pause between calls. Tests with more than 3 variants are rejected.
 - Never `apps get`, because it returns the secret key.
 - No secrets in git: they live in `.env`, which is ignored. The repo has only `.env.example`.
 - Works for any app: no product names or flow maps in code. Lumen appears only in fixtures.
@@ -163,6 +188,7 @@ Limits:
 - Spread inside a group: live P2BB is approximate because every user of a group gets the same value.
 - User ages from daily metrics instead of the uniform arrival assumption.
 - A call budget for tests with more than 3 arms.
+- Other Adapty APIs (Export Analytics, Server-side) next to the Developer CLI.
 
 ## Who did what
 
@@ -177,10 +203,10 @@ Plan and specs: [openspec/changes/add-verdict-agent/](openspec/changes/add-verdi
 
 ## Live data
 
-`scripts/record_fixtures.sh <ab_test_id>` records read-only Adapty responses into `tests/fixtures/live/<test_id>/` (8 calls plus `auth whoami`, under the 10-call budget). Recorded for the Onboarding and Main tests; history window 2026-07-01 to 2026-11-06.
+`scripts/record_fixtures.sh <ab_test_id>` records read-only Adapty responses into `tests/fixtures/live/<test_id>/` (7 calls plus `auth whoami`, under the 10-call budget) and writes `as_of.json` with the recording day. It refuses an empty `ADAPTY_EXPECTED_COMPANY` and exits 3 without recording when `adapty auth whoami` does not match it. Recorded for the Onboarding and Main tests on 2026-11-07; history window 2026-07-01 to 2026-11-06.
 
 - `analytics funnel`, `conversion` and `ltv` return per-product rows with `--group-by store_product_id`.
-- `analytics cohort` has no `--group-by`: it returns only the total plus one row per install month. It is not usable per product.
+- `analytics cohort` has no `--group-by`: it returns only the total plus one row per install month. It is not usable per product, so the tool does not read it.
 - `ltv --period-type days` returns revenue per paying user at days 0, 3, 7, 14, 28, 31, 61, 92, 183 (later days null) for every product.
 - One product shows up under two keys: the Adapty product id (UUID) and `play_store:<play product_id>`. Funnel rows use the product title as key, not the UUID. The Total row has `key: null`.
 - Products with no sales in the window are still listed in `conversion` with zeros; some products (for example lifetime on Play) have no `play_store:` row in `ltv`.
