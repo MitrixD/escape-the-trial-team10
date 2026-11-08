@@ -21,7 +21,7 @@ How AI was used to build Verdict Agent. Models: Claude Opus and Fable for design
 13. **Setup by an agent and a judge-style run (8 Nov).** Following how many MCP servers and CLIs ship today, the repo now sets itself up through an agent: `AGENTS.md`, a `/setup` command for Claude Code and `scripts/setup.sh`. A background agent then played the jury: a fresh `git clone` from GitHub, every README command at all three levels, a real Claude Sonnet run against the hook and two live reads. Everything matched the README; it found six small wording issues (one CLI install command, the company `Title` in `whoami`, one demo folder, an untested Python 3.10 claim), all fixed.
 14. **An independent judge and a plain-language pass (8 Nov).** A separate `claude -p` session with no access to this conversation got a fresh clone and the three environment variables a judge would set, and followed the README and AGENTS.md alone. Score 9/10: everything ran and every number matched, but `setup.sh --live` quietly created `.env`; fixed. Then every document people read was rewritten for a developer and a manager at once: the conclusion first, a glossary for P2BB, maturity, SRM and calibration, reference material moved to the end (Diátaxis), plain English with "you" and short sentences (Google developer style guide), and the information style of Maxim Ilyakhov for the Russian texts.
 
-A first implementation (branch `feature/verdict-agent`, made before the hackathon core) was used as a reference only; the core was rewritten.
+A first implementation ([PR #9](https://github.com/MitrixD/escape-the-trial-team10/pull/9), made before the hackathon core; its branch was later deleted) was used as a reference only; the core was rewritten.
 
 ## Bugs the reviews caught
 
