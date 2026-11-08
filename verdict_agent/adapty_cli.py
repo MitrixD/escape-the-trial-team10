@@ -116,7 +116,7 @@ class AdaptyCLI:
         if not matched:
             raise WrongAccount(
                 "Adapty CLI is not logged in to the expected company; "
-                "run `adapty auth whoami` and check ADAPTY_EXPECTED_COMPANY in .env"
+                "run `adapty auth whoami` and check ADAPTY_EXPECTED_COMPANY (environment or .env)"
             )
 
 
