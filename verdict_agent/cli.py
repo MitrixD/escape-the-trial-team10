@@ -5,6 +5,7 @@ import sys
 from datetime import date
 
 from verdict_agent import service
+from verdict_agent.card import render_card
 from verdict_agent.model import VerdictError
 
 
@@ -30,6 +31,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--app", dest="app_id", metavar="APP_ID", help="Adapty app id; wins over ADAPTY_APP_ID")
     parser.add_argument("--as-of", dest="as_of", type=_as_of, metavar="YYYY-MM-DD",
                         help="day to judge the test on; on replay defaults to the bundle's as_of.json")
+    parser.add_argument("--format", dest="output_format", choices=("json", "card"), default="json",
+                        help="json (default) or card: a short text summary for a person")
     return parser
 
 
@@ -37,10 +40,15 @@ def main(argv: list[str] | None = None) -> int:
     try:
         args = vars(_parser().parse_args(argv))
     except VerdictError as exc:
-        result = {"error": str(exc)}
+        args, result = {}, {"error": str(exc)}
     else:
+        output_format = args.pop("output_format")
         result = service.safe_verdict(**args)
-    print(json.dumps(result, indent=2))
+        args["output_format"] = output_format
+    if args.get("output_format") == "card":
+        print(render_card(result))
+    else:
+        print(json.dumps(result, indent=2))
     return 1 if "error" in result else 0
 
 
