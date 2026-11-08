@@ -28,8 +28,8 @@ Every task starts with a failing test (openspec/config.yaml). Thresholds are not
 
 ## 5. Interfaces and setup
 
-- [ ] 5.1 `setup.sh` resolves `--guard`/`--mcp` paths before `cd` and survives `#` in paths; `.mcp.json` from `setup.sh` and `.mcp.json.example` sets `PYTHONPATH`; verify the MCP server starts from `/`
-- [ ] 5.2 The card tolerates missing fields; MCP description mentions the horizon caveat
+- [x] 5.1 `setup.sh` resolves `--guard`/`--mcp` paths before `cd` and survives `#` in paths; `.mcp.json` from `setup.sh` and `.mcp.json.example` sets `PYTHONPATH`; verify the MCP server starts from `/`
+- [x] 5.2 The card tolerates missing fields; MCP description mentions the horizon caveat
 
 ## 6. Eval
 
