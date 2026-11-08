@@ -19,7 +19,7 @@
 
 ## How to build and change this project
 
-**Status: the minimal MVP is finished (8 Nov 2026).** The Verdict Agent was built as one OpenSpec change, now archived in `openspec/changes/archive/2026-11-08-add-verdict-agent/` (proposal, design, tasks: groups 1–13 done). The current requirements live in `openspec/specs/` (`ab-test-verdict`, `adapty-test-data`, `verdict-interfaces`). Read `docs/2026-11-07-verdict-agent-design.md` for the why.
+**Status: the minimal MVP is finished (8 Nov 2026).** The Verdict Agent was built as one OpenSpec change, archived in `openspec/changes/archive/2026-11-08-add-verdict-agent/` (proposal, design, tasks: groups 1–13 done), and hardened after a product review in a second one, `openspec/changes/archive/2026-11-08-harden-verdict-agent/`. What is left is under "Known limitations" in `README.md`. The current requirements live in `openspec/specs/` (`ab-test-verdict`, `adapty-test-data`, `verdict-interfaces`). Read `docs/2026-11-07-verdict-agent-design.md` for the why.
 
 **Tooling.** OpenSpec CLI is required: `npm install -g @fission-ai/openspec@latest`, check with `openspec --version`. The `openspec-*` skills are in `.claude/skills/`; run `openspec update` after a CLI upgrade to refresh them.
 

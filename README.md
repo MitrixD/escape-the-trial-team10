@@ -348,7 +348,7 @@ Not in the minimal MVP; what we would do with another week, on top of Known limi
 
 Nothing was written before the start on Saturday 7 Nov at 10:45: the repository held only the initial commit and a README. Made during the hackathon, before the core work: the spike eval in [eval/](eval/) (`ab_verdict_eval.py`, `money_at_stake.py`, `RESULTS.md`) and a first implementation in [PR #9](https://github.com/MitrixD/escape-the-trial-team10/pull/9) (its branch was deleted after the hackathon). Both were used as references. The core in `verdict_agent/` was rewritten on the hackathon.
 
-Requirements: [openspec/specs/](openspec/specs/). The plan, design and tasks of the one OpenSpec change, archived: [openspec/changes/archive/2026-11-08-add-verdict-agent/](openspec/changes/archive/2026-11-08-add-verdict-agent/). Design: [docs/2026-11-07-verdict-agent-design.md](docs/2026-11-07-verdict-agent-design.md). How we build and change it: `CLAUDE.md`.
+Requirements: [openspec/specs/](openspec/specs/). The plan, design and tasks of the two OpenSpec changes, archived: the build in [openspec/changes/archive/2026-11-08-add-verdict-agent/](openspec/changes/archive/2026-11-08-add-verdict-agent/) and the hardening after the product review in [openspec/changes/archive/2026-11-08-harden-verdict-agent/](openspec/changes/archive/2026-11-08-harden-verdict-agent/). Design: [docs/2026-11-07-verdict-agent-design.md](docs/2026-11-07-verdict-agent-design.md). How we build and change it: `CLAUDE.md`.
 
 ## Reference
 
