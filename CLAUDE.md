@@ -19,27 +19,18 @@
 
 ## How to build and change this project
 
-The Verdict Agent is built as one OpenSpec change: `openspec/changes/add-verdict-agent/` (proposal, specs, design, tasks). Read `docs/2026-11-07-verdict-agent-design.md` for the why, then the change. Every task in `tasks.md` is done (groups 1–13: core, money at stake, stop guard, decision card, test health, calibration robustness); the change is not archived yet, so `openspec/specs/` does not exist.
+**Status: the minimal MVP is finished (8 Nov 2026).** The Verdict Agent was built as one OpenSpec change, now archived in `openspec/changes/archive/2026-11-08-add-verdict-agent/` (proposal, design, tasks: groups 1–13 done). The current requirements live in `openspec/specs/` (`ab-test-verdict`, `adapty-test-data`, `verdict-interfaces`). Read `docs/2026-11-07-verdict-agent-design.md` for the why.
 
 **Tooling.** OpenSpec CLI is required: `npm install -g @fission-ai/openspec@latest`, check with `openspec --version`. The `openspec-*` skills are in `.claude/skills/`; run `openspec update` after a CLI upgrade to refresh them.
 
-**Add work.** While `add-verdict-agent` is not archived, new behaviour goes into it as a new task group through `openspec-update-change` (as groups 9 and 10 did), then gets built.
-1. Check open PRs and branches so you don't take work someone else claimed.
-2. Branch from `main`: `git switch -c feat/<short-name> origin/main`.
-
-**Implement a task.** Use `openspec-apply-change` with change `add-verdict-agent`, limited to the task you claimed.
+**Change the behaviour.** Anything that changes what the system does (verdict rules, thresholds, JSON fields, inputs, data reads) starts with a new change through `openspec-propose`, then `openspec-apply-change`, then `openspec-archive-change` when done. Never edit spec files by hand. Typos and doc wording: just edit.
+- Check open PRs and branches first, then branch from `main`: `git switch -c feat/<short-name> origin/main`.
 - Start every behaviour with a failing test, then make it pass (`openspec/config.yaml` requires it).
-- Build against the names and types in `design.md` → "Interfaces". If a module from another track is not merged yet, stub it with the same signature.
-- Mark the task done in `tasks.md` (`- [x]`) in the same PR.
-
-**Change the plan or the behaviour.** Anything that changes what the system does (verdict rules, thresholds, JSON fields, inputs, data reads) goes through `openspec-update-change` on `add-verdict-agent` while it is not archived; it is not archived while `openspec/changes/add-verdict-agent/` exists. Use `openspec-propose` for a new, unrelated capability or after archive. Never edit change files outside these skills. Typos and doc wording: just edit.
 
 **Before the PR.**
 1. Run the full test suite with `VERDICT_DATASET` exported (the dataset is `data/offline` in `https://github.com/kpotehin/adapty-seed-data-hack`; it is used only by the eval tests, the tool itself reads Adapty only).
-2. `openspec validate add-verdict-agent --strict`.
-3. Open one PR per task into `main`, title in English, description in Russian: what changed in behaviour and which task it closes.
-
-**Archive.** When the team stops adding to this change: `openspec-verify-change`, then `openspec-sync-specs` and `openspec-archive-change`. After that, every new capability starts with `openspec-propose`.
+2. `openspec validate --all --strict`.
+3. Open one PR per change into `main`, title in English, description in Russian: what changed in behaviour.
 
 **Rules.**
 - Secrets only in `.env`; never commit or print them.

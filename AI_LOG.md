@@ -7,7 +7,7 @@ The full log, with every AI mistake we found and the recorded agent runs, is in 
 - **Claude Code (Opus 5.5)**: design, implementation, docs, git and PRs.
 - **Claude Fable 5.1**: independent reviewers of the design, the code and the whole project against the hackathon guide.
 - **Claude Sonnet**: the agent that calls our MCP tool in the recorded runs and that our stop guard blocked.
-- **OpenSpec CLI and skills**: the plan (`openspec/changes/add-verdict-agent/`), every behaviour change went through it.
+- **OpenSpec CLI and skills**: the plan (one change, now archived in `openspec/changes/archive/2026-11-08-add-verdict-agent/`, requirements in `openspec/specs/`); every behaviour change went through it.
 - **Superpowers skills**: brainstorming, TDD, subagent-driven development.
 - **Adapty Developer CLI, MCP server and agent skills**: reading the account; docs at adapty.io/docs as the source of truth.
 - **Web search**: Adapty docs, competitors (Statsig, GrowthBook, Eppo, LaunchDarkly), judging advice.

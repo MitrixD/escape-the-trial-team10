@@ -2,6 +2,8 @@
 
 In Russian: [README.ru.md](README.ru.md).
 
+**Status: minimal MVP, finished on 8 Nov 2026 and submitted as is.** Everything below works and is tested; what we would build next is under Next steps.
+
 Team 10 project for the Adapty First Commit hackathon in Belgrade, 7–8 November 2026. The project is Verdict Agent.
 
 ## What it does
@@ -268,7 +270,7 @@ scripts/          setup.sh (one-command setup and check), install_guard.sh, reco
 tests/            Unit tests and recorded fixtures
 ```
 
-Data flow: test ID, then `live.py` reads the test, per-variant metrics, funnel, conversion and LTV through `adapty_cli.py` (or reads the same files from a replay bundle). It builds groups of users by status, product and age. `estimator.py` adds expected revenue to each group using the calibration. `verdict.py` applies the rules and returns JSON. CLI, MCP and eval all call the same `service.py`. Design: [openspec/changes/add-verdict-agent/design.md](openspec/changes/add-verdict-agent/design.md).
+Data flow: test ID, then `live.py` reads the test, per-variant metrics, funnel, conversion and LTV through `adapty_cli.py` (or reads the same files from a replay bundle). It builds groups of users by status, product and age. `estimator.py` adds expected revenue to each group using the calibration. `verdict.py` applies the rules and returns JSON. CLI, MCP and eval all call the same `service.py`. Design: [openspec/changes/archive/2026-11-08-add-verdict-agent/design.md](openspec/changes/archive/2026-11-08-add-verdict-agent/design.md).
 
 ## Evaluation
 
@@ -304,6 +306,9 @@ Limits:
 
 ## Next steps
 
+Not in the minimal MVP; what we would do with another week:
+
+
 - Money at stake for tests with more than two variants beyond the leader and the best other one.
 - More validity checks: a flow shown in several placements, uneven traffic over days.
 - Guardrails (refunds, trial cancels) and segments.
@@ -326,7 +331,7 @@ Limits:
 
 Nothing was written before the start on Saturday 7 Nov at 10:45: the repository held only the initial commit and a README. Made during the hackathon, before the core work: the spike eval in [eval/](eval/) (`ab_verdict_eval.py`, `money_at_stake.py`, `RESULTS.md`) and a first implementation on branch `feature/verdict-agent`. Both were used as references. The core in `verdict_agent/` was rewritten on the hackathon.
 
-Plan and specs: [openspec/changes/add-verdict-agent/](openspec/changes/add-verdict-agent/). Design: [docs/2026-11-07-verdict-agent-design.md](docs/2026-11-07-verdict-agent-design.md). How we build and change it: `CLAUDE.md`.
+Requirements: [openspec/specs/](openspec/specs/). The plan, design and tasks of the one OpenSpec change, archived: [openspec/changes/archive/2026-11-08-add-verdict-agent/](openspec/changes/archive/2026-11-08-add-verdict-agent/). Design: [docs/2026-11-07-verdict-agent-design.md](docs/2026-11-07-verdict-agent-design.md). How we build and change it: `CLAUDE.md`.
 
 ## Live data
 
