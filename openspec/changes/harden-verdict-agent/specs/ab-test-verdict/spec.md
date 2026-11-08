@@ -3,7 +3,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Expected revenue per arm
-The system SHALL estimate each arm's revenue per user at the test horizon as received revenue plus expected revenue from pending trials plus expected revenue from future renewals. Expectations SHALL come from a calibration table built from the app's own Adapty analytics (trial→paid conversion and renewal revenue per product), applied to per-arm counts by user state (none, trial, active, ended), product and age. The trial and renewal parts SHALL be reported separately per arm. A product whose catalog period (annual, lifetime) is not shorter than the horizon SHALL get no expected renewals for its active users, only expected refunds (a falling curve). For the probability, the users of a trial group SHALL be represented as converting or not, so that their values keep the group's expected mean exactly and carry the spread of the conversion outcome.
+The system SHALL estimate each arm's revenue per user at the test horizon as received revenue plus expected revenue from pending trials plus expected revenue from future renewals. Expectations SHALL come from a calibration table built from the app's own Adapty analytics (trial→paid conversion and renewal revenue per product), applied to per-arm counts by user state (none, trial, active, ended), product and age. The trial and renewal parts SHALL be reported separately per arm. A product whose catalog period (weekly 7, monthly 30, two_months 61, trimonthly 92, semiannual 183, annual 365 days, lifetime) is not shorter than the horizon SHALL get no expected renewals for its active users, only expected refunds (a falling curve). For the probability, the users of a trial group SHALL be represented as converting or not, so that their values keep the group's expected mean exactly and carry the spread of the conversion outcome.
 
 #### Scenario: Pending trials count toward expected revenue
 - **WHEN** an arm has $0 received and 66 users in an active trial of a product whose calibrated trial→paid conversion and renewal value are positive
@@ -26,7 +26,7 @@ The system SHALL estimate each arm's revenue per user at the test horizon as rec
 - **THEN** `p2bb_expected` for B is below 0.95 and the verdict is not `confirmed`
 
 ### Requirement: Horizon
-The horizon in days SHALL be a parameter of the call. When omitted it SHALL be 60. A horizon below 1 SHALL be rejected with an error. A horizon shorter than the test's age in days SHALL be rejected with an error naming both, because received revenue would then cover more days than the horizon. The test goal SHALL NOT be parsed for a horizon.
+The horizon in days SHALL be a parameter of the call. When omitted it SHALL be 60. A horizon below 1 SHALL be rejected with an error. A test older than its horizon has passed it: no more revenue is expected, and the next action has basis `horizon`. Received revenue then covers all the test's days, more than the horizon, so the system SHALL log a warning naming the horizon and the test's age; the card names the horizon the verdict refers to. The test goal SHALL NOT be parsed for a horizon.
 
 #### Scenario: Caller horizon
 - **WHEN** the caller passes a horizon of 30 days
@@ -42,7 +42,7 @@ The horizon in days SHALL be a parameter of the call. When omitted it SHALL be 6
 
 #### Scenario: Horizon shorter than the test
 - **WHEN** the test is 14 days old and the caller passes a horizon of 7 days
-- **THEN** the system returns an error naming 7 and 14 and no verdict
+- **THEN** the system returns a verdict with `horizon_days` 7 and no expected revenue from trials or renewals, and logs a warning naming 7 and 14
 
 ### Requirement: Verdict rules
 The system SHALL return exactly one verdict, checked in this order: `not_enough_data` (an arm below 30 purchases plus trials, or no calibration; no calibration includes an arm with users in trial when neither their product nor the app has a trial→paid rate); `confirmed` (expected P2BB of the leader ≥ 0.95); `tie` (maturity ≥ 0.80 and the 95% interval of |Δ expected revenue per user| lies below the MDE, 5% of the leader's value); otherwise `keep_running`. Maturity is received divided by expected revenue across arms.

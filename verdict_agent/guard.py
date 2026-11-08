@@ -19,7 +19,8 @@ OVERRIDE_HINT = (" If the user insists, they can restart the session with VERDIC
                  " and confirm the stop themselves.")
 SEPARATORS = {"&&", "||", ";", "|", "&", "(", ")", "\n"}
 SHELL_WRAPPERS = {"bash", "sh", "zsh", "dash", "eval"}
-ENDING_WORD = re.compile(r"\b(stop|replace|archive)\b")
+ENDING_WORD = re.compile(r"\b(stop|replace|archive)\b", re.I)
+SHELL_EXPANSION = re.compile(r"[$`{}*?\[]")
 ORDER = {None: 0, "ask": 1, "deny": 2}
 
 
@@ -45,15 +46,15 @@ def _words(command: str) -> list[str] | None:
 
 
 def _is_adapty(word: str) -> bool:
-    return Path(word).name.split("@", 1)[0] == "adapty"
+    return Path(word).name.split("@", 1)[0].lower() == "adapty"
 
 
 def _subcommand(words: list[str], i: int) -> tuple[str | None, int]:
-    word = words[i + 1] if i + 1 < len(words) else ""
+    word = (words[i + 1] if i + 1 < len(words) else "").lower()
     if word.startswith("ab-tests:"):
         return word.split(":", 1)[1], i + 2
     if word == "ab-tests" and i + 2 < len(words):
-        return words[i + 2], i + 3
+        return words[i + 2].lower(), i + 3
     return None, i + 1
 
 
@@ -90,10 +91,12 @@ def parse_cli_calls(command: str, depth: int = 0) -> list[dict]:
             sub, j = _subcommand(words, i)
             if sub in ENDING_SUBCOMMANDS:
                 call, i = _parse_call(words, j, sub)
-                calls.append(call if call["ab_test_id"] and "$" not in call["ab_test_id"] else {"kind": "unreadable"})
+                values = [v for v in (call["ab_test_id"], call["winner"], call["app_id"]) if isinstance(v, str)]
+                readable = call["ab_test_id"] and not any(SHELL_EXPANSION.search(v) for v in values)
+                calls.append(call if readable else {"kind": "unreadable"})
                 continue
             if sub is not None and sub not in READ_SUBCOMMANDS and not sub.startswith("-") and sub != "--help":
-                if "$" in sub or "`" in sub:
+                if SHELL_EXPANSION.search(sub):
                     calls.append({"kind": "unreadable"})
             i = j
             continue
@@ -113,6 +116,7 @@ def parse_cli_calls(command: str, depth: int = 0) -> list[dict]:
 
 
 def _mentions_ending(text: str) -> bool:
+    text = text.lower()
     return "adapty" in text and "ab-tests" in text and bool(ENDING_WORD.search(text))
 
 
@@ -163,9 +167,11 @@ def _read_test(test_id: str, app_id: str | None, replay: Path | None) -> dict:
 def decide(stop: dict) -> tuple[str, str]:
     kind = stop.get("kind", "stop")
     if kind == "unreadable":
-        return "deny", ("Verdict guard: this command can end an A/B test, but the guard cannot read which test and "
-                        "what it would show, so it cannot check it against a verdict. Run the plain "
-                        "`adapty ab-tests stop <id> --app <app> --winner <id>` instead.")
+        return "deny", ("Verdict guard: this command mentions ending an A/B test with the Adapty CLI, but the guard "
+                        "cannot read which test it would end and what it would show, so it cannot check it against "
+                        "a verdict. To end a test, run the plain `adapty ab-tests stop <id> --app <app> --winner <id>`"
+                        " with literal values. If this command does not end a test (a search, a commit message), "
+                        "ask the user to run it.")
     if kind == "placement":
         return "ask", ("Verdict guard: changing a placement's audiences can end an A/B test running there. "
                        "Confirm that no running test is affected.")

@@ -418,6 +418,7 @@ def test_stopped_test_uses_its_running_period():
     test = live_test(cli, APP, "t1", date(2026, 12, 1))
     assert test.users_per_day == pytest.approx(60 / 3)
     assert min(g.age_days for g in test.arms[0].groups) >= 27
+    assert test.stopped and test.running_days == 3
 
 
 def test_pending_share_counts_all_trial_starts():

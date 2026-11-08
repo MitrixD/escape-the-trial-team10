@@ -96,3 +96,25 @@ def test_lifetime_product_gets_no_renewals():
     cal = make_cal({"l": [0.0] + [40.0] * 30 + [55.0] * 30})
     cal.periods = {"l": "lifetime"}
     assert cal.expected("active", "l", 3, 60) <= 0
+
+
+@pytest.mark.parametrize("period, renews_by_day_60", [
+    ("weekly", True), ("monthly", True), ("two_months", False), ("trimonthly", False),
+    ("semiannual", False), ("annual", False), ("lifetime", False)])
+def test_every_catalog_period_is_compared_with_the_horizon(period, renews_by_day_60):
+    cal = make_cal({"p": [0.0] + [40.0] * 30 + [55.0] * 30})
+    cal.periods = {"p": period}
+    assert (cal.expected("active", "p", 3, 60) > 0) is renews_by_day_60
+
+
+def test_a_stopped_test_is_not_told_to_wait_for_more_users():
+    from datetime import timedelta
+    from tests.helpers import make_arm, make_test
+    from verdict_agent.verdict import build_verdict
+    cal = make_cal({"p": step_curve(10.0)})
+    test = make_test([make_arm("A", 200, 67), make_arm("B", 200, 72)], days_running=20, users_per_day=10.0)
+    running = build_verdict(test, cal)
+    test.running_days, test.stopped = 10, True
+    stopped = build_verdict(test, cal)
+    assert running["verdict"] == stopped["verdict"] == "keep_running"
+    assert stopped["come_back_on"] < running["come_back_on"]

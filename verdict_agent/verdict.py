@@ -1,9 +1,12 @@
+import logging
 import math
 from datetime import date, timedelta
 
 from verdict_agent.estimator import estimate, pseudo_values
 from verdict_agent.model import DEFAULT_TRIAL_DAYS, Arm, Calibration, TestData, VerdictError
 from verdict_agent.stats import diff_ci, diff_mean_se, expected_positive, p2bb, p_best, srm_p, users_needed
+
+log = logging.getLogger(__name__)
 
 MIN_EVENTS = 30
 P_CONFIRM = 0.95
@@ -61,8 +64,8 @@ def build_verdict(test: TestData, cal: Calibration, horizon: int | None = None,
     after_days = check_after_days(after_days)
     age = (test.as_of - test.started_on).days
     if horizon < age:
-        raise VerdictError(f"horizon of {horizon} days is shorter than the test's age of {age} days; "
-                           f"pass a horizon of at least {age} days")
+        log.warning("horizon of %d days is shorter than the test's age of %d days: the test has passed its horizon, "
+                    "and received revenue covers all %d days", horizon, age, age)
     if len(test.arms) < 2:
         raise VerdictError("an A/B test needs at least two arms")
     estimates = [estimate(arm, cal, horizon) for arm in test.arms]
@@ -223,7 +226,7 @@ def _keep_running_date(test, cal, horizon, other_values, leader_values, leader, 
     longest_trial = max((cal.trial_days.get(p, DEFAULT_TRIAL_DAYS) or DEFAULT_TRIAL_DAYS for p in products), default=0)
     target = test.started_on + timedelta(days=longest_trial + RENEWAL_DAYS)
     delta = abs(_mean(leader_values) - _mean(other_values))
-    if delta > 0:
+    if delta > 0 and not test.stopped:
         missing = users_needed(delta, _pooled_sd(other_values, leader_values)) - min(len(other_values), len(leader_values))
         lagging = min((leader, other), key=lambda a: a.users)
         total_users = sum(a.users for a in test.arms)

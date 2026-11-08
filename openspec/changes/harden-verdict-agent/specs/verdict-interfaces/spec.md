@@ -51,7 +51,7 @@ The system SHALL provide a Claude Code `PreToolUse` hook that runs before an age
 - `next_action` is `come_back` → `deny`, naming the verdict, `come_back_on`, `cost_per_day`, `loss_if_ship_leader_now` and `chance_leader_is_wrong` when present;
 - `next_action` is `ship_leader` and the chosen winner is another arm, or the stop shows other content (`--other`, `--no-content`, `another_flow_id_to_run`, `another_paywall_id_to_run`) or replaces the test → `deny`, naming the verdict leader, its `p2bb_expected` and what the call would show;
 - `next_action` is `ship_leader` and the winner is the leader, or `ship_either` with any winner of the test, or the stop names nothing to show → `ask`, with the verdict summary, so a human confirms the irreversible stop;
-- a Bash command that mentions `adapty` and a test-ending subcommand the hook cannot parse into a test ID (for example through `bash -c`, `eval` or a variable) → `deny`: the hook cannot check what it cannot read;
+- a Bash command that mentions `adapty`, `ab-tests` and a test-ending word (in any letter case) that the hook cannot parse into literal values: a test ID, winner or app ID with a shell expansion (`$`, backticks, braces, globs), a subcommand in a variable, or text inside a string the hook does not unwrap → `deny`: the hook cannot check what it cannot read. Calls inside `bash -c`, `sh -c` and `eval` strings are unwrapped and decided like plain calls, and the program name `adapty` matches in any letter case;
 - `placements_update` → `ask`, because changing a placement's audiences can end a test running there.
 These decisions are the `strict` mode. The guard SHALL also have an `ask` mode, in which every decision is `ask`: when `strict` would deny, the reason starts with a warning that the stop goes against the verdict (or that there is no verdict, or that the command cannot be checked) and carries the same facts. The mode SHALL come from the environment variable `VERDICT_GUARD_MODE` when it is set, otherwise from the `--mode` argument of the hook command (`--mode X` or `--mode=X`), otherwise `ask`; an unknown value SHALL mean `strict`. In `strict`, a deny reason SHALL tell the agent that the user can restart the session with `VERDICT_GUARD_MODE=ask` to confirm the stop themselves. Any failure of the hook itself (malformed input, a crash, a missing interpreter, a moved repository) SHALL block the call: the hook exits with code 2 or the hook configuration sets `onFailure: "block"`. The guard is optional: a project gets it only through `scripts/install_guard.sh <dir> [--mode ask|strict]` (default `ask`) or by adding the hook to its settings by hand. The guard catches an agent's mistakes and plain commands; it is not a sandbox against an agent that writes scripts on purpose, and the documentation SHALL say so.
 Commands that cannot end a test SHALL pass through with no output. The hook SHALL read the test from a recorded bundle instead of Adapty when the environment variable `VERDICT_GUARD_REPLAY` lists a bundle (paths separated by the OS path separator) whose `ab-tests_get.json` has the stopped test's ID.
@@ -89,8 +89,12 @@ Commands that cannot end a test SHALL pass through with no output. The hook SHAL
 - **THEN** the hook denies the call in `strict` mode
 
 #### Scenario: A stop the hook cannot read
-- **WHEN** an agent runs `bash -c "adapty ab-tests stop …"` or `c=stop; adapty ab-tests $c …`
+- **WHEN** an agent runs `c=stop; adapty ab-tests $c …` or `adapty ab-tests stop <id> --winner $W`
 - **THEN** the hook denies it in `strict` mode and asks the human in `ask` mode, saying it cannot check the command
+
+#### Scenario: A stop inside bash -c or in capitals
+- **WHEN** an agent runs `bash -c "adapty ab-tests stop <synthetic id> --winner annual_upfront"` or `Adapty ab-tests stop <synthetic id> --winner annual_upfront`
+- **THEN** the hook reads the call and denies it in `strict` mode against the verdict leader `weekly_trial`
 
 #### Scenario: Placement update
 - **WHEN** an agent calls `placements_update`

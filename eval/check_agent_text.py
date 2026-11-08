@@ -14,7 +14,7 @@ NUMBER = re.compile(r"(?<![\w.])\d{1,3}(?:,\d{3})+(?:\.\d+)?%?|(?<![\w.,])\d+(?:
 LABELS = [
     (re.compile(r"\bnot[ _-]enough[ _-]data\b", re.I), "not_enough_data"),
     (re.compile(r"\bkeep[ _-]running\b", re.I), "keep_running"),
-    (re.compile(r"(?<!not )(?<!not yet )(?<!n't )(?<!n't yet )\bconfirmed\b", re.I), "confirmed"),
+    (re.compile(r"(?<!not )(?<!not yet )(?<!n't )(?<!n't yet )(?<!no )(?<!cannot be )(?<!can't be )(?<!be )\bconfirmed\b", re.I), "confirmed"),
     (re.compile(r"\btie\b", re.I), "tie"),
 ]
 
@@ -71,9 +71,15 @@ def stated_leader(text: str, titles: list[str]) -> str | None:
     arm = "|".join(re.escape(t) for t in sorted(titles, key=len, reverse=True))
     arm = rf"(?<![\w])({arm})(?![\w])"
     after = rf"(?i:\b(?:ship|shipping|pick|choose|winner is|winner:|leader is|leader:))\s+(?:(?i:the|arm|variant)\s+)*{arm}"
-    before = rf"{arm}\s+(?i:leads|wins|is ahead|is the leader|is the winner|is better)\b"
-    hits = [(m.start(), m.group(1)) for pattern in (after, before) for m in re.finditer(pattern, text)]
-    return min(hits)[1] if hits else None
+    before = rf"{arm}\s+(?i:leads|wins|is ahead|is the leader|is the winner|is better)\b(?!\s+(?i:on|in)\s+(?i:received|raw))"
+    negated = re.compile(r"(?i:\b(?:do not|don't|not|never|avoid)\s+(?:ship|pick|choose)\s*)$")
+    hits = []
+    for rank, pattern in enumerate((after, before)):
+        for m in re.finditer(pattern, text):
+            if rank == 0 and negated.search(text[:m.start()] + text[m.start():m.start(1)].split()[0] + " "):
+                continue
+            hits.append((rank, m.start(), m.group(1)))
+    return min(hits)[2] if hits else None
 
 
 def check(verdict: dict, text: str, request: dict | None = None) -> dict:

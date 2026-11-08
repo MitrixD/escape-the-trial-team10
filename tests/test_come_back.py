@@ -153,10 +153,21 @@ def test_tiny_traffic_does_not_overflow_and_is_capped():
 
 # --- hardening (change harden-verdict-agent, group 2.3) ---
 
-def test_horizon_shorter_than_the_test_is_rejected():
+def test_horizon_shorter_than_the_test_is_judged_as_passed(caplog):
     from tests.helpers import make_arm, make_cal, make_test, step_curve
     from verdict_agent.verdict import build_verdict
     test = make_test([make_arm("A", 200, 60), make_arm("B", 200, 70)], days_running=14)
-    from verdict_agent.model import VerdictError
-    with pytest.raises(VerdictError, match=r"7.*14|14.*7"):
-        build_verdict(test, make_cal({"p": step_curve(10.0)}), horizon=7)
+    out = build_verdict(test, make_cal({"p": step_curve(10.0)}), horizon=7)
+    assert out["horizon_days"] == 7
+    assert all(a["revenue_expected_trials"] == 0 and a["revenue_expected_renewals"] == 0 for a in out["arms"])
+    assert any("7" in r.message and "14" in r.message for r in caplog.records)
+
+
+def test_a_test_past_its_horizon_without_a_winner_gets_basis_horizon():
+    from tests.helpers import make_arm, make_cal, make_test, step_curve
+    from verdict_agent.verdict import build_verdict
+    test = make_test([make_arm("A", 200, 67), make_arm("B", 200, 72)], days_running=82)
+    out = build_verdict(test, make_cal({"p": step_curve(10.0)}))
+    assert out["verdict"] == "keep_running"
+    assert out["next_action_basis"] == "horizon"
+    assert out["come_back_on"] == test.as_of.isoformat()

@@ -2,6 +2,8 @@ from dataclasses import dataclass, field
 from datetime import date
 
 DEFAULT_TRIAL_DAYS = 7
+PERIOD_DAYS = {"weekly": 7, "monthly": 30, "two_months": 61, "trimonthly": 92, "semiannual": 183,
+               "annual": 365, "lifetime": float("inf")}
 
 
 class VerdictError(ValueError):
@@ -44,6 +46,7 @@ class TestData:
     users_per_day: float
     arms: list[Arm]
     running_days: int | None = None
+    stopped: bool = False
 
 
 def _value_at(curve: list[float], days: float) -> float:
@@ -86,8 +89,7 @@ class Calibration:
         return max(conv * gain, 0.0) if conv else 0.0
 
     def _no_renewal_within(self, product: str, horizon: float) -> bool:
-        period = self.periods.get(product)
-        return period == "lifetime" or (period == "annual" and horizon < 365)
+        return PERIOD_DAYS.get(self.periods.get(product), 0) >= horizon
 
     def trial_outcome(self, product: str, age_days: float, horizon: float) -> tuple[float, float]:
         """Conversion rate and the gain of a converting trial user; (0, 0) when nothing is expected."""

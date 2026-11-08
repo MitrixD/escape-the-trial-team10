@@ -250,3 +250,21 @@ def test_a_stop_inside_bash_c_is_read_and_decided(monkeypatch, capsys):
     out = run(monkeypatch, capsys, bash(f'bash -c "adapty ab-tests stop {SYNTH_ID} --winner weekly_trial"'))
     assert out["permissionDecision"] == "ask"
     assert "weekly_trial" in out["permissionDecisionReason"]
+
+
+@pytest.mark.parametrize("command", [
+    f"Adapty ab-tests stop {SYNTH_ID} --app {APP} --winner annual_upfront",
+    f"ADAPTY AB-TESTS STOP {SYNTH_ID} --app {APP} --winner annual_upfront",
+    f"W=annual_upfront; adapty ab-tests stop {SYNTH_ID} --app {APP} --winner $W",
+    f'adapty ab-tests stop {SYNTH_ID} --app {APP} --winner "$(echo annual_upfront)"',
+    f"adapty ab-tests stop {SYNTH_ID} --app {APP} --winner annual_{{upfront,}}",
+    f"adapty ab-tests stop {SYNTH_ID} --app {APP} --winner `echo annual_upfront`",
+])
+def test_case_and_shell_expansions_cannot_hide_a_stop(monkeypatch, capsys, command):
+    assert decision_for(monkeypatch, capsys, bash(command)) == "deny"
+
+
+def test_a_command_that_only_mentions_a_stop_gets_a_plain_reason(monkeypatch, capsys):
+    out = run(monkeypatch, capsys, bash("grep -rn 'adapty ab-tests stop' README.md"))
+    assert out["permissionDecision"] == "deny"
+    assert "If this command does not end a test" in out["permissionDecisionReason"]

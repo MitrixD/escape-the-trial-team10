@@ -23,7 +23,7 @@ mkdir -p "$target/.claude"
 python3 - "$repo" "$settings" "$mode" <<'PY'
 import json, shlex, sys
 repo, path, mode = sys.argv[1:4]
-fallback = ('case "$input" in *ab_tests_stop*|*ab_tests_replace*|*placements_update*|*ab-tests*stop*|'
+fallback = ('case "$(printf \'%s\' "$input" | tr \'[:upper:]\' \'[:lower:]\')" in *ab_tests_stop*|*ab_tests_replace*|*placements_update*|*ab-tests*stop*|'
             '*ab-tests*replace*|*ab-tests*archive*) echo "verdict guard unavailable (repository or .venv missing): '
             'run scripts/setup.sh in ' + repo + '" >&2; exit 2;; esac')
 command = (f"input=$(cat); if cd {shlex.quote(repo)} 2>/dev/null && [ -x .venv/bin/python ]; then "

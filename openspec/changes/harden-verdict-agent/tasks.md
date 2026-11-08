@@ -11,7 +11,7 @@ Every task starts with a failing test (openspec/config.yaml). Thresholds are not
 
 - [x] 2.1 Failing tests, then: draft tests rejected; stopped tests use the running period for traffic and ages
 - [x] 2.2 Failing tests, then: `--as-of` only with `--replay` and only on the recording day; usage errors in card format print `ERROR:`
-- [x] 2.3 Failing tests, then: a horizon shorter than the test's age is rejected; `horizon_reached` is `as_of ≥ start + horizon`; a come-back date on the judging day before the horizon moves 7 days; the card names the horizon
+- [x] 2.3 Failing tests, then: a test older than its horizon is judged as past it, with a logged warning (changed after the final review: rejecting it made overrun and stopped tests impossible to judge); `horizon_reached` is `as_of ≥ start + horizon`; a come-back date on the judging day before the horizon moves 7 days; the card names the horizon
 
 ## 3. Statistics
 
@@ -21,7 +21,7 @@ Every task starts with a failing test (openspec/config.yaml). Thresholds are not
 
 ## 4. Calibration and live data
 
-- [x] 4.1 Failing tests, then: catalog periods in the calibration, no renewals for annual (horizon under 365) and lifetime actives
+- [x] 4.1 Failing tests, then: catalog periods in the calibration, no renewals for actives of any period not shorter than the horizon (two_months, trimonthly, semiannual, annual, lifetime at 60 days)
 - [x] 4.2 Failing tests, then: trials without any rate give `no_calibration`; trial length 0 with trials in the funnel uses 7 days and warns
 - [x] 4.3 Failing tests, then: converted trial users at least `t` days old; pending share from all trial starts
 - [x] 4.4 Failing tests, then: replay of paywall funnels; inline comments in `.env`; `record_fixtures.sh` history window and exact company check
@@ -41,5 +41,5 @@ Every task starts with a failing test (openspec/config.yaml). Thresholds are not
 ## 7. Documents and review
 
 - [x] 7.1 README: glossary fixed (`p2bb_expected` is a normal approximation, not Adapty's model), guard described as a guard against mistakes with a recommendation for permission rules, "Known limitations" under a spoiler with what remains and why; README.ru; AI_LOG and the full log
-- [ ] 7.2 Independent review on Fable 5.1 of the whole branch; fix what it confirms
+- [x] 7.2 Independent review on Fable 5.1 of the whole branch; fix what it confirms (letter case and shell expansions in the guard, every catalog period, tests past the horizon, stopped tests without a traffic date, text-check negations and leader, doc notes)
 - [ ] 7.3 Full suite with `VERDICT_DATASET`, `openspec validate --all --strict`, archive the change

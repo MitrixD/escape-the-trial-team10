@@ -160,7 +160,7 @@ weekly_trial per user: received $1.01, from trials $1.13, from renewals $3.35, e
 each more test day costs $173.86 · shipping weekly_trial now: expected loss $0.3 · chance the leader is wrong 0.0001
 ```
 
-The card adds no numbers of its own: a test checks every number in it against the JSON with `eval/check_agent_text.py`. The stop guard starts its reason with the same card. Days 7 and 28 from the same run ([eval/synthetic_test/RESULTS.md](eval/synthetic_test/RESULTS.md)):
+The card adds no numbers of its own: a test checks every number in it against the JSON with `eval/check_agent_text.py`. The stop guard starts its reason with the same card. Days 7 and 28 come from bundles built the same way as the committed one (start 3 Nov minus N days, the command below); `eval/synthetic_test/run_synth.py` starts its bundles N days before today, so its numbers in [eval/synthetic_test/RESULTS.md](eval/synthetic_test/RESULTS.md) differ in the third or fourth decimal:
 
 | Day | Verdict | Leader | `p2bb_raw` | `p2bb_expected` |
 |---|---|---|---|---|
@@ -216,12 +216,12 @@ An agent may skip the MCP tool and stop a test on raw P2BB. The stop guard catch
 
 What it checks:
 - Adapty MCP tools `ab_tests_stop`, `ab_tests_replace` and `placements_update` on any MCP server name;
-- Bash commands with `adapty ab-tests stop`, `replace` or `archive`, including `ab-tests:stop`, `npx -y adapty@<version>`, every call in a chained command and calls inside `bash -c` or `eval`;
+- Bash commands with `adapty ab-tests stop`, `replace` or `archive` in any letter case, including `ab-tests:stop`, `npx -y adapty@<version>`, every call in a chained command and calls inside `bash -c` or `eval`;
 - a stop that ships other content (`--other`, `--no-content`, `another_*_id_to_run`, `replace`) counts as not shipping the leader; `placements_update` can end a test by replacing audiences, so it always goes to the human.
 
-A command that mentions an A/B test and a test-ending word but that the guard cannot read (for example `c=stop; adapty ab-tests $c …`) goes to the human in `ask` mode and is denied in `strict` mode. If the hook itself fails (broken input, a timeout, a missing `.venv`), the call is blocked.
+A command that mentions an A/B test and a test-ending word but that the guard cannot read (for example `c=stop; adapty ab-tests $c …` or `--winner $W`) goes to the human in `ask` mode and is denied in `strict` mode. A search or a commit message that quotes such a command is denied too; the reason tells the agent to ask the user to run it. If the hook itself fails (broken input, a crash, a missing `.venv`), the call is blocked. A timeout blocks too through `onFailure: "block"`, which needs a recent Claude Code (checked on 2.1.319); older versions let the call through on a timeout.
 
-The guard protects against an honest mistake by an agent, not against an agent that tries to get around it: a script file, another tool or a renamed binary can still end a test. On a real account also add Claude Code permission rules, for example in `.claude/settings.json`:
+The guard protects against an honest mistake by an agent, not against an agent that tries to get around it: a script file, a renamed binary or another tool that runs shell commands outside the `Bash` tool (for example a terminal MCP server) can still end a test. On a real account also add Claude Code permission rules, for example in `.claude/settings.json`:
 
 ```json
 {"permissions": {"ask": ["mcp__adapty__ab_tests_stop", "mcp__adapty__ab_tests_replace", "mcp__adapty__placements_update", "Bash(adapty ab-tests stop:*)", "Bash(adapty ab-tests replace:*)", "Bash(adapty ab-tests archive:*)"]}}
@@ -321,7 +321,7 @@ Ten reviewers checked the product on 8 Nov 2026 ([summary](docs/ai-log-full.md))
 | Audiences | A test on one segment is read with the funnel of the whole placement and calibrated on all users | Segment filters were not checked on a live test | Funnel and calibration filtered by `segment_id` |
 | The stop guard is not a sandbox | A script file, another tool or a renamed binary can still end a test | A hook sees one tool call at a time | Claude Code permission rules (see Stop guard) and an Adapty login without write rights |
 | No real test behind the eval | Accuracy on a real customer's test is unknown | No finished real test with a known outcome | Back-test on finished tests of a real app |
-| Horizon | The verdict holds only for the horizon it names; 14 and 60 days can give different leaders. The card and the MCP description say this, but the tool cannot pick the horizon for you | The right horizon is a business choice | — |
+| Horizon | The verdict holds only for the horizon it names; 14 and 60 days can give different leaders. The card and the MCP description say this, but the tool cannot pick the horizon for you. A test older than its horizon is judged on all revenue received so far, which covers more days than the horizon (the tool logs a warning) | The right horizon is a business choice; Adapty reports have no revenue cut at a user's N-th day | Revenue at the horizon per user from an LTV report filtered to the test |
 
 </details>
 

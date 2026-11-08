@@ -251,6 +251,7 @@ def live_test(cli, app_id: str, test_id: str, today: date, products: dict | None
         users_per_day=sum(a.users for a in arms) / max(1, days),
         arms=arms,
         running_days=max(1, days),
+        stopped=stopped is not None,
     )
 
 

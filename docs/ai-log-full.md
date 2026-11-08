@@ -30,7 +30,14 @@ How AI was used to build Verdict Agent. Models: Claude Opus and Fable for design
     - replays calibrate only on history before the test start;
     - the eval gained adverse cells.
 
-    The rest is in the README under "Known limitations". A final Fable 5.1 review checked the whole branch.
+    The rest is in the README under "Known limitations".
+18. **Final review of the hardening (8 Nov).** A Fable 5.1 reviewer read the branch against the change and tried to break it with 40 guard inputs. It confirmed the fixes and found four more holes, all fixed with a test first:
+    - `Adapty ab-tests stop …` in capitals passed the guard, and macOS runs it as `adapty`;
+    - `--winner $W` turned a deny into a question to the human;
+    - periods other than annual and lifetime (two months, three months, six months) still got renewals;
+    - our own rule "reject a horizon shorter than the test" made every overrun or stopped test impossible to judge.
+
+    It also caught that the agent-text check read "annual_upfront leads on received revenue, … ship weekly_trial" as naming the wrong leader.
 
 A first implementation ([PR #9](https://github.com/MitrixD/escape-the-trial-team10/pull/9), made before the hackathon core; its branch was later deleted) was used as a reference only; the core was rewritten.
 
@@ -71,6 +78,7 @@ Each line: what an AI said or built, how we found out it was wrong, and what cha
 | README: "calibration off by ±20%: the verdict gets slower, not wrong" | Product review (Fable, eval honesty): the ±20% shift moves both arms alike. With one product's renewals 30% too high, or users arriving in the first 3 days, the reviewer got up to 23% and 46% wrong confirmations | Adverse cells in `eval/calibration_robustness.py`: 42% and 58% wrong confirmations on a close test, 97–99% together. The README states it under "Known limitations" |
 | README: the stop guard "never lets a stop through without a human" | Product review (Fable, safety): `bash -c`, `eval`, a variable, `ab-tests:stop`, `npx adapty@latest`, a second stop in a chain, `replace` and a hook failure all passed | The guard parses every call and fails closed; the README calls it a guard against mistakes, not a sandbox, and recommends permission rules |
 | Glossary: `p2bb_expected` is "the same chance" as Adapty's P2BB | Product review: it is our normal approximation over pseudo-users that ignored the spread of trial outcomes (0.9726 instead of 0.9091 in an example) | Trial outcomes get their spread; the glossary says it is our approximation and counts only sampling noise |
+| Hardening plan: reject a horizon shorter than the test's age | Final Fable review: a test stopped or run past its 60-day goal could no longer be judged at all | Such a test is judged as past its horizon, with a warning; the spec was changed through the change delta |
 | Our own audit brief said PR #15 was not merged | The audit agent checked `git log` and found it merged | The audit report was read with that correction |
 
 ## Stop guard: a real agent run
