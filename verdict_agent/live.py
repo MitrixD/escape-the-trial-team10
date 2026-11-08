@@ -294,7 +294,7 @@ def run_live(test_id: str, today: date | None = None, horizon: int | None = None
         app_id = app_id or env.get("ADAPTY_APP_ID") or ""
         expected = env.get("ADAPTY_EXPECTED_COMPANY") or ""
         if not app_id:
-            raise VerdictError("Adapty app id is not set: pass it in the call (--app) or set ADAPTY_APP_ID in .env")
+            raise VerdictError("Adapty app id is not set: pass it in the call (--app) or set ADAPTY_APP_ID (environment or .env)")
         cli = AdaptyCLI()
     cli.check_account(expected)
     catalog = read_products(cli, app_id)

@@ -91,9 +91,10 @@ if [ "$live" = 1 ]; then
     todo "log in with your own account: adapty auth login"
   else
     ok "Adapty CLI logged in"
-    [ -e .env ] || { cp .env.example .env; todo "created .env from .env.example"; }
     for key in ADAPTY_APP_ID ADAPTY_EXPECTED_COMPANY; do
-      if grep -Eq "^$key=.+" .env; then ok "$key is set in .env"; else todo "set $key in .env"; fi
+      if [ -n "${!key:-}" ]; then ok "$key is set in the environment"
+      elif [ -e .env ] && grep -Eq "^$key=.+" .env; then ok "$key is set in .env"
+      else todo "set $key: export it, or cp .env.example .env and fill it in"; fi
     done
     todo "find a test: adapty ab-tests list --app <app id> --type flow --json"
     todo "then: .venv/bin/python -m verdict_agent.cli <test id> --format card"
