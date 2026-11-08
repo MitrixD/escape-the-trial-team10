@@ -70,3 +70,8 @@ Parallel start: after group 1, track A (groups 2–3) and track C (group 4) run 
 
 - [x] 11.1 Write failing tests for every scenario under "Decision card" in specs/verdict-interfaces, then `verdict_agent/card.py`, `--format json|card` in the CLI and the card at the start of the guard's reason; verify the tests pass and the guard tests still pass
 - [x] 11.2 Update README (the card in Quick start and in the judges' guide) and AI_LOG; verify the full suite with `VERDICT_DATASET` and `openspec validate add-verdict-agent --strict` pass
+
+## 12. Test health (needs 11)
+
+- [x] 12.1 Write failing tests for every scenario under "Test health" in specs/ab-test-verdict, then `stats.srm_p`, `Arm.weight` read from `ab-tests get`, `health` and the `fix_test` next action in `build_verdict` and `schema.json`; verify the tests pass and the replay snapshot is regenerated
+- [x] 12.2 Write failing tests, then the guard's deny for `fix_test` and the `FIX TEST` card status; update README and AI_LOG; verify the full suite with `VERDICT_DATASET` and `openspec validate add-verdict-agent --strict` pass

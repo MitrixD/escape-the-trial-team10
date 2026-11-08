@@ -166,6 +166,7 @@ An agent may skip the MCP tool and stop a test on raw P2BB. The stop guard close
 | Agrees with the stop (`ship_leader` with the leader, `ship_either`, or no winner named) | Asks the human, with the verdict summary | Same |
 | `ship_leader`, but the winner is another variant | Asks the human, starting with a warning and the verdict leader | Denies; the agent goes back to the user |
 | `next_action` is `come_back` | Asks, with a warning, `come_back_on` and the money at stake | Denies |
+| The test is unhealthy (`fix_test`) | Asks, with a warning and the mismatch or the dead arm | Denies |
 | No verdict (error) | Asks, with a warning that there is no verdict | Denies |
 
 Who sets the mode: the team picks it at install time, and the person who starts the session can override it with `VERDICT_GUARD_MODE=ask` or `VERDICT_GUARD_MODE=strict`. The agent cannot: it does not control the environment of the hook process, so unlike `git push --force` there is no flag it could add to the stop call. A strict deny tells the agent that the user can restart with `VERDICT_GUARD_MODE=ask` and confirm the stop themselves. An unknown value means `strict`. This follows how experiment platforms gate decisions: Statsig can require a review when a ship decision goes against its decision framework, and LaunchDarkly grants approval bypass as a role permission rather than per request.
@@ -214,7 +215,8 @@ JSON that validates against [verdict_agent/schema.json](verdict_agent/schema.jso
 | `calibration_source` | `product` (some product has its own history; products without it use app-wide rates), `app` or `none` |
 | `expected_gap_per_user` | Leader's `revenue_expected_total` minus the best other variant's, never below 0 |
 | `money` | `null` for `not_enough_data`. Otherwise the leader against the best other variant, in USD for the test's whole traffic: `traffic_per_day`, `after_days` (how long the shipped variant serves that traffic after the stop, `--after-days`, default 180), `cost_per_day` (expected revenue lost by one more test day, because part of the traffic sees the worse variant), `loss_if_ship_leader_now` (expected loss of stopping now and shipping the leader), `cost_until_come_back` (`cost_per_day` until `come_back_on`, only for `keep_running`) and `chance_leader_is_wrong` (1 − `p2bb_expected`) |
-| `next_action` | `ship_leader`, `ship_either` (for `tie`, or a test past its horizon without a likely leader) or `come_back` |
+| `next_action` | `ship_leader`, `ship_either` (for `tie`, or a test past its horizon without a likely leader), `come_back`, or `fix_test` when the test is unhealthy |
+| `health` | `srm_p` (chi-square p-value of the variants' users against their weights, `null` without weights), `srm` (`true` when `srm_p` is below 0.001 and the test has at least 1,000 users, the thresholds Eppo and Optimizely use) and `dead_arm` (a variant with 0 users after 3 days). An unhealthy test gets `next_action` `fix_test` with basis `health`: a winner from a broken split cannot be trusted. Adapty's docs leave this check to the user |
 | `next_action_basis` | `verdict`; `money` when the verdict is `keep_running`, `p2bb_expected` is at least 0.80 and `loss_if_ship_leader_now` is below `cost_until_come_back` (the leader is not proven, yet waiting is expected to cost more than shipping it); `horizon` when the test has passed its horizon, so there is nothing left to wait for (`ship_leader` from 0.80, `ship_either` below). Below 0.80 the tool never advises shipping the leader on money |
 
 Revenue fields and `expected_gap_per_user` are USD per user, rounded to cents from unrounded values. USD values in `money` are totals for the test's traffic, rounded to cents.
@@ -287,7 +289,7 @@ Limits:
 ## Next steps
 
 - Money at stake for tests with more than two variants beyond the leader and the best other one.
-- Test validity checks (SRM, dead arm).
+- More validity checks: a flow shown in several placements, uneven traffic over days.
 - Guardrails (refunds, trial cancels) and segments.
 - A new UI for the A/B test screen with our estimates.
 - A PR to `adapty-skills`: the `ab-tests` skill calls `ab_test_verdict` before a stop.

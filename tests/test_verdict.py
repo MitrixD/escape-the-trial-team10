@@ -118,7 +118,7 @@ def test_output_has_exactly_the_contract_fields():
     assert set(out) == {
         "ab_test_id", "verdict", "reason", "leader", "p2bb_expected", "p2bb_raw",
         "maturity", "horizon_days", "come_back_on", "arms", "calibration_source", "expected_gap_per_user",
-        "money", "next_action", "next_action_basis",
+        "money", "next_action", "next_action_basis", "health",
     }
     assert out["calibration_source"] == "product"
     assert out["arms"][1] == {

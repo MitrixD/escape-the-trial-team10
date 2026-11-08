@@ -13,7 +13,8 @@ DESCRIPTION = (
     "totals for the test's traffic, not per user; `after_days` is how long the shipped arm serves that traffic after "
     "the stop (180 when omitted). `next_action` with `next_action_basis` \"money\" means the leader is not proven, "
     "but waiting until `come_back_on` is expected to cost more than shipping it now; basis \"horizon\" means the "
-    "test has passed its horizon, so there is nothing left to wait for."
+    "test has passed its horizon, so there is nothing left to wait for. `next_action` \"fix_test\" (basis \"health\") "
+    "means the split is broken (`health`: a sample ratio mismatch or a dead arm): do not ship any variant."
 )
 
 server = MCPServer("verdict-agent")

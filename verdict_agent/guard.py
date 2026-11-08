@@ -101,6 +101,8 @@ def decide(stop: dict) -> tuple[str, str]:
         return "deny", f"Verdict guard: no verdict for test {test_id} ({v['error']}). An irreversible stop needs one."
     head = f"Verdict for {test_id}: {render_card(v).replace(chr(10), ' | ')}."
     action = v.get("next_action")
+    if action == "fix_test":
+        return "deny", f"{head} The test is unhealthy, so its winner cannot be trusted: fix the split first."
     if action == "come_back":
         when = f" Come back on {v['come_back_on']}." if v.get("come_back_on") else ""
         return "deny", f"{head} Too early to stop.{when} Ask the user before overriding."

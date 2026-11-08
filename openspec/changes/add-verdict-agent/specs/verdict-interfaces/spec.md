@@ -68,6 +68,7 @@ The tool SHALL NOT call a language model. Explanations SHALL be written by the c
 ### Requirement: Stop guard
 The system SHALL provide a Claude Code `PreToolUse` hook that runs before an agent stops an Adapty A/B test, through the Adapty MCP tool `ab_tests_stop` or the CLI command `adapty ab-tests stop`, and decides from the verdict of that test. The hook SHALL never stop, start or change a test itself; it only lets the call through to the human (`ask`) or blocks it (`deny`), and its reason SHALL quote only values from the verdict JSON and the test's arms:
 - the verdict cannot be produced (error) → `deny`: no stop without a verdict;
+- `next_action` is `fix_test` (the test is unhealthy) → `deny`, naming the sample ratio mismatch or the dead arm;
 - `next_action` is `come_back` → `deny`, naming the verdict, `come_back_on`, `cost_per_day`, `loss_if_ship_leader_now` and `chance_leader_is_wrong` when present;
 - `next_action` is `ship_leader` and the chosen winner is another arm → `deny`, naming the verdict leader, its `p2bb_expected` and the chosen arm;
 - `next_action` is `ship_leader` and the winner is the leader, or `ship_either` with any winner of the test, or the stop names no winner of the test → `ask`, with the verdict summary, so a human confirms the irreversible stop.
@@ -112,7 +113,7 @@ Commands other than an A/B test stop SHALL pass through with no output. The hook
 
 ### Requirement: Decision card
 The CLI SHALL accept `--format json` (default) or `--format card`. The card is a short text rendering of the same verdict for a person reading a terminal, in the style of experiment platforms' status lines. It SHALL use only values that appear in the verdict JSON, and SHALL contain:
-- a status line: `SHIP <leader>` for `next_action` `ship_leader`, `SHIP EITHER` for `ship_either`, `WAIT until <come_back_on>` for `come_back` with a date, `WAIT` without one; followed by the verdict, the reason when present and the `next_action_basis`;
+- a status line: `FIX TEST` for `next_action` `fix_test`, followed by `srm_p` or the dead arm; `SHIP <leader>` for `next_action` `ship_leader`, `SHIP EITHER` for `ship_either`, `WAIT until <come_back_on>` for `come_back` with a date, `WAIT` without one; followed by the verdict, the reason when present and the `next_action_basis`;
 - `p2bb_expected` next to `p2bb_raw`, and `maturity` as a fraction and a percentage of expected revenue received;
 - for the leader, revenue per user: received, expected from trials, expected from renewals, expected total;
 - when `money` is not `null`: `cost_per_day`, `loss_if_ship_leader_now`, `cost_until_come_back` when present, and `chance_leader_is_wrong`.

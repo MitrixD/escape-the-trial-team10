@@ -119,7 +119,7 @@ def _spread(status: str, product: str, n: int, days: int, received: float) -> li
 
 
 def _live_arm(title: str, row: dict, funnel: dict, labels: dict[str, str], days: int,
-              trial_days: dict[str, int]) -> Arm:
+              trial_days: dict[str, int], weight: int | None = None) -> Arm:
     paid_users = int(row.get("unique_paid_subscribers") or 0)
     revenue = float(row.get("revenue") or 0)
     metric_trials = int(row.get("trials") or 0)
@@ -153,7 +153,7 @@ def _live_arm(title: str, row: dict, funnel: dict, labels: dict[str, str], days:
         none_n = 0
     if none_n:
         groups.append(Group("none", UNKNOWN, days / 2, none_n, 0.0))
-    return Arm(title, groups, int(row.get("purchases") or 0), metric_trials, paid_users, revenue)
+    return Arm(title, groups, int(row.get("purchases") or 0), metric_trials, paid_users, revenue, weight)
 
 
 def _arms(test: dict) -> tuple[list[dict], str]:
@@ -213,7 +213,7 @@ def live_test(cli, app_id: str, test_id: str, today: date, products: dict | None
             args += ["--filter", f"placement_id={placement_id}"]
         funnel = cli.run(args + ["--group-by", "store_product_id"])
         title = arm.get("title") or arm.get("flow_name") or arm.get("paywall_name") or row.get("title")
-        arms.append(_live_arm(title, row, funnel, labels, max(1, days), trial_days or {}))
+        arms.append(_live_arm(title, row, funnel, labels, max(1, days), trial_days or {}, arm.get("weight")))
     return TestData(
         ab_test_id=test.get("ab_test_id", test_id),
         title=test.get("title") or "",

@@ -18,7 +18,8 @@
     "expected_gap_per_user",
     "money",
     "next_action",
-    "next_action_basis"
+    "next_action_basis",
+    "health"
   ],
   "properties": {
     "ab_test_id": {"type": "string"},
@@ -67,8 +68,18 @@
         "chance_leader_is_wrong": {"type": "number", "minimum": 0, "maximum": 1}
       }
     },
-    "next_action": {"enum": ["ship_leader", "ship_either", "come_back"]},
-    "next_action_basis": {"enum": ["verdict", "money", "horizon"]}
+    "next_action": {"enum": ["ship_leader", "ship_either", "come_back", "fix_test"]},
+    "next_action_basis": {"enum": ["verdict", "money", "horizon", "health"]},
+    "health": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["srm_p", "srm", "dead_arm"],
+      "properties": {
+        "srm_p": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "srm": {"type": "boolean"},
+        "dead_arm": {"type": ["string", "null"]}
+      }
+    }
   },
   "allOf": [
     {
@@ -89,18 +100,18 @@
     },
     {
       "if": {"properties": {"verdict": {"enum": ["not_enough_data"]}}},
-      "then": {"properties": {"money": {"type": "null"}, "next_action": {"enum": ["come_back"]},
-                              "next_action_basis": {"enum": ["verdict"]}}}
+      "then": {"properties": {"money": {"type": "null"}, "next_action": {"enum": ["come_back", "fix_test"]},
+                              "next_action_basis": {"enum": ["verdict", "health"]}}}
     },
     {
       "if": {"properties": {"verdict": {"enum": ["confirmed", "tie"]}}},
       "then": {"properties": {"money": {"properties": {"cost_until_come_back": {"type": "null"}}},
-                              "next_action_basis": {"enum": ["verdict"]}}}
+                              "next_action_basis": {"enum": ["verdict", "health"]}}}
     },
     {
       "if": {"properties": {"verdict": {"enum": ["keep_running"]}}},
       "then": {"properties": {"money": {"properties": {"cost_until_come_back": {"type": "number"}}},
-                              "next_action": {"enum": ["ship_leader", "ship_either", "come_back"]}}}
+                              "next_action": {"enum": ["ship_leader", "ship_either", "come_back", "fix_test"]}}}
     },
     {
       "if": {"properties": {"verdict": {"enum": ["confirmed", "tie", "keep_running"]}}},

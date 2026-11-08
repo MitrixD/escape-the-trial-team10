@@ -3,11 +3,14 @@ from datetime import date, timedelta
 
 from verdict_agent.estimator import estimate, pseudo_values
 from verdict_agent.model import DEFAULT_TRIAL_DAYS, Arm, Calibration, TestData, VerdictError
-from verdict_agent.stats import diff_ci, diff_mean_se, expected_positive, p2bb, users_needed
+from verdict_agent.stats import diff_ci, diff_mean_se, expected_positive, p2bb, srm_p, users_needed
 
 MIN_EVENTS = 30
 P_CONFIRM = 0.95
 P_MONEY_MIN = 0.80
+SRM_ALPHA = 0.001
+SRM_MIN_USERS = 1000
+DEAD_ARM_DAYS = 3
 MATURITY_MIN = 0.80
 MDE_SHARE = 0.05
 DEFAULT_HORIZON = 60
@@ -93,7 +96,10 @@ def build_verdict(test: TestData, cal: Calibration, horizon: int | None = None,
     if verdict != "not_enough_data":
         money = money_at_stake(test, leader, other, leader_values, other_values, p_expected, after_days,
                                come_back_on if verdict == "keep_running" else None)
+    health = test_health(test)
     action, basis = next_action(verdict, money, p_expected, come_back_on == test.as_of)
+    if health["srm"] or health["dead_arm"]:
+        action, basis = "fix_test", "health"
 
     return {
         "ab_test_id": test.ab_test_id,
@@ -121,7 +127,19 @@ def build_verdict(test: TestData, cal: Calibration, horizon: int | None = None,
         "money": money,
         "next_action": action,
         "next_action_basis": basis,
+        "health": health,
     }
+
+
+def test_health(test: TestData) -> dict:
+    users = [arm.users for arm in test.arms]
+    p = srm_p(users, [arm.weight for arm in test.arms])
+    p = None if p is None else _floor4(p) if p >= 1e-4 else float(f"{p:.1e}")
+    srm = p is not None and p < SRM_ALPHA and sum(users) >= SRM_MIN_USERS
+    dead = None
+    if _days_running(test) >= DEAD_ARM_DAYS and any(users):
+        dead = next((arm.title for arm in test.arms if arm.users == 0), None)
+    return {"srm_p": p, "srm": srm, "dead_arm": dead}
 
 
 def _days_running(test: TestData) -> int:

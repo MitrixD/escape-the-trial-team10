@@ -1,8 +1,19 @@
 """Decision card: the verdict JSON as a few short lines for a person, with no numbers of its own."""
 
 
+def _health_issue(v: dict) -> str:
+    h = v.get("health") or {}
+    if h.get("dead_arm"):
+        return f"dead arm {h['dead_arm']}"
+    if h.get("srm"):
+        return f"sample ratio mismatch, srm_p {h['srm_p']}"
+    return "test is unhealthy"
+
+
 def _status(v: dict) -> str:
     action = v.get("next_action")
+    if action == "fix_test":
+        return f"FIX TEST · {_health_issue(v)}"
     if action == "ship_leader":
         return f"SHIP {v.get('leader')}"
     if action == "ship_either":
