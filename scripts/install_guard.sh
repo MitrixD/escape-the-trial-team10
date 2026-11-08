@@ -23,10 +23,16 @@ mkdir -p "$target/.claude"
 python3 - "$repo" "$settings" "$mode" <<'PY'
 import json, shlex, sys
 repo, path, mode = sys.argv[1:4]
-command = f"cd {shlex.quote(repo)} && .venv/bin/python -m verdict_agent.guard --mode {mode}"
-hook = {"type": "command", "command": command, "timeout": 120}
-settings = {"hooks": {"PreToolUse": [{"matcher": "mcp__.*adapty.*__ab_tests_stop", "hooks": [hook]},
-                                     {"matcher": "Bash", "hooks": [hook]}]}}
+fallback = ('case "$input" in *ab_tests_stop*|*ab_tests_replace*|*placements_update*|*ab-tests*stop*|'
+            '*ab-tests*replace*|*ab-tests*archive*) echo "verdict guard unavailable (repository or .venv missing): '
+            'run scripts/setup.sh in ' + repo + '" >&2; exit 2;; esac')
+command = (f"input=$(cat); if cd {shlex.quote(repo)} 2>/dev/null && [ -x .venv/bin/python ]; then "
+           f"printf '%s' \"$input\" | .venv/bin/python -m verdict_agent.guard --mode {mode} || exit 2; "
+           f"else {fallback}; fi")
+hook = {"type": "command", "command": command, "timeout": 120, "onFailure": "block"}
+settings = {"hooks": {"PreToolUse": [
+    {"matcher": "mcp__.*__(ab_tests_stop|ab_tests_replace|placements_update)", "hooks": [hook]},
+    {"matcher": "Bash", "hooks": [hook]}]}}
 with open(path, "w") as f:
     json.dump(settings, f, indent=2)
     f.write("\n")

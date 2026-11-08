@@ -4,8 +4,8 @@ Every task starts with a failing test (openspec/config.yaml). Thresholds are not
 
 ## 1. Stop guard
 
-- [ ] 1.1 Failing tests, then: all stops and replaces in one Bash command are collected and the strictest decision wins; `ab-tests:stop`, `replace`, `archive`, `npx -y adapty@x`; unreadable test-ending commands deny (strict) or ask; `--other`, `--no-content`, `another_*_id_to_run`, MCP `ab_tests_replace` count as showing other content; `placements_update` asks; `--mode=X`; `main` fails closed
-- [ ] 1.2 Hook configuration: exit 2 when the interpreter is missing (`install_guard.sh`), the repo's `.claude/settings.json` blocks test-ending Bash commands without `.venv`, matchers for any MCP server name; verify by piping JSON into the configured commands
+- [x] 1.1 Failing tests, then: all stops and replaces in one Bash command are collected and the strictest decision wins; `ab-tests:stop`, `replace`, `archive`, `npx -y adapty@x`; unreadable test-ending commands deny (strict) or ask; `--other`, `--no-content`, `another_*_id_to_run`, MCP `ab_tests_replace` count as showing other content; `placements_update` asks; `--mode=X`; `main` fails closed
+- [x] 1.2 Hook configuration: exit 2 when the interpreter is missing (`install_guard.sh`), the repo's `.claude/settings.json` blocks test-ending Bash commands without `.venv`, matchers for any MCP server name; verify by piping JSON into the configured commands
 
 ## 2. Test state, as-of, horizon
 

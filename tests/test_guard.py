@@ -156,3 +156,97 @@ def test_the_human_sets_the_mode_not_the_command(monkeypatch, capsys):
 def test_unknown_mode_is_strict(monkeypatch, capsys):
     out = run(monkeypatch, capsys, mcp_stop(SYNTH_ID, "annual_upfront"), mode="off")
     assert out["permissionDecision"] == "deny"
+
+
+# --- hardening (change harden-verdict-agent, group 1) ---
+
+def decision_for(monkeypatch, capsys, payload, mode="strict"):
+    out = run(monkeypatch, capsys, payload, mode=mode)
+    return out["permissionDecision"] if out else None
+
+
+@pytest.mark.parametrize("command", [
+    f"adapty ab-tests stop {SYNTH_ID} --app {APP} --winner weekly_trial --yes && "
+    f"adapty ab-tests stop {SYNTH_ID} --app {APP} --winner annual_upfront --yes",
+    f"adapty ab-tests stop {SYNTH_ID} --app {APP} --winner weekly_trial\n"
+    f"adapty ab-tests stop {SYNTH_ID} --app {APP} --winner annual_upfront",
+])
+def test_a_second_stop_in_the_same_command_is_checked(monkeypatch, capsys, command):
+    assert decision_for(monkeypatch, capsys, bash(command)) == "deny"
+
+
+@pytest.mark.parametrize("command", [
+    f"adapty ab-tests:stop {SYNTH_ID} --app {APP} --winner annual_upfront",
+    f"npx -y adapty@latest ab-tests stop {SYNTH_ID} --app {APP} --winner annual_upfront",
+    f"npx adapty@0.18.0 ab-tests stop {SYNTH_ID} --app {APP} --winner annual_upfront",
+    f"adapty ab-tests replace {SYNTH_ID} --app {APP}",
+    f"adapty ab-tests archive {SYNTH_ID} --app {APP}",
+    f"adapty ab-tests stop {SYNTH_ID} --app {APP} --other annual_upfront",
+    f"adapty ab-tests stop {SYNTH_ID} --app {APP} --no-content",
+])
+def test_other_syntaxes_and_ways_to_end_a_test_are_denied(monkeypatch, capsys, command):
+    assert decision_for(monkeypatch, capsys, bash(command)) == "deny"
+
+
+def test_mcp_replace_and_other_content_are_denied(monkeypatch, capsys):
+    replace = {"tool_name": "mcp__subs__ab_tests_replace", "tool_input": {"app_id": APP, "ab_test_id": SYNTH_ID}}
+    other = mcp_stop(SYNTH_ID)
+    other["tool_input"]["another_flow_id_to_run"] = "some-other-flow"
+    assert decision_for(monkeypatch, capsys, replace) == "deny"
+    assert decision_for(monkeypatch, capsys, other) == "deny"
+
+
+def test_any_mcp_server_name_is_guarded(monkeypatch, capsys):
+    payload = mcp_stop(SYNTH_ID, "annual_upfront")
+    payload["tool_name"] = "mcp__subs__ab_tests_stop"
+    assert decision_for(monkeypatch, capsys, payload) == "deny"
+
+
+@pytest.mark.parametrize("command", [
+    f'bash -c "adapty ab-tests stop {SYNTH_ID} --app {APP} --winner annual_upfront"',
+    f"c=stop; adapty ab-tests $c {SYNTH_ID} --app {APP} --winner annual_upfront",
+    f"eval 'adapty ab-tests stop {SYNTH_ID} --winner annual_upfront'",
+    f"python3 -c \"import subprocess; subprocess.run(['adapty','ab-tests','stop','{SYNTH_ID}'])\"",
+])
+def test_a_stop_the_hook_cannot_read_is_denied_in_strict(monkeypatch, capsys, command):
+    assert decision_for(monkeypatch, capsys, bash(command)) == "deny"
+
+
+def test_a_stop_the_hook_cannot_read_asks_in_ask_mode(monkeypatch, capsys):
+    out = run(monkeypatch, capsys, bash(f"c=stop; adapty ab-tests $c {SYNTH_ID}"), mode="ask")
+    assert out["permissionDecision"] == "ask"
+    assert "cannot" in out["permissionDecisionReason"]
+
+
+def test_placement_update_asks(monkeypatch, capsys):
+    payload = {"tool_name": "mcp__adapty__placements_update", "tool_input": {"app_id": APP, "placement_id": "p"}}
+    out = run(monkeypatch, capsys, payload, mode="strict")
+    assert out["permissionDecision"] == "ask"
+    assert "audience" in out["permissionDecisionReason"]
+
+
+@pytest.mark.parametrize("raw", ["[1]", "not json", '{"tool_name": "Bash", "tool_input": 5}'])
+def test_malformed_input_is_blocked(monkeypatch, capsys, raw):
+    monkeypatch.setenv("VERDICT_GUARD_MODE", "strict")
+    monkeypatch.setattr("sys.stdin", io.StringIO(raw))
+    guard.main([])
+    out = json.loads(capsys.readouterr().out)["hookSpecificOutput"]
+    assert out["permissionDecision"] == "deny"
+
+
+def test_mode_with_an_equals_sign(monkeypatch, capsys):
+    out = run(monkeypatch, capsys, mcp_stop(SYNTH_ID, "annual_upfront"), mode=None, argv=["--mode=strict"])
+    assert out["permissionDecision"] == "deny"
+
+
+@pytest.mark.parametrize("command", ["ls -la", f"adapty ab-tests list --app {APP} --json",
+                                     f"adapty ab-tests metrics total {SYNTH_ID} --app {APP} --type flow",
+                                     "git commit -m 'stop the build'"])
+def test_read_commands_still_pass(monkeypatch, capsys, command):
+    assert run(monkeypatch, capsys, bash(command)) is None
+
+
+def test_a_stop_inside_bash_c_is_read_and_decided(monkeypatch, capsys):
+    out = run(monkeypatch, capsys, bash(f'bash -c "adapty ab-tests stop {SYNTH_ID} --winner weekly_trial"'))
+    assert out["permissionDecision"] == "ask"
+    assert "weekly_trial" in out["permissionDecisionReason"]

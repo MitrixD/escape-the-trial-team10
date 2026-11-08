@@ -1,6 +1,7 @@
 """Claude Code PreToolUse hook: an Adapty A/B test stop needs the verdict's agreement and a human's yes."""
 import json
 import os
+import re
 import shlex
 import sys
 from pathlib import Path
@@ -10,12 +11,16 @@ from verdict_agent.live import _arms, read_test
 from verdict_agent.card import render_card
 from verdict_agent.service import safe_verdict
 
-STOP_TOOL_SUFFIX = "__ab_tests_stop"
+ENDING_SUBCOMMANDS = ("stop", "replace", "archive")
+READ_SUBCOMMANDS = ("get", "list", "metrics")
 MODES = ("ask", "strict")
 DEFAULT_MODE = "ask"
 OVERRIDE_HINT = (" If the user insists, they can restart the session with VERDICT_GUARD_MODE=ask"
                  " and confirm the stop themselves.")
-SEPARATORS = {"&&", "||", ";", "|", "&", "(", ")"}
+SEPARATORS = {"&&", "||", ";", "|", "&", "(", ")", "\n"}
+SHELL_WRAPPERS = {"bash", "sh", "zsh", "dash", "eval"}
+ENDING_WORD = re.compile(r"\b(stop|replace|archive)\b")
+ORDER = {None: 0, "ask": 1, "deny": 2}
 
 
 def replay_for(test_id: str) -> Path | None:
@@ -30,52 +35,116 @@ def replay_for(test_id: str) -> Path | None:
     return None
 
 
-def _flag(words: list[str], i: int, name: str) -> tuple[str | None, int]:
-    word = words[i]
-    if word == name:
-        return (words[i + 1] if i + 1 < len(words) else None), i + 2
-    return word.split("=", 1)[1], i + 1
+def _words(command: str) -> list[str] | None:
+    lexer = shlex.shlex(command.replace("\n", " \n "), posix=True, punctuation_chars=True)
+    lexer.whitespace_split = True
+    try:
+        return [w if w != "\\n" else "\n" for w in lexer]
+    except ValueError:
+        return None
+
+
+def _is_adapty(word: str) -> bool:
+    return Path(word).name.split("@", 1)[0] == "adapty"
+
+
+def _subcommand(words: list[str], i: int) -> tuple[str | None, int]:
+    word = words[i + 1] if i + 1 < len(words) else ""
+    if word.startswith("ab-tests:"):
+        return word.split(":", 1)[1], i + 2
+    if word == "ab-tests" and i + 2 < len(words):
+        return words[i + 2], i + 3
+    return None, i + 1
+
+
+def _parse_call(words: list[str], j: int, sub: str) -> tuple[dict, int]:
+    call = {"kind": "replace" if sub in ("replace", "archive") else "stop", "ab_test_id": None, "app_id": None,
+            "winner": None, "other": sub in ("replace", "archive")}
+    while j < len(words) and words[j] not in SEPARATORS:
+        word = words[j]
+        key = next((k for name, k in (("--app", "app_id"), ("--winner", "winner"), ("--other", "other"))
+                    if word == name or word.startswith(name + "=")), None)
+        if key:
+            value = word.split("=", 1)[1] if "=" in word else (words[j + 1] if j + 1 < len(words) else None)
+            j += 1 if "=" in word else 2
+            call[key] = True if key == "other" else value
+        elif word == "--no-content":
+            call["other"], j = True, j + 1
+        elif word.startswith("-"):
+            j += 1
+        else:
+            call["ab_test_id"] = call["ab_test_id"] or word
+            j += 1
+    return call, j
+
+
+def parse_cli_calls(command: str, depth: int = 0) -> list[dict]:
+    words = _words(command)
+    calls: list[dict] = []
+    if words is None:
+        return [{"kind": "unreadable"}] if _mentions_ending(command) else []
+    i = 0
+    while i < len(words):
+        word = words[i]
+        if _is_adapty(word):
+            sub, j = _subcommand(words, i)
+            if sub in ENDING_SUBCOMMANDS:
+                call, i = _parse_call(words, j, sub)
+                calls.append(call if call["ab_test_id"] and "$" not in call["ab_test_id"] else {"kind": "unreadable"})
+                continue
+            if sub is not None and sub not in READ_SUBCOMMANDS and not sub.startswith("-") and sub != "--help":
+                if "$" in sub or "`" in sub:
+                    calls.append({"kind": "unreadable"})
+            i = j
+            continue
+        if Path(word).name in SHELL_WRAPPERS and depth < 2:
+            k = i + 1
+            while k < len(words) and words[k].startswith("-"):
+                k += 1
+            if k < len(words) and words[k] not in SEPARATORS:
+                calls += parse_cli_calls(words[k], depth + 1)
+                i = k + 1
+                continue
+        i += 1
+    readable = [c for c in calls if c["kind"] != "unreadable"]
+    if not readable and not calls and _mentions_ending(command):
+        calls.append({"kind": "unreadable"})
+    return calls
+
+
+def _mentions_ending(text: str) -> bool:
+    return "adapty" in text and "ab-tests" in text and bool(ENDING_WORD.search(text))
 
 
 def parse_cli_stop(command: str) -> dict | None:
-    lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
-    lexer.whitespace_split = True
-    try:
-        words = list(lexer)
-    except ValueError:
-        return None
-    for i in range(len(words) - 2):
-        if Path(words[i]).name == "adapty" and words[i + 1:i + 3] == ["ab-tests", "stop"]:
-            break
-    else:
-        return None
-    stop = {"ab_test_id": None, "app_id": None, "winner": None}
-    j = i + 3
-    while j < len(words) and words[j] not in SEPARATORS:
-        word = words[j]
-        for name, key in (("--app", "app_id"), ("--winner", "winner")):
-            if word == name or word.startswith(name + "="):
-                stop[key], j = _flag(words, j, name)
-                break
-        else:
-            if word == "--other" or word.startswith("--other="):
-                _, j = _flag(words, j, "--other")
-            elif word.startswith("-"):
-                j += 1
-            else:
-                stop["ab_test_id"] = stop["ab_test_id"] or word
-                j += 1
-    return stop
+    calls = [c for c in parse_cli_calls(command) if c["kind"] == "stop"]
+    return calls[0] if calls else None
+
+
+def requests_from(payload: dict) -> list[dict]:
+    tool, args = payload.get("tool_name", ""), payload.get("tool_input") or {}
+    if not isinstance(tool, str) or not isinstance(args, dict):
+        raise ValueError("malformed hook payload")
+    if tool.startswith("mcp__") and tool.endswith("__ab_tests_stop"):
+        other = bool(args.get("another_flow_id_to_run") or args.get("another_paywall_id_to_run"))
+        return [{"kind": "stop", "ab_test_id": args.get("ab_test_id"), "app_id": args.get("app_id"),
+                 "winner": args.get("winner_flow_id") or args.get("winner_paywall_id"), "other": other}]
+    if tool.startswith("mcp__") and tool.endswith("__ab_tests_replace"):
+        return [{"kind": "replace", "ab_test_id": args.get("ab_test_id"), "app_id": args.get("app_id"),
+                 "winner": None, "other": True}]
+    if tool.startswith("mcp__") and tool.endswith("__placements_update"):
+        return [{"kind": "placement"}]
+    if tool == "Bash":
+        command = args.get("command", "")
+        if not isinstance(command, str):
+            raise ValueError("malformed Bash command")
+        return parse_cli_calls(command)
+    return []
 
 
 def stop_request(payload: dict) -> dict | None:
-    tool, args = payload.get("tool_name", ""), payload.get("tool_input") or {}
-    if tool.startswith("mcp__") and tool.endswith(STOP_TOOL_SUFFIX):
-        return {"ab_test_id": args.get("ab_test_id"), "app_id": args.get("app_id"),
-                "winner": args.get("winner_flow_id") or args.get("winner_paywall_id")}
-    if tool == "Bash":
-        return parse_cli_stop(args.get("command", ""))
-    return None
+    stops = [r for r in requests_from(payload) if r["kind"] == "stop"]
+    return stops[0] if stops else None
 
 
 def _arm_title(test: dict, winner: str) -> str | None:
@@ -92,9 +161,17 @@ def _read_test(test_id: str, app_id: str | None, replay: Path | None) -> dict:
 
 
 def decide(stop: dict) -> tuple[str, str]:
+    kind = stop.get("kind", "stop")
+    if kind == "unreadable":
+        return "deny", ("Verdict guard: this command can end an A/B test, but the guard cannot read which test and "
+                        "what it would show, so it cannot check it against a verdict. Run the plain "
+                        "`adapty ab-tests stop <id> --app <app> --winner <id>` instead.")
+    if kind == "placement":
+        return "ask", ("Verdict guard: changing a placement's audiences can end an A/B test running there. "
+                       "Confirm that no running test is affected.")
     test_id = stop.get("ab_test_id")
     if not test_id:
-        return "deny", "Verdict guard: no A/B test ID in the stop call, so there is no verdict. Not stopping."
+        return "deny", "Verdict guard: no A/B test ID in the call, so there is no verdict. Not stopping."
     replay = replay_for(test_id)
     v = safe_verdict(ab_test_id=test_id, app_id=stop.get("app_id"), replay=str(replay) if replay else None)
     if "error" in v:
@@ -106,9 +183,15 @@ def decide(stop: dict) -> tuple[str, str]:
     if action == "come_back":
         when = f" Come back on {v['come_back_on']}." if v.get("come_back_on") else ""
         return "deny", f"{head} Too early to stop.{when} Ask the user before overriding."
+    if stop.get("other"):
+        what = "replaces the test" if kind == "replace" else "shows other content instead of a winner"
+        if action == "ship_leader":
+            return "deny", (f"{head} This call {what}, but the verdict leader is {v['leader']}"
+                            f" (p2bb_expected {v['p2bb_expected']}). Stop with {v['leader']} or ask the user.")
+        return "ask", f"{head} This call {what}. Confirm it: it cannot be undone."
     winner = stop.get("winner")
     if not winner:
-        return "ask", f"{head} The stop names no winner of the test. Confirm the stop."
+        return "ask", f"{head} The stop names nothing to show. Confirm the stop."
     chosen = _arm_title(_read_test(test_id, stop.get("app_id"), replay), winner)
     if chosen is None:
         return "ask", f"{head} Winner {winner} is not an arm of the test. Confirm the stop."
@@ -119,10 +202,24 @@ def decide(stop: dict) -> tuple[str, str]:
     return "ask", f"{head} Next action {action} (basis {basis}); chosen winner {chosen}. A stop cannot be undone."
 
 
+def decide_all(requests: list[dict]) -> tuple[str | None, str]:
+    worst, reasons = None, []
+    for request in requests:
+        decision, reason = decide(request)
+        reasons.append(reason)
+        if ORDER[decision] > ORDER[worst]:
+            worst = decision
+    return worst, " || ".join(reasons)
+
+
 def resolve_mode(argv: list[str]) -> str:
     mode = os.environ.get("VERDICT_GUARD_MODE")
-    if mode is None and "--mode" in argv[:-1]:
-        mode = argv[argv.index("--mode") + 1]
+    if mode is None:
+        for i, arg in enumerate(argv):
+            if arg == "--mode" and i + 1 < len(argv):
+                mode = argv[i + 1]
+            elif arg.startswith("--mode="):
+                mode = arg.split("=", 1)[1]
     mode = mode if mode is not None else DEFAULT_MODE
     return mode if mode in MODES else "strict"
 
@@ -131,7 +228,8 @@ def apply_mode(mode: str, decision: str, reason: str) -> tuple[str, str]:
     if decision != "deny":
         return decision, reason
     if mode == "ask":
-        return "ask", "WARNING: this stop goes against the verdict or has no verdict. " + reason
+        return "ask", ("WARNING: this call goes against the verdict, has no verdict or cannot be checked. "
+                       + reason)
     return "deny", reason + OVERRIDE_HINT
 
 
@@ -142,18 +240,19 @@ def _output(decision: str, reason: str) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
+    mode = resolve_mode(argv)
     try:
-        stop = stop_request(json.load(sys.stdin))
-    except ValueError:
-        return 0
-    if stop is None:
-        return 0
-    try:
-        decision, reason = decide(stop)
+        payload = json.load(sys.stdin)
+        if not isinstance(payload, dict):
+            raise ValueError("hook payload is not an object")
+        requests = requests_from(payload)
+        if not requests:
+            return 0
+        decision, reason = decide_all(requests)
     except Exception as exc:
         print(f"verdict-guard: {type(exc).__name__}", file=sys.stderr)
-        decision, reason = "deny", f"Verdict guard failed ({type(exc).__name__}). Not stopping without a verdict."
-    print(_output(*apply_mode(resolve_mode(argv), decision, reason)))
+        decision, reason = "deny", f"Verdict guard failed ({type(exc).__name__}). Not letting the call through."
+    print(_output(*apply_mode(mode, decision, reason)))
     return 0
 
 
