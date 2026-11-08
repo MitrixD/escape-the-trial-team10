@@ -19,7 +19,7 @@
 
 ## How to build and change this project
 
-The Verdict Agent is built as one OpenSpec change: `openspec/changes/add-verdict-agent/` (proposal, specs, design, tasks). Read `docs/2026-11-07-verdict-agent-design.md` for the why, then the change. Every task in `tasks.md` is done (groups 1–10: core, money at stake, stop guard); the change is not archived yet, so `openspec/specs/` does not exist.
+The Verdict Agent is built as one OpenSpec change: `openspec/changes/add-verdict-agent/` (proposal, specs, design, tasks). Read `docs/2026-11-07-verdict-agent-design.md` for the why, then the change. Every task in `tasks.md` is done (groups 1–13: core, money at stake, stop guard, decision card, test health, calibration robustness); the change is not archived yet, so `openspec/specs/` does not exist.
 
 **Tooling.** OpenSpec CLI is required: `npm install -g @fission-ai/openspec@latest`, check with `openspec --version`. The `openspec-*` skills are in `.claude/skills/`; run `openspec update` after a CLI upgrade to refresh them.
 

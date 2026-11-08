@@ -75,3 +75,7 @@ Parallel start: after group 1, track A (groups 2–3) and track C (group 4) run 
 
 - [x] 12.1 Write failing tests for every scenario under "Test health" in specs/ab-test-verdict, then `stats.srm_p`, `Arm.weight` read from `ab-tests get`, `health` and the `fix_test` next action in `build_verdict` and `schema.json`; verify the tests pass and the replay snapshot is regenerated
 - [x] 12.2 Write failing tests, then the guard's deny for `fix_test` and the `FIX TEST` card status; update README and AI_LOG; verify the full suite with `VERDICT_DATASET` and `openspec validate add-verdict-agent --strict` pass
+
+## 13. Calibration robustness (needs 12; eval only, from Maxim's validation strategy §4.4)
+
+- [x] 13.1 Write `eval/calibration_robustness.py`: the replay grid of `eval/verdict_eval.py` with the calibration's trial→paid conversion and renewal curves scaled by 0.8 and 1.2 independently (four corners and the centre), on the synthetic test and Settings; a test checks the scaling on a `Calibration`; append the table to `eval/RESULTS.md` with the corner where right confirmations disappear (report honestly, do not tune); verify the full suite with `VERDICT_DATASET` and `openspec validate add-verdict-agent --strict` pass

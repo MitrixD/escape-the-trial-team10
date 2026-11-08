@@ -267,12 +267,13 @@ Key results (60-day truth, 150 repetitions, seed 7, days 1 to 28, 30 and 100 use
 - Synthetic test at day 14: raw P2BB is wrong in 100% of runs. The verdict confirms the right variant in 41% (30 per day) and 95% (100 per day) of runs.
 - First safe day (right confirmed at least 50%, wrong at most 5%): day 3 to 7 on Main and Onboarding, 7 to 11 days before a fixed 14-day rule.
 - Settings is harder: day 14 at 100 per day, day 28 at 30 per day.
+- Calibration off by ±20% (trial conversion and renewal value, independently): no extra wrong confirmations in any corner; the verdict gets slower, not wrong. Run: `eval/calibration_robustness.py`.
 
 Limits:
 
 - The data is synthetic. There are four tests, three from the offline dataset and one built by hand from the same users.
 - Repetitions resample users with replacement, so confidence is overstated when the sample passes the population.
-- Calibration is built from the same dataset's other users, so it is better than it would be for a new real app.
+- Calibration is built from the same dataset's other users, so it is better than it would be for a new real app. The ±20% check above bounds this for a uniform error, not for an error that differs by product.
 - The horizon is 60 days. Adapty's goal is 12 months, and the LTV curve has no points after day 92.
 - Live reads and eval bundles both assume users arrive uniformly over the test. Uneven traffic makes the age estimate worse.
 - No real customer A/B test has been used to measure accuracy.
@@ -304,8 +305,8 @@ Limits:
 
 ## Who did what
 
-- Dmitrii: Verdict Agent implementation (calibration, estimator, verdict rules, live reads, CLI, MCP, eval), money at stake and next action, the stop guard, the spike eval.
-- Maxim: Adapty product, A/B platform and user-pain research, `CLAUDE.md` and the PR process, the design doc and MVP spec, the synthetic up-front-vs-trial test.
+- Dmitrii: Verdict Agent implementation (calibration, estimator, verdict rules, live reads, CLI, MCP, eval), money at stake and next action, the stop guard, the decision card, test health, the calibration robustness eval, the spike eval.
+- Maxim: Adapty product, A/B platform and user-pain research, `CLAUDE.md` and the PR process, the design doc and MVP spec, the synthetic up-front-vs-trial test, the validation strategy (its calibration robustness check is in `eval/calibration_robustness.py`).
 
 ## Made before the hackathon core
 
