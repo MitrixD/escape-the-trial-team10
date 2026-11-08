@@ -65,3 +65,8 @@ Parallel start: after group 1, track A (groups 2–3) and track C (group 4) run 
 - [x] 10.2 Add `.claude/settings.json` with the two `PreToolUse` matchers (the day 7 and 28 bundles were restored for the demo, then dropped again as unused: README shows how to build them); verify by piping a recorded hook input into the command from settings that it prints a deny for the day-14 `annual_upfront` stop
 - [x] 10.3 Update README (the guard, how to run the demo with `VERDICT_GUARD_REPLAY`), then run the full suite with `VERDICT_DATASET` and `openspec validate add-verdict-agent --strict`
 - [x] 10.4 Write failing tests for "Ask mode hands a disagreeing stop to the human", "The human sets the mode, not the command" and "Unknown mode is strict", then add the modes to `verdict_agent/guard.py`, `--mode` to `scripts/install_guard.sh` (default `ask`) and `--mode strict` to this repo's `.claude/settings.json`; update README and AI_LOG; verify the full suite and `openspec validate add-verdict-agent --strict` pass
+
+## 11. Decision card (needs 10)
+
+- [x] 11.1 Write failing tests for every scenario under "Decision card" in specs/verdict-interfaces, then `verdict_agent/card.py`, `--format json|card` in the CLI and the card at the start of the guard's reason; verify the tests pass and the guard tests still pass
+- [x] 11.2 Update README (the card in Quick start and in the judges' guide) and AI_LOG; verify the full suite with `VERDICT_DATASET` and `openspec validate add-verdict-agent --strict` pass

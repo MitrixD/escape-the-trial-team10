@@ -43,7 +43,7 @@ Facts about Predicted P2BB are from [Adapty docs](https://adapty.io/docs/predict
 
 Three ways to try it, from no credentials to a live Adapty account. Python 3.10 or newer (tested on 3.14). No API keys are needed anywhere, so the submission form holds no secrets.
 
-**1. No credentials, no network (2 minutes).** Run the Quick start below: the verdict on a recorded Adapty test and on the synthetic test where raw P2BB picks the wrong variant, then `.venv/bin/pytest`.
+**1. No credentials, no network (2 minutes).** Run the Quick start below: the verdict on a recorded Adapty test and on the synthetic test where raw P2BB picks the wrong variant (add `--format card` for a readable summary), then `.venv/bin/pytest`.
 
 **2. The stop guard, no Adapty login (5 minutes, needs [Claude Code](https://claude.com/claude-code)).** After the Quick start:
 
@@ -87,7 +87,7 @@ python3 -m venv .venv
 .venv/bin/python -m verdict_agent.cli 995b124f-9075-440d-83bb-20dbdf7d7fbb --replay tests/fixtures/live/995b124f-9075-440d-83bb-20dbdf7d7fbb
 ```
 
-The command prints one JSON object. Options: `--horizon N` (days, default 60), `--after-days N` (days the shipped variant serves traffic after the stop, for money at stake, default 180), `--replay DIR`, `--app APP_ID` (wins over `ADAPTY_APP_ID`) and `--as-of YYYY-MM-DD` (the day to judge the test on). Every replay bundle records its day in `as_of.json`, so the replay prints the same JSON on any day. Replay never reads `.env`.
+The command prints one JSON object. Options: `--horizon N` (days, default 60), `--after-days N` (days the shipped variant serves traffic after the stop, for money at stake, default 180), `--replay DIR`, `--app APP_ID` (wins over `ADAPTY_APP_ID`), `--as-of YYYY-MM-DD` (the day to judge the test on) and `--format json|card` (JSON by default, or the decision card). Every replay bundle records its day in `as_of.json`, so the replay prints the same JSON on any day. Replay never reads `.env`.
 
 The synthetic test "annual upfront vs weekly trial" (100 users per day per variant, seed 7) is committed as a replay bundle for day 14. The command prints raw P2BB next to expected P2BB:
 
@@ -95,7 +95,20 @@ The synthetic test "annual upfront vs weekly trial" (100 users per day per varia
 .venv/bin/python -m verdict_agent.cli 50e46448-6692-54c6-b1e0-1b2e2fa62cdd --replay tests/fixtures/synthetic/day14 | python3 -c "import json,sys; o=json.load(sys.stdin); print(o['verdict'], o['leader'], 'raw', o['p2bb_raw'], 'expected', o['p2bb_expected'])"
 ```
 
-Output: `confirmed weekly_trial raw 0.0 expected 0.9994`. Days 7 and 28 from the same run ([eval/synthetic_test/RESULTS.md](eval/synthetic_test/RESULTS.md)):
+Output: `confirmed weekly_trial raw 0.0 expected 0.9994`. The same verdict as a decision card for a person, with `--format card`:
+
+```bash
+.venv/bin/python -m verdict_agent.cli 50e46448-6692-54c6-b1e0-1b2e2fa62cdd --replay tests/fixtures/synthetic/day14 --format card
+```
+
+```
+SHIP weekly_trial · confirmed · basis verdict
+p2bb_expected 0.9994 (raw 0.0) · maturity 0.5286 (53% of expected revenue received)
+weekly_trial per user: received $1.01, from trials $0.71, from renewals $3.55, expected $5.27
+each more test day costs $148.98 · shipping weekly_trial now: expected loss $2.35 · chance the leader is wrong 0.0006
+```
+
+The card adds no numbers of its own: a test checks every number in it against the JSON with `eval/check_agent_text.py`. The stop guard starts its reason with the same card. Days 7 and 28 from the same run ([eval/synthetic_test/RESULTS.md](eval/synthetic_test/RESULTS.md)):
 
 | Day | Verdict | Leader | `p2bb_raw` | `p2bb_expected` |
 |---|---|---|---|---|
@@ -230,6 +243,7 @@ verdict_agent/
   service.py      verdict(ab_test_id, horizon, replay, app_id, as_of, after_days) and safe_verdict
   cli.py          python -m verdict_agent.cli
   mcp_server.py   stdio MCP tool
+  card.py         Decision card: the verdict as a few lines for a person
   guard.py        PreToolUse hook: verdict before any A/B test stop
   schema.json     Output contract
 eval/             Spike, replay generator, verdict eval, synthetic test, agent text check (check_agent_text.py), recorded agent runs (agent_runs/)

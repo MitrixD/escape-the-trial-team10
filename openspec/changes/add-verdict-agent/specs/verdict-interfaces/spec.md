@@ -109,3 +109,27 @@ Commands other than an A/B test stop SHALL pass through with no output. The hook
 #### Scenario: Other commands pass
 - **WHEN** an agent runs any other Bash command or `adapty ab-tests get`
 - **THEN** the hook prints nothing and exits 0
+
+### Requirement: Decision card
+The CLI SHALL accept `--format json` (default) or `--format card`. The card is a short text rendering of the same verdict for a person reading a terminal, in the style of experiment platforms' status lines. It SHALL use only values that appear in the verdict JSON, and SHALL contain:
+- a status line: `SHIP <leader>` for `next_action` `ship_leader`, `SHIP EITHER` for `ship_either`, `WAIT until <come_back_on>` for `come_back` with a date, `WAIT` without one; followed by the verdict, the reason when present and the `next_action_basis`;
+- `p2bb_expected` next to `p2bb_raw`, and `maturity` as a fraction and a percentage of expected revenue received;
+- for the leader, revenue per user: received, expected from trials, expected from renewals, expected total;
+- when `money` is not `null`: `cost_per_day`, `loss_if_ship_leader_now`, `cost_until_come_back` when present, and `chance_leader_is_wrong`.
+On an error the card SHALL be `ERROR: <message>` and the exit code non-zero. The stop guard's reason SHALL start with the same card joined into one line.
+
+#### Scenario: Card for the synthetic trap
+- **WHEN** a user runs the CLI with `--format card` on the synthetic test at day 14
+- **THEN** the card starts with `SHIP weekly_trial` and contains `0.9994`, `raw 0.0`, `$148.98` and `$2.35`
+
+#### Scenario: Card for a test that is too early
+- **WHEN** the verdict is `not_enough_data` with `come_back_on` 2027-01-05
+- **THEN** the card starts with `WAIT until 2027-01-05` and has no money line
+
+#### Scenario: Every number in the card comes from the JSON
+- **WHEN** the card is rendered for any verdict
+- **THEN** `eval/check_agent_text.py` finds every number of the card in the verdict JSON
+
+#### Scenario: Card error
+- **WHEN** the verdict cannot be produced
+- **THEN** the card is `ERROR: <message>` and the CLI exits non-zero

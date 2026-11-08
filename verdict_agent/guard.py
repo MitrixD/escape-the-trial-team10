@@ -7,6 +7,7 @@ from pathlib import Path
 
 from verdict_agent.adapty_cli import AdaptyCLI, replay_runner
 from verdict_agent.live import _arms, read_test
+from verdict_agent.card import render_card
 from verdict_agent.service import safe_verdict
 
 STOP_TOOL_SUFFIX = "__ab_tests_stop"
@@ -90,16 +91,6 @@ def _read_test(test_id: str, app_id: str | None, replay: Path | None) -> dict:
     return read_test(cli, app_id or "replay", test_id)
 
 
-def _money(v: dict) -> str:
-    m = v.get("money") or {}
-    parts = [f"{label} ${m[key]}" for key, label in (("cost_per_day", "one more test day costs"),
-                                                     ("loss_if_ship_leader_now", "shipping the leader now risks"))
-             if m.get(key) is not None]
-    if m.get("chance_leader_is_wrong") is not None:
-        parts.append(f"chance the leader is wrong {m['chance_leader_is_wrong']}")
-    return ("; " + ", ".join(parts)) if parts else ""
-
-
 def decide(stop: dict) -> tuple[str, str]:
     test_id = stop.get("ab_test_id")
     if not test_id:
@@ -108,9 +99,7 @@ def decide(stop: dict) -> tuple[str, str]:
     v = safe_verdict(ab_test_id=test_id, app_id=stop.get("app_id"), replay=str(replay) if replay else None)
     if "error" in v:
         return "deny", f"Verdict guard: no verdict for test {test_id} ({v['error']}). An irreversible stop needs one."
-    raw = f" (raw P2BB on received revenue {v['p2bb_raw']})" if v.get("p2bb_raw") is not None else ""
-    head = (f"Verdict for {test_id}: {v['verdict']}, leader {v['leader']}, p2bb_expected {v['p2bb_expected']}{raw}"
-            f"{_money(v)}.")
+    head = f"Verdict for {test_id}: {render_card(v).replace(chr(10), ' | ')}."
     action = v.get("next_action")
     if action == "come_back":
         when = f" Come back on {v['come_back_on']}." if v.get("come_back_on") else ""
