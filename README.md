@@ -1,5 +1,9 @@
 # escape-the-trial-team10
 
+In Russian: [README.ru.md](README.ru.md).
+
+**Status: minimal MVP, finished on 8 Nov 2026 and submitted as is.** Everything below works and is tested; what we would build next is under Next steps.
+
 Team 10 project for the Adapty First Commit hackathon in Belgrade, 7–8 November 2026. The project is Verdict Agent.
 
 ## What it does
@@ -41,7 +45,20 @@ Facts about Predicted P2BB are from [Adapty docs](https://adapty.io/docs/predict
 
 ## For judges
 
-Three ways to try it, from no credentials to a live Adapty account. Python 3.10 or newer (tested on 3.14). No API keys are needed anywhere, so the submission form holds no secrets.
+**Fastest: let your AI agent set it up.** Open the repo in Claude Code and type `/setup`, or give any coding agent this prompt:
+
+> Clone https://github.com/MitrixD/escape-the-trial-team10 and set it up for me by following its AGENTS.md. Ask me before anything that needs my Adapty account.
+
+The agent runs `scripts/setup.sh`, shows a verdict on recorded data and offers the stop guard, the MCP tool and live reads one by one ([AGENTS.md](AGENTS.md)). Without an agent, one command does the same checks:
+
+```bash
+git clone https://github.com/MitrixD/escape-the-trial-team10.git && cd escape-the-trial-team10
+scripts/setup.sh
+```
+
+`scripts/setup.sh --guard DIR --guard-mode strict` also installs the stop guard into `DIR`, `--mcp DIR` writes `DIR/.mcp.json` for the verdict tool, and `--live` checks the Adapty CLI login and `.env` for live reads. It never writes to Adapty and is safe to run again.
+
+Three ways to try it by hand, from no credentials to a live Adapty account. Python 3.10 or newer, which both dependencies require (tested on 3.14 only). No API keys are needed anywhere, so the submission form holds no secrets.
 
 **1. No credentials, no network (2 minutes).** Run the Quick start below: the verdict on a recorded Adapty test and on the synthetic test where raw P2BB picks the wrong variant (add `--format card` for a readable summary), then `.venv/bin/pytest`.
 
@@ -52,7 +69,7 @@ scripts/install_guard.sh /tmp/vg-demo --mode strict
 cd /tmp/vg-demo && VERDICT_GUARD_REPLAY="<this repo>/tests/fixtures/synthetic/day14" claude
 ```
 
-Ask the agent: *Run `adapty ab-tests stop 50e46448-6692-54c6-b1e0-1b2e2fa62cdd --app 00000000-0000-0000-0000-000000000000 --winner annual_upfront --yes`.* The hook denies the command before it runs, so neither the Adapty CLI nor a login is needed. The reason names the verdict leader `weekly_trial`, p2bb_expected 0.9994 and raw P2BB 0.0.
+Ask the agent: *Run `adapty ab-tests stop 50e46448-6692-54c6-b1e0-1b2e2fa62cdd --app 00000000-0000-0000-0000-000000000000 --winner annual_upfront --yes`.* The hook denies the command before it runs, so neither the Adapty CLI nor a login is needed. Claude Code shows the denial as `PreToolUse:Bash hook error: …`, followed by the reason. The reason names the verdict leader `weekly_trial`, p2bb_expected 0.9994 and raw P2BB 0.0.
 
 **3. Live, with your own Adapty account (5 minutes).** The tool only reads.
 
@@ -63,7 +80,7 @@ adapty auth whoami
 cp .env.example .env
 ```
 
-In `.env`: `ADAPTY_APP_ID` = any of your apps with purchase history (for example your seeded Lumen), `ADAPTY_EXPECTED_COMPANY` = the company name from `adapty auth whoami`. Then pick a test with `adapty ab-tests list --app <app id> --type flow --json` and run `.venv/bin/python -m verdict_agent.cli <test id>` (about 8 read-only calls). On a seeded Lumen, on 8 Nov: Onboarding gives `confirmed` for B, in line with the dashboard; Main gives `not_enough_data` with a come-back date while the dashboard already shows a leader. Money values are inflated there: all test users of the seed arrived on one day.
+In `.env`: `ADAPTY_APP_ID` = any of your apps with purchase history (for example your seeded Lumen), `ADAPTY_EXPECTED_COMPANY` = the company `Title` under `Companies:` in `adapty auth whoami` (not your `Name`). Then pick a test with `adapty ab-tests list --app <app id> --type flow --json` and run `.venv/bin/python -m verdict_agent.cli <test id>` (about 8 read-only calls). On a seeded Lumen, on 8 Nov: Onboarding gives `confirmed` for B, in line with the dashboard; Main gives `not_enough_data` with a come-back date while the dashboard already shows a leader. Money values are inflated there: all test users of the seed arrived on one day.
 
 ## What is real, what is mocked
 
@@ -78,7 +95,7 @@ Not built: no dashboard UI; nothing is ever written to Adapty.
 
 ## Quick start
 
-From a clean clone, with no network and no Adapty account. This runs on a recorded replay bundle. Python 3.10 or newer (tested on 3.14).
+From a clean clone, with no network and no Adapty account. This runs on a recorded replay bundle. Python 3.10 or newer, which both dependencies require (tested on 3.14 only).
 
 ```bash
 git clone https://github.com/MitrixD/escape-the-trial-team10.git && cd escape-the-trial-team10
@@ -128,12 +145,12 @@ Only day 14 is committed. Another day is built from the offline dataset into any
 Live, against your own Adapty account:
 
 ```bash
-npm install -g adapty
+npm install -g adapty@latest
 adapty auth login
 cp .env.example .env
 ```
 
-Fill in `.env`: `ADAPTY_APP_ID` (the app to read) and `ADAPTY_EXPECTED_COMPANY` (the company name; the tool checks `adapty auth whoami` against it before reading). The tool needs no API keys: it reads through the logged-in Developer CLI. `VERDICT_DATASET` is only for the eval tests. Precedence: `--app` (or MCP `app_id`) wins over configuration, and an environment variable wins over the same key in the `.env` file. `.env` is read from the working directory, or from the repo root when the working directory has none. Then:
+Fill in `.env`: `ADAPTY_APP_ID` (the app to read) and `ADAPTY_EXPECTED_COMPANY` (the company `Title` from `adapty auth whoami`; the tool checks it before reading). The tool needs no API keys: it reads through the logged-in Developer CLI. `VERDICT_DATASET` is only for the eval tests. Precedence: `--app` (or MCP `app_id`) wins over configuration, and an environment variable wins over the same key in the `.env` file. `.env` is read from the working directory, or from the repo root when the working directory has none. Then:
 
 ```bash
 .venv/bin/python -m verdict_agent.cli <ab_test_id>
@@ -182,8 +199,8 @@ This repo registers the guard in `.claude/settings.json` in `strict` mode. Until
 Demo without touching a live test: point `VERDICT_GUARD_REPLAY` at recorded bundles (paths separated by `:`). A stop on a replayed test is decided before any Adapty call.
 
 ```bash
-scripts/install_guard.sh /tmp/demo --mode strict
-cd /tmp/demo && VERDICT_GUARD_REPLAY="<this repo>/tests/fixtures/synthetic/day14" claude
+scripts/install_guard.sh /tmp/vg-demo --mode strict
+cd /tmp/vg-demo && VERDICT_GUARD_REPLAY="<this repo>/tests/fixtures/synthetic/day14" claude
 ```
 
 Then ask the agent to stop test `50e46448-6692-54c6-b1e0-1b2e2fa62cdd` with winner `annual_upfront`, the raw-P2BB favourite. A recorded run with Claude Sonnet in `strict` mode: [eval/agent_runs/guard_synthetic_day14.txt](eval/agent_runs/guard_synthetic_day14.txt). The hook denied the call, named `weekly_trial` (p2bb_expected 0.9994, raw P2BB 0.0) and the agent went back to the user. Start the same session with `VERDICT_GUARD_MODE=ask` to see the human's side: a permission prompt with the warning and the money at stake.
@@ -249,11 +266,11 @@ verdict_agent/
   guard.py        PreToolUse hook: verdict before any A/B test stop
   schema.json     Output contract
 eval/             Spike, replay generator, verdict eval, synthetic test, agent text check (check_agent_text.py), recorded agent runs (agent_runs/)
-scripts/          record_fixtures.sh
+scripts/          setup.sh (one-command setup and check), install_guard.sh, record_fixtures.sh
 tests/            Unit tests and recorded fixtures
 ```
 
-Data flow: test ID, then `live.py` reads the test, per-variant metrics, funnel, conversion and LTV through `adapty_cli.py` (or reads the same files from a replay bundle). It builds groups of users by status, product and age. `estimator.py` adds expected revenue to each group using the calibration. `verdict.py` applies the rules and returns JSON. CLI, MCP and eval all call the same `service.py`. Design: [openspec/changes/add-verdict-agent/design.md](openspec/changes/add-verdict-agent/design.md).
+Data flow: test ID, then `live.py` reads the test, per-variant metrics, funnel, conversion and LTV through `adapty_cli.py` (or reads the same files from a replay bundle). It builds groups of users by status, product and age. `estimator.py` adds expected revenue to each group using the calibration. `verdict.py` applies the rules and returns JSON. CLI, MCP and eval all call the same `service.py`. Design: [openspec/changes/archive/2026-11-08-add-verdict-agent/design.md](openspec/changes/archive/2026-11-08-add-verdict-agent/design.md).
 
 ## Evaluation
 
@@ -289,6 +306,9 @@ Limits:
 
 ## Next steps
 
+Not in the minimal MVP; what we would do with another week:
+
+
 - Money at stake for tests with more than two variants beyond the leader and the best other one.
 - More validity checks: a flow shown in several placements, uneven traffic over days.
 - Guardrails (refunds, trial cancels) and segments.
@@ -296,7 +316,6 @@ Limits:
 - A PR to `adapty-skills`: the `ab-tests` skill calls `ab_test_verdict` before a stop.
 - Per-arm updating of calibration from the arm's own finished trials; Adapty's lognormal P2BB model.
 - Starting, stopping or changing tests.
-- A `doctor` command that checks a clean machine (CLI installed and logged in, `.env`, dependencies) and says what is missing.
 - A per-user estimator instead of group counts. Reading profiles one by one is forbidden by the hackathon rules; see [docs/per-user-data.md](docs/per-user-data.md).
 - Spread inside a group: live P2BB is approximate because every user of a group gets the same value.
 - User ages from daily metrics instead of the uniform arrival assumption.
@@ -312,7 +331,7 @@ Limits:
 
 Nothing was written before the start on Saturday 7 Nov at 10:45: the repository held only the initial commit and a README. Made during the hackathon, before the core work: the spike eval in [eval/](eval/) (`ab_verdict_eval.py`, `money_at_stake.py`, `RESULTS.md`) and a first implementation on branch `feature/verdict-agent`. Both were used as references. The core in `verdict_agent/` was rewritten on the hackathon.
 
-Plan and specs: [openspec/changes/add-verdict-agent/](openspec/changes/add-verdict-agent/). Design: [docs/2026-11-07-verdict-agent-design.md](docs/2026-11-07-verdict-agent-design.md). How we build and change it: `CLAUDE.md`.
+Requirements: [openspec/specs/](openspec/specs/). The plan, design and tasks of the one OpenSpec change, archived: [openspec/changes/archive/2026-11-08-add-verdict-agent/](openspec/changes/archive/2026-11-08-add-verdict-agent/). Design: [docs/2026-11-07-verdict-agent-design.md](docs/2026-11-07-verdict-agent-design.md). How we build and change it: `CLAUDE.md`.
 
 ## Live data
 
