@@ -1,4 +1,5 @@
 import math
+import random
 from statistics import NormalDist
 
 
@@ -46,6 +47,24 @@ def srm_p(users, weights):
     total, wsum = sum(users), sum(weights)
     x = sum((u - total * w / wsum) ** 2 / (total * w / wsum) for u, w in zip(users, weights))
     return math.erfc(math.sqrt(x / 2)) if len(users) == 2 else math.exp(-x / 2)
+
+
+def p_best(arms_values, leader, draws=20000, seed=0):
+    """Chance that arm `leader` has the highest mean, drawing each mean from its normal approximation."""
+    params = []
+    for values in arms_values:
+        n = len(values)
+        if n < 2:
+            return 0.5
+        m, v = _mean_var(values)
+        params.append((m, math.sqrt(v / n)))
+    rng = random.Random(seed)
+    wins = 0
+    for _ in range(draws):
+        draws_i = [rng.gauss(m, s) if s > 0 else m for m, s in params]
+        if max(range(len(draws_i)), key=lambda i: (draws_i[i], i == leader)) == leader:
+            wins += 1
+    return wins / draws
 
 
 def diff_mean_se(xa, xb):

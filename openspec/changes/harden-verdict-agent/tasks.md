@@ -9,21 +9,21 @@ Every task starts with a failing test (openspec/config.yaml). Thresholds are not
 
 ## 2. Test state, as-of, horizon
 
-- [ ] 2.1 Failing tests, then: draft tests rejected; stopped tests use the running period for traffic and ages
-- [ ] 2.2 Failing tests, then: `--as-of` only with `--replay` and only on the recording day; usage errors in card format print `ERROR:`
-- [ ] 2.3 Failing tests, then: a horizon shorter than the test's age is rejected; `horizon_reached` is `as_of ≥ start + horizon`; a come-back date on the judging day before the horizon moves 7 days; the card names the horizon
+- [x] 2.1 Failing tests, then: draft tests rejected; stopped tests use the running period for traffic and ages
+- [x] 2.2 Failing tests, then: `--as-of` only with `--replay` and only on the recording day; usage errors in card format print `ERROR:`
+- [x] 2.3 Failing tests, then: a horizon shorter than the test's age is rejected; `horizon_reached` is `as_of ≥ start + horizon`; a come-back date on the judging day before the horizon moves 7 days; the card names the horizon
 
 ## 3. Statistics
 
-- [ ] 3.1 Failing tests, then: Bernoulli pseudo-users for trial groups (exact mean, the scenario from the spec gives `p2bb_expected` below 0.95)
-- [ ] 3.2 Failing tests, then: P(best) for three arms with a fixed seed
-- [ ] 3.3 Failing tests, then: come-back date at the lagging arm's traffic
+- [x] 3.1 Failing tests, then: Bernoulli pseudo-users for trial groups (exact mean, the scenario from the spec gives `p2bb_expected` below 0.95)
+- [x] 3.2 Failing tests, then: P(best) for three arms with a fixed seed
+- [x] 3.3 Failing tests, then: come-back date at the lagging arm's traffic
 
 ## 4. Calibration and live data
 
-- [ ] 4.1 Failing tests, then: catalog periods in the calibration, no renewals for annual (horizon under 365) and lifetime actives
-- [ ] 4.2 Failing tests, then: trials without any rate give `no_calibration`; trial length 0 with trials in the funnel uses 7 days and warns
-- [ ] 4.3 Failing tests, then: converted trial users at least `t` days old; pending share from all trial starts
+- [x] 4.1 Failing tests, then: catalog periods in the calibration, no renewals for annual (horizon under 365) and lifetime actives
+- [x] 4.2 Failing tests, then: trials without any rate give `no_calibration`; trial length 0 with trials in the funnel uses 7 days and warns
+- [x] 4.3 Failing tests, then: converted trial users at least `t` days old; pending share from all trial starts
 - [ ] 4.4 Failing tests, then: replay of paywall funnels; inline comments in `.env`; `record_fixtures.sh` history window and exact company check
 
 ## 5. Interfaces and setup

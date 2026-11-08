@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from verdict_agent.adapty_cli import AdaptyCLI, CliError, replay_runner
-from verdict_agent.calibration import build_from_adapty, product_map_from_catalog
+from verdict_agent.calibration import build_from_adapty, periods_from_catalog, product_map_from_catalog
 from verdict_agent.model import DEFAULT_TRIAL_DAYS, Arm, Calibration, Group, TestData, VerdictError
 from verdict_agent.verdict import build_verdict, check_after_days, check_horizon
 
@@ -112,14 +112,26 @@ def _reconcile(title: str, trials: dict[str, int], seen: dict[str, int], target:
     return _largest_remainder(weights, target, caps=trials)
 
 
-def _spread(status: str, product: str, n: int, days: int, received: float) -> list[Group]:
-    """Split n users of one status evenly over ages 0.5..days-0.5."""
-    counts = [((2 * (d + 1) * n + days) // (2 * days)) - ((2 * d * n + days) // (2 * days)) for d in range(days)]
-    return [Group(status, product, d + 0.5, c, received) for d, c in enumerate(counts) if c]
+def _spread(status: str, product: str, n: int, days: int, received: float, first: int = 0,
+            offset: int = 0) -> list[Group]:
+    """Split n users of one status evenly over arrival days first..days-1, at ages offset + day + 0.5."""
+    first = max(0, min(first, days - 1))
+    span = days - first
+    counts = [((2 * (d + 1) * n + span) // (2 * span)) - ((2 * d * n + span) // (2 * span)) for d in range(span)]
+    return [Group(status, product, offset + first + d + 0.5, c, received) for d, c in enumerate(counts) if c]
+
+
+def _trial_length(product: str, trial_days: dict[str, int], has_trials: bool) -> int:
+    t = trial_days.get(product, DEFAULT_TRIAL_DAYS)
+    if t == 0 and has_trials:
+        log.warning("product %s: trial length unknown from the app's history but the test has trials; using %d days",
+                    product, DEFAULT_TRIAL_DAYS)
+        return DEFAULT_TRIAL_DAYS
+    return t
 
 
 def _live_arm(title: str, row: dict, funnel: dict, labels: dict[str, str], days: int,
-              trial_days: dict[str, int], weight: int | None = None) -> Arm:
+              trial_days: dict[str, int], weight: int | None = None, offset: int = 0) -> Arm:
     paid_users = int(row.get("unique_paid_subscribers") or 0)
     revenue = float(row.get("revenue") or 0)
     metric_trials = int(row.get("trials") or 0)
@@ -138,21 +150,25 @@ def _live_arm(title: str, row: dict, funnel: dict, labels: dict[str, str], days:
     per_paid = revenue / max(1, active_n)
     groups = []
     for product in sorted(set(trials) | set(active)):
-        still = trials.get(product, 0) - converted.get(product, 0)
+        starts, conv = trials.get(product, 0), converted.get(product, 0)
+        t = _trial_length(product, trial_days, starts > 0)
+        still = starts - conv
         if still:
-            t = min(days, max(0, trial_days.get(product, DEFAULT_TRIAL_DAYS)))
-            split = _largest_remainder({"trial": t, "ended": days - t}, still)
-            groups += _spread("trial", product, split["trial"], t, 0.0) if t else []
-            if split["ended"]:
-                groups.append(Group("ended", product, days / 2, split["ended"], 0.0))
-        if active.get(product):
-            groups += _spread("active", product, active[product], days, per_paid)
+            window = min(days, max(0, t))
+            pending = min(still, int(starts * window / days + 0.5)) if window else 0
+            groups += _spread("trial", product, pending, window, 0.0, offset=offset) if pending else []
+            if still - pending:
+                groups.append(Group("ended", product, offset + days / 2, still - pending, 0.0))
+        if conv:
+            groups += _spread("active", product, conv, days, per_paid, first=t, offset=offset)
+        if direct.get(product):
+            groups += _spread("active", product, direct[product], days, per_paid, offset=offset)
     none_n = int(row.get("users") or 0) - sum(g.n for g in groups)
     if none_n < 0:
         log.warning("arm %s: product groups exceed arm users by %d; none group clamped to 0", title, -none_n)
         none_n = 0
     if none_n:
-        groups.append(Group("none", UNKNOWN, days / 2, none_n, 0.0))
+        groups.append(Group("none", UNKNOWN, offset + days / 2, none_n, 0.0))
     return Arm(title, groups, int(row.get("purchases") or 0), metric_trials, paid_users, revenue, weight)
 
 
@@ -182,7 +198,15 @@ def read_test(cli, app_id: str, test_id: str) -> dict:
 
 
 def _started_on(test: dict) -> date:
-    return datetime.fromisoformat(test["started_at"].replace("Z", "+00:00")).date()
+    started = test.get("started_at")
+    if not started:
+        raise VerdictError(f"A/B test {test.get('ab_test_id') or ''} has not started".replace("  ", " "))
+    return datetime.fromisoformat(started.replace("Z", "+00:00")).date()
+
+
+def _stopped_on(test: dict) -> date | None:
+    stopped = test.get("stopped_at")
+    return datetime.fromisoformat(stopped.replace("Z", "+00:00")).date() if stopped else None
 
 
 def live_test(cli, app_id: str, test_id: str, today: date, products: dict | None = None,
@@ -191,9 +215,12 @@ def live_test(cli, app_id: str, test_id: str, today: date, products: dict | None
         test = read_test(cli, app_id, test_id)
     placement_id = (test.get("placement") or {}).get("placement_id")
     start = _started_on(test)
-    days = (today - start).days
-    if days < 0:
+    if (today - start).days < 0:
         raise VerdictError(f"as-of date {today.isoformat()} is before the test start {start.isoformat()}")
+    stopped = _stopped_on(test)
+    run_end = min(today, stopped) if stopped else today
+    days = (run_end - start).days
+    offset = (today - run_end).days
     arm_list, id_field = _arms(test)
     if len(arm_list) > MAX_ARMS:
         raise VerdictError("tests with more than 3 arms exceed the 10-call budget")
@@ -207,13 +234,13 @@ def live_test(cli, app_id: str, test_id: str, today: date, products: dict | None
     for arm in arm_list:
         row = _metrics_row(rows, arm, id_field)
         args = ["analytics", "funnel", "--app", app_id,
-                "--date-from", start.isoformat(), "--date-to", today.isoformat(),
+                "--date-from", start.isoformat(), "--date-to", run_end.isoformat(),
                 "--filter", f"{id_field}={arm[id_field]}"]
         if placement_id:
             args += ["--filter", f"placement_id={placement_id}"]
         funnel = cli.run(args + ["--group-by", "store_product_id"])
         title = arm.get("title") or arm.get("flow_name") or arm.get("paywall_name") or row.get("title")
-        arms.append(_live_arm(title, row, funnel, labels, max(1, days), trial_days or {}, arm.get("weight")))
+        arms.append(_live_arm(title, row, funnel, labels, max(1, days), trial_days or {}, arm.get("weight"), offset))
     return TestData(
         ab_test_id=test.get("ab_test_id", test_id),
         title=test.get("title") or "",
@@ -222,12 +249,13 @@ def live_test(cli, app_id: str, test_id: str, today: date, products: dict | None
         as_of=today,
         users_per_day=sum(a.users for a in arms) / max(1, days),
         arms=arms,
+        running_days=max(1, days),
     )
 
 
 def expire_trials(test: TestData, trial_days: dict[str, int]) -> TestData:
     def expired(g: Group) -> bool:
-        return g.status == "trial" and g.age_days > trial_days.get(g.product, DEFAULT_TRIAL_DAYS)
+        return g.status == "trial" and g.age_days > (trial_days.get(g.product, DEFAULT_TRIAL_DAYS) or DEFAULT_TRIAL_DAYS)
 
     arms = [replace(arm, groups=[Group("ended", g.product, g.age_days, g.n, 0.0) if expired(g) else g
                                  for g in arm.groups])
@@ -244,7 +272,8 @@ def live_calibration(cli, app_id: str, products: dict | None, horizon: int, unti
                           "--group-by", "store_product_id", *window])
     ltv = cli.run(["analytics", "ltv", "--app", app_id, *window,
                    "--group-by", "store_product_id", "--period-type", "days"])
-    return build_from_adapty(conversion, ltv, horizon, product_map_from_catalog(products))
+    return build_from_adapty(conversion, ltv, horizon, product_map_from_catalog(products),
+                             periods_from_catalog(products))
 
 
 def read_env(path: Path) -> dict[str, str]:

@@ -40,7 +40,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         args = vars(_parser().parse_args(argv))
     except VerdictError as exc:
-        args, result = {}, {"error": str(exc)}
+        raw = argv if argv is not None else sys.argv[1:]
+        card = "card" in raw[raw.index("--format") + 1:raw.index("--format") + 2] if "--format" in raw else False
+        args, result = {"output_format": "card" if card or "--format=card" in raw else "json"}, {"error": str(exc)}
     else:
         output_format = args.pop("output_format")
         result = service.safe_verdict(**args)

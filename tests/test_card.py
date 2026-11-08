@@ -33,8 +33,14 @@ def synth_verdict():
 def test_card_for_the_synthetic_trap():
     card = render_card(synth_verdict())
     assert card.startswith("SHIP weekly_trial")
-    for piece in ("0.9994", "raw 0.0", "$148.98", "$2.35"):
+    for piece in ("0.9999", "raw 0.0", "60-day horizon", "$180.05", "$0.2"):
         assert piece in card
+
+
+def test_card_survives_missing_fields():
+    card = render_card({"verdict": "keep_running", "leader": "B", "p2bb_expected": 0.5,
+                        "arms": [{"title": "B"}], "health": {"srm": True}, "next_action": "fix_test"})
+    assert card.startswith("FIX TEST · sample ratio mismatch")
 
 
 def test_card_for_a_test_that_is_too_early():

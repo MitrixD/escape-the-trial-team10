@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from verdict_agent.adapty_cli import AdaptyCLI, CliError, replay_runner
-from verdict_agent.calibration import build_from_adapty, product_map_from_catalog
+from verdict_agent.calibration import build_from_adapty, periods_from_catalog, product_map_from_catalog
 from verdict_agent.live import expire_trials, live_calibration, live_test, read_products, read_test
 from verdict_agent.model import DEFAULT_TRIAL_DAYS, Arm, Group, TestData, VerdictError
 
@@ -190,7 +190,7 @@ def test_one_period_conversions_go_to_active():
     assert by(arm, "active")["u-year"].n == 5
     assert by(arm, "active")["u-week"].received == pytest.approx(400.0 / 20)
     assert by(arm, "none")["-"].n == 200 - 30 - 20
-    assert ages(arm, "active", "u-week") == {d + 0.5: 3 for d in range(5)}
+    assert ages(arm, "active", "u-week") == {4.5: 15}
     assert ages(arm, "trial", "u-week") == {d + 0.5: 6 for d in range(5)}
     assert [g.age_days for g in arm.groups if g.status == "none"] == [2.5]
 
@@ -264,8 +264,10 @@ def test_live_calibration_from_recorded_analytics(bundle):
     cal = live_calibration(cli, APP, None, 60, date(2026, 11, 7))
     products = load(bundle, "products_list.json")
     expected = build_from_adapty(load(bundle, "analytics_conversion_trial-paid.json"),
-                                 load(bundle, "analytics_ltv.json"), 60, product_map_from_catalog(products))
+                                 load(bundle, "analytics_ltv.json"), 60, product_map_from_catalog(products),
+                                 periods_from_catalog(products))
     assert cal == expected
+    assert set(cal.periods.values()) <= {"weekly", "monthly", "annual", "lifetime"}
     assert cal.source == "product"
     assert set(cal.renewal_value) <= {p["id"] for p in products["data"]}
     assert [c[:2] for c in spy.calls] == [
@@ -336,7 +338,7 @@ def test_unknown_test_error_names_the_id():
     assert APP not in err.value.public
 
 
-def test_product_without_conversion_trials_has_zero_trial_days_so_its_trials_expire_at_once():
+def test_product_with_unknown_trial_length_keeps_its_trials_for_seven_days():
     conversion = {"data": {"value_from": 10, "value_to": 5, "segments": [
         {"key": "u-week", "value_from": 10, "value_to": 5}]}}
     ltv = {"data": {"segments": [
@@ -345,7 +347,9 @@ def test_product_without_conversion_trials_has_zero_trial_days_so_its_trials_exp
     cal = build_from_adapty(conversion, ltv, 60, product_map_from_catalog(CATALOG))
     assert cal.trial_days["u-year"] == 0
     test = expire_trials(make_test([("trial", "u-year", 4, 0.0), ("trial", "u-week", 4, 0.0)], age=1), cal.trial_days)
-    assert {g.product: g.status for g in test.arms[0].groups} == {"u-year": "ended", "u-week": "trial"}
+    assert {g.product: g.status for g in test.arms[0].groups} == {"u-year": "trial", "u-week": "trial"}
+    old = expire_trials(make_test([("trial", "u-year", 4, 0.0)], age=8), cal.trial_days)
+    assert [g.status for g in old.arms[0].groups] == ["ended"]
 
 
 def test_active_users_spread_over_test_period():
@@ -395,3 +399,47 @@ def test_live_test_reuses_a_read_test_without_another_get():
     got = read_test(cli, APP, "t1")
     live_test(cli, APP, "t1", TODAY, products=CATALOG, test=got)
     assert [c[:2] for c in cli.calls].count(["ab-tests", "get"]) == 1
+
+
+# --- hardening (change harden-verdict-agent, groups 2 and 4.3) ---
+
+def test_draft_test_is_rejected():
+    cli = fake([seg("Weekly Plan", [("Trial", 0)])], ROW)
+    cli.responses["get"] = {**cli.responses["get"], "started_at": None}
+    with pytest.raises(VerdictError, match="has not started"):
+        live_test(cli, APP, "t1", date(2026, 11, 6))
+
+
+def test_stopped_test_uses_its_running_period():
+    cli = fake([seg("x_year", [("Paid", 6)])],
+               {**ROW, "users": 60, "trials": 0, "trials_paid": 0, "purchases": 6, "unique_paid_subscribers": 6,
+                "revenue": 60.0})
+    cli.responses["get"] = {**cli.responses["get"], "stopped_at": "2026-11-04T10:00:00Z"}
+    test = live_test(cli, APP, "t1", date(2026, 12, 1))
+    assert test.users_per_day == pytest.approx(60 / 3)
+    assert min(g.age_days for g in test.arms[0].groups) >= 27
+
+
+def test_pending_share_counts_all_trial_starts():
+    cli = fake([seg("Weekly Plan", [("Trial", 100), ("1 period", 50)])],
+               {**ROW, "trials": 100, "trials_paid": 50, "purchases": 0, "unique_paid_subscribers": 50, "revenue": 500.0})
+    arm = live_test(cli, APP, "t1", date(2026, 11, 11), trial_days={"u-week": 3}).arms[0]
+    assert sum(ages(arm, "trial", "u-week").values()) == 30
+    assert by(arm, "ended")["u-week"].n == 20
+
+
+def test_converted_trial_users_are_at_least_as_old_as_the_trial():
+    cli = fake([seg("Weekly Plan", [("Trial", 40), ("1 period", 20)])],
+               {**ROW, "trials": 40, "trials_paid": 20, "purchases": 0, "unique_paid_subscribers": 20, "revenue": 200.0})
+    arm = live_test(cli, APP, "t1", date(2026, 11, 11), trial_days={"u-week": 7}).arms[0]
+    assert min(ages(arm, "active", "u-week")) >= 7
+
+
+def test_unknown_trial_length_with_trials_in_the_funnel_uses_seven_days(caplog):
+    cli = fake([seg("Weekly Plan", [("Trial", 20), ("1 period", 0)])],
+               {**ROW, "trials": 20, "trials_paid": 0, "purchases": 0, "unique_paid_subscribers": 0, "revenue": 0.0})
+    with caplog.at_level(logging.WARNING):
+        test = live_test(cli, APP, "t1", date(2026, 11, 11), trial_days={"u-week": 0})
+    test = expire_trials(test, {"u-week": 0})
+    assert sum(ages(test.arms[0], "trial", "u-week").values()) == 14
+    assert "u-week" in caplog.text and "7" in caplog.text

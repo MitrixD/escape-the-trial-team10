@@ -67,7 +67,12 @@ def _trial_length(points: list[tuple[float, float]]) -> int:
     return next((int(x) for x, v in points if x > 0 and v > 0), 0)
 
 
-def build_from_adapty(conversion: dict, ltv: dict | None, horizon: int, product_map: dict[str, str]) -> Calibration:
+def periods_from_catalog(products_list: dict) -> dict[str, str]:
+    return {p['id']: p['period'] for p in (products_list or {}).get('data') or [] if p.get('id') and p.get('period')}
+
+
+def build_from_adapty(conversion: dict, ltv: dict | None, horizon: int, product_map: dict[str, str],
+                      periods: dict[str, str] | None = None) -> Calibration:
     trials: dict[str, float] = {}
     trial_to_paid: dict[str, float] = {}
     for product, segs in _product_rows(conversion, product_map).items():
@@ -93,7 +98,8 @@ def build_from_adapty(conversion: dict, ltv: dict | None, horizon: int, product_
     app_renewal_value = _daily_curve(app_points, horizon) if app_points else None
 
     source = "product" if renewal_value else "app" if app_renewal_value else "none"
-    return Calibration(trial_to_paid, renewal_value, trial_days, app_trial_to_paid, app_renewal_value, source)
+    return Calibration(trial_to_paid, renewal_value, trial_days, app_trial_to_paid, app_renewal_value, source,
+                       dict(periods or {}))
 
 
 def save(cal: Calibration, path) -> None:

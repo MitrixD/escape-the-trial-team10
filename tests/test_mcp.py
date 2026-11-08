@@ -12,7 +12,9 @@ EXPECTED_DESCRIPTION = (
     "Returns JSON only. When you explain it, use only numbers that appear in the JSON and state the verdict "
     "as given in `verdict`. Revenue fields in `arms` and `expected_gap_per_user` are USD per user; the renewals "
     "part includes expected refunds and can be negative. Pass `horizon` as the number of days the test goal names "
-    "(for example \"60-day revenue\" -> 60); if the goal names no number of days, omit it. USD values in `money` are "
+    "(for example \"60-day revenue\" -> 60); if the goal names no number of days, omit it. `p2bb_expected` and the "
+    "money figures hold only for `horizon_days`; a different horizon can name a different leader, so always say "
+    "which horizon you used. USD values in `money` are "
     "totals for the test's traffic, not per user; `after_days` is how long the shipped arm serves that traffic after "
     "the stop (180 when omitted). `next_action` with `next_action_basis` \"money\" means the leader is not proven, "
     "but waiting until `come_back_on` is expected to cost more than shipping it now; basis \"horizon\" means the "
@@ -42,7 +44,7 @@ def test_single_tool_with_exact_description():
 def test_description_phrases():
     for phrase in ("before stopping a test", "only numbers that appear in the JSON", "USD per user", "can be negative",
                    "expected_gap_per_user", "number of days the test goal names",
-                   "totals for the test's traffic", "next_action_basis"):
+                   "totals for the test's traffic", "next_action_basis", "say which horizon you used"):
         assert phrase in DESCRIPTION
 
 

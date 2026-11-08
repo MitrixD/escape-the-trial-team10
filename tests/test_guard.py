@@ -45,7 +45,7 @@ def test_agent_picking_the_raw_favourite_is_denied(monkeypatch, capsys):
     assert out["hookEventName"] == "PreToolUse"
     assert out["permissionDecision"] == "deny"
     reason = out["permissionDecisionReason"]
-    assert "weekly_trial" in reason and "annual_upfront" in reason and "0.9994" in reason
+    assert "weekly_trial" in reason and "annual_upfront" in reason and "0.9999" in reason
 
 
 def test_winner_that_agrees_with_the_verdict_asks_a_human(monkeypatch, capsys):
