@@ -33,7 +33,7 @@ def synth_verdict():
 def test_card_for_the_synthetic_trap():
     card = render_card(synth_verdict())
     assert card.startswith("SHIP weekly_trial")
-    for piece in ("0.9999", "raw 0.0", "60-day horizon", "$180.05", "$0.2"):
+    for piece in ("0.9999", "raw 0.0", "60-day horizon", "$173.86", "$0.3"):
         assert piece in card
 
 

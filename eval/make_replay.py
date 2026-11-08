@@ -10,13 +10,14 @@ import statistics
 import sys
 import uuid
 from collections import Counter, defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
 
 DATA_END = datetime(2026, 11, 3, tzinfo=timezone.utc)
 MIN_HISTORY_DAYS = 60
+HISTORY_DAYS = 180
 RENEWAL_DAYS = [0, 3, 7, 14, 28, 31, 61, 92, 183]
 STORES = {"iOS": "app_store", "Android": "play_store"}
 EPS = 1e-9
@@ -235,16 +236,30 @@ def _products(users) -> dict:
     return {"data": rows, "meta": {"pagination": {"page": 1, "pages": 1, "count": len(rows)}}}
 
 
-def _window(users) -> tuple[date, date]:
-    first = min(DATA_END - timedelta(days=u.history_days) for u in users)
-    return first.date(), (DATA_END - timedelta(days=1)).date()
+def _history_before(users, end: datetime) -> list[User]:
+    """Users as Adapty saw them at `end`: installed in the HISTORY_DAYS before it, with only earlier events."""
+    shift = (DATA_END - end).total_seconds() / 86400
+    out = []
+    for u in users:
+        days = u.history_days - shift
+        if days <= 0 or days > HISTORY_DAYS:
+            continue
+        tx = tuple(replace(t, refund=t.refund if t.refund is not None and t.refund < days else None)
+                   for t in u.tx if t.start < days)
+        out.append(replace(u, history_days=days, tx=tx))
+    return out
 
 
-def _conversion(history: list[User], window: tuple[date, date]) -> dict:
+def _window(users, end: datetime) -> tuple[date, date]:
+    first = min(end - timedelta(days=u.history_days) for u in users)
+    return first.date(), (end - timedelta(days=1)).date()
+
+
+def _conversion(history: list[User], window: tuple[date, date], end: datetime) -> dict:
     days = [(window[0] + timedelta(days=i)) for i in range((window[1] - window[0]).days + 1)]
     daily: dict[str, dict[date, list[int]]] = defaultdict(lambda: defaultdict(lambda: [0, 0, 0]))
     for u in history:
-        installed = DATA_END - timedelta(days=u.history_days)
+        installed = end - timedelta(days=u.history_days)
         for t in u.tx:
             if not t.trial:
                 continue
@@ -321,12 +336,13 @@ def _ltv(history: list[User], window: tuple[date, date]) -> dict:
 
 
 @lru_cache(maxsize=8)
-def _test_independent_files(dataset_dir: str, test_name: str) -> tuple[tuple[str, str], ...]:
+def _test_independent_files(dataset_dir: str, test_name: str, start: date) -> tuple[tuple[str, str], ...]:
     users = _load(dataset_dir)
-    history = [u for u in users if u.test != test_name]
-    window = _window(users)
+    end = min(DATA_END, datetime(start.year, start.month, start.day, tzinfo=timezone.utc))
+    history = _history_before([u for u in users if u.test != test_name], end)
+    window = _window(history, end)
     files = {"products_list.json": _products(users),
-             "analytics_conversion_trial-paid.json": _conversion(history, window),
+             "analytics_conversion_trial-paid.json": _conversion(history, window, end),
              "analytics_ltv.json": _ltv(history, window)}
     return tuple((name, json.dumps(body, indent=2) + "\n") for name, body in files.items())
 
@@ -376,7 +392,7 @@ def make_replay(dataset_dir: Path, test_name: str, day: int, traffic: int, out_d
     }})
     for arm, seen in observed.items():
         _write(out_dir, f"analytics_funnel_{arm}.json", _funnel(arm, placement, start, as_of, seen))
-    for name, text in _test_independent_files(str(dataset_dir), test_name):
+    for name, text in _test_independent_files(str(dataset_dir), test_name, start):
         (out_dir / name).write_text(text)
     return out_dir
 

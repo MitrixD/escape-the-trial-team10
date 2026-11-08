@@ -33,8 +33,8 @@ Every task starts with a failing test (openspec/config.yaml). Thresholds are not
 
 ## 6. Eval
 
-- [ ] 6.1 Failing tests, then: `check_agent_text` checks the stated leader and catches "not confirmed" on a `confirmed` verdict
-- [ ] 6.2 Replay serves calibration from the window before the test start; regenerate the committed synthetic bundle if its numbers change
+- [x] 6.1 Failing tests, then: `check_agent_text` checks the stated leader and catches "not confirmed" on a `confirmed` verdict
+- [x] 6.2 Replay serves calibration from the window before the test start; regenerate the committed synthetic bundle if its numbers change
 - [ ] 6.3 Two adverse cells in `eval/calibration_robustness.py` (one product's renewals off by 30%, front-loaded arrival); dead links to spike output files replaced by commands
 - [ ] 6.4 Re-run `eval/verdict_eval.py` and `eval/calibration_robustness.py`; update `eval/RESULTS.md`, README numbers and the card picture with the new numbers, as they are
 

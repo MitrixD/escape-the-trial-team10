@@ -130,7 +130,7 @@ On an error the card SHALL be `ERROR: <message>` and the exit code non-zero. The
 
 #### Scenario: Card for the synthetic trap
 - **WHEN** a user runs the CLI with `--format card` on the synthetic test at day 14
-- **THEN** the card starts with `SHIP weekly_trial` and contains `0.9994`, `raw 0.0`, `60-day horizon`, `$148.98` and `$2.35`
+- **THEN** the card starts with `SHIP weekly_trial` and contains `0.9999`, `raw 0.0`, `60-day horizon`, `$173.86` and `$0.3`
 
 #### Scenario: Card for a test that is too early
 - **WHEN** the verdict is `not_enough_data` with `come_back_on` 2027-01-05
