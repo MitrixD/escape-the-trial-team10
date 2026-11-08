@@ -1,64 +1,54 @@
-# escape-the-trial-team10
+# Verdict Agent
 
-In Russian: [README.ru.md](README.ru.md).
+**Status: minimal MVP, finished on 8 Nov 2026 and submitted as is.** In Russian: [README.ru.md](README.ru.md).
 
-**Status: minimal MVP, finished on 8 Nov 2026 and submitted as is.** Everything below works and is tested; what we would build next is under Next steps.
+Adapty's A/B test dashboard can confidently pick the wrong winner when the other variant's money is still on its way: free trials that have not converted yet, renewals that have not been charged yet. Verdict Agent counts that money too and tells you what to do: ship the leader, wait until a date, or fix the test first. It also tells you what each choice costs.
 
-Team 10 project for the Adapty First Commit hackathon in Belgrade, 7–8 November 2026. The project is Verdict Agent.
+```
+SHIP weekly_trial · confirmed · basis verdict
+p2bb_expected 0.9994 (raw 0.0) · maturity 0.5286 (53% of expected revenue received)
+weekly_trial per user: received $1.01, from trials $0.71, from renewals $3.55, expected $5.27
+each more test day costs $148.98 · shipping weekly_trial now: expected loss $2.35 · chance the leader is wrong 0.0006
+```
 
-## What it does
-
-Verdict Agent answers one question: can you trust the leader of this Adapty A/B test yet? It reads the test from Adapty, adds the revenue that has not arrived (pending trials, future renewals) and returns a verdict with a reason and a date. The estimate is calibrated on the app's own Adapty history. It only reads data.
-
-Think of two piggy banks. Variant A is paid up front (an annual plan). Variant B starts with a free trial and earns through weekly renewals. Early on, A's bank is full and B's is nearly empty, so P2BB on received money picks A. The gap grows with traffic. The money still coming to B is what decides the test.
-
-Synthetic test "annual upfront vs weekly trial", 100 users per day per variant, 60-day horizon, 100 repetitions per cell. The true winner is `weekly_trial`. Source: [eval/synthetic_test/RESULTS.md](eval/synthetic_test/RESULTS.md).
-
-| Day | Raw P2BB confidently picks the wrong variant | Verdict confirms the wrong variant | Verdict confirms the right variant |
-|---|---|---|---|
-| 7 | 100% | 0% | 77% |
-| 14 | 100% | 0% | 95% |
-| 28 | 100% | 0% | 100% |
-| 60 | 95% | 0% | 100% |
-
-These numbers come from synthetic and offline data, not from real customer tests. See Evaluation for the limits.
+This is a test where the dashboard's number (raw P2BB 0.0) points to the annual plan, while the weekly plan with trials wins over 60 days. Shipping the dashboard's choice would cost about $53,640 over 180 days at 200 users a day.
 
 ## Who it is for
 
-- Growth and product people who run paywall A/B tests with different billing shapes: upfront vs trial, annual vs weekly, lifetime vs subscription.
-- AI agents (Claude and others) that are asked "can I stop this test?". They get one tool with JSON they can quote.
+- **Growth and product managers** who A/B test paywalls with different billing: paid up front against free trial, annual against weekly.
+- **AI agents** asked "can I stop this test?". They get one MCP tool with JSON they can quote, and an optional hook stops them from ending a test against the verdict without a human.
 
-## How it compares with Adapty's Predicted P2BB
+It reads Adapty and never changes anything there. It works on any Adapty app with purchase history.
 
-Facts about Predicted P2BB are from [Adapty docs](https://adapty.io/docs/predictions-in-ab-tests). We do not claim to be more accurate. We have not compared accuracy on real tests.
+## Try it in one minute
 
-| | Predicted P2BB (Adapty) | Verdict Agent |
-|---|---|---|
-| Counts pending trials | Yes | Yes |
-| Horizon | Fixed, one year | Parameter, default 60 days |
-| When it shows up | When 2 of 3 criteria hold (narrow interval, enough subscriptions and revenue, 2 weeks since start) | From day 1, as `not_enough_data` with a reason until there is enough data |
-| Where | Dashboard. `ab-tests metrics total` in the CLI and MCP returns only the raw `probability` (checked on Lumen) | CLI and MCP tool, JSON output |
-| Output | A probability | Verdict, reason, leader, date to come back |
-| Breakdown | Black box | Received, expected from trials, expected from renewals, per variant |
-| Calibration | Adapty's model | Conversion and LTV of the app's own products |
-| Stated accuracy | MAPE slightly below 10% across apps | Shown only on synthetic and offline data |
-
-## For judges
-
-**Fastest: let your AI agent set it up.** Open the repo in Claude Code and type `/setup`, or give any coding agent this prompt:
+Ask your coding agent (Claude Code, Cursor, Codex):
 
 > Clone https://github.com/MitrixD/escape-the-trial-team10 and set it up for me by following its AGENTS.md. Ask me before anything that needs my Adapty account.
 
-The agent runs `scripts/setup.sh`, shows a verdict on recorded data and offers the stop guard, the MCP tool and live reads one by one ([AGENTS.md](AGENTS.md)). Without an agent, one command does the same checks:
+In Claude Code you can also open the repo and type `/setup`. Without an agent, run one command (Python 3.10 or newer):
 
 ```bash
 git clone https://github.com/MitrixD/escape-the-trial-team10.git && cd escape-the-trial-team10
 scripts/setup.sh
 ```
 
-`scripts/setup.sh --guard DIR --guard-mode strict` also installs the stop guard into `DIR`, `--mcp DIR` writes `DIR/.mcp.json` for the verdict tool, and `--live` checks the Adapty CLI login and `.env` for live reads. It never writes to Adapty and is safe to run again.
+It creates `.venv`, installs the dependencies, runs the tests and prints the card above. Add `--guard DIR --guard-mode strict` to install the stop guard into `DIR`, `--mcp DIR` to write `DIR/.mcp.json` for the verdict tool, `--live` to check your Adapty login. Safe to run again; it never writes to Adapty.
 
-Three ways to try it by hand, from no credentials to a live Adapty account. Python 3.10 or newer, which both dependencies require (tested on 3.14 only). No API keys are needed anywhere, so the submission form holds no secrets.
+## Words used below
+
+| Term | Meaning |
+|---|---|
+| P2BB | Adapty's "probability to be best": the chance a variant is the best one. Adapty counts only money already received (`p2bb_raw`) |
+| `p2bb_expected` | The same chance, counting the money still to come from trials and renewals |
+| Maturity | The share of the expected money that has already arrived |
+| Calibration | Trial conversion and renewal revenue per product, taken from the app's own Adapty history |
+| SRM | Sample ratio mismatch: users split between variants in a different ratio than the test's weights, so the comparison is broken |
+| Stop guard | A Claude Code hook that runs the verdict before an agent stops a test |
+
+## For judges
+
+The fastest path is "Try it in one minute" above. To check each part by hand, use the three levels below: no credentials, then the stop guard, then your own Adapty account. You need Python 3.10 or newer (we tested on 3.14). No API keys are needed, so the submission form holds no secrets.
 
 **1. No credentials, no network (2 minutes).** Run the Quick start below: the verdict on a recorded Adapty test and on the synthetic test where raw P2BB picks the wrong variant (add `--format card` for a readable summary), then `.venv/bin/pytest`.
 
@@ -80,7 +70,7 @@ adapty auth whoami
 cp .env.example .env
 ```
 
-In `.env`: `ADAPTY_APP_ID` = any of your apps with purchase history (for example your seeded Lumen), `ADAPTY_EXPECTED_COMPANY` = the company `Title` under `Companies:` in `adapty auth whoami` (not your `Name`). Then pick a test with `adapty ab-tests list --app <app id> --type flow --json` and run `.venv/bin/python -m verdict_agent.cli <test id>` (about 8 read-only calls). On a seeded Lumen, on 8 Nov: Onboarding gives `confirmed` for B, in line with the dashboard; Main gives `not_enough_data` with a come-back date while the dashboard already shows a leader. Money values are inflated there: all test users of the seed arrived on one day.
+Set `ADAPTY_APP_ID` and `ADAPTY_EXPECTED_COMPANY` in your shell or in `.env`: `ADAPTY_APP_ID` = any of your apps with purchase history (for example your seeded Lumen), `ADAPTY_EXPECTED_COMPANY` = the company `Title` under `Companies:` in `adapty auth whoami` (not your `Name`). Then pick a test with `adapty ab-tests list --app <app id> --type flow --json` and run `.venv/bin/python -m verdict_agent.cli <test id>` (about 8 read-only calls). On a seeded Lumen, on 8 Nov: Onboarding gives `confirmed` for B, in line with the dashboard; Main gives `not_enough_data` with a come-back date while the dashboard already shows a leader. Money values are inflated there: all test users of the seed arrived on one day.
 
 ## What is real, what is mocked
 
@@ -214,63 +204,20 @@ VERDICT_DATASET=<path to adapty-seed-data-hack/data/offline> .venv/bin/pytest
 
 Without `VERDICT_DATASET`, tests that need the offline dataset are skipped. `tests/fixtures/replay_onboarding.json` is the output of the Quick start replay command at the bundle's `as_of` (2026-11-07); a test checks that the command still prints exactly it.
 
-## Output
+## How it compares with Adapty's Predicted P2BB
 
-JSON that validates against [verdict_agent/schema.json](verdict_agent/schema.json). On any error the CLI prints `{"error": ...}` and exits 1.
+Facts about Predicted P2BB are from [Adapty docs](https://adapty.io/docs/predictions-in-ab-tests). We do not claim to be more accurate. We have not compared accuracy on real tests.
 
-| Field | Meaning |
-|---|---|
-| `verdict` | `not_enough_data`, `keep_running`, `confirmed` or `tie` |
-| `reason` | `min_events`, `no_calibration` (for `not_enough_data`); `pending_revenue`, `underpowered` (for `keep_running`); `null` otherwise |
-| `leader` | Title of the variant with the higher expected revenue |
-| `p2bb_expected` | Probability that the leader is better, counting expected revenue to the horizon |
-| `p2bb_raw` | The same on received revenue only |
-| `maturity` | Share of expected revenue that has been received already, 0 to 1, floored to 4 decimals |
-| `horizon_days` | Horizon of the estimate |
-| `come_back_on` | Date to look again for `keep_running` and `min_events`, else `null` |
-| `arms[]` | Per variant: `users`, `revenue_received`, `revenue_expected_trials`, `revenue_expected_renewals`, `revenue_expected_total` (the sum of the three) |
-| `calibration_source` | `product` (some product has its own history; products without it use app-wide rates), `app` or `none` |
-| `expected_gap_per_user` | Leader's `revenue_expected_total` minus the best other variant's, never below 0 |
-| `money` | `null` for `not_enough_data`. Otherwise the leader against the best other variant, in USD for the test's whole traffic: `traffic_per_day`, `after_days` (how long the shipped variant serves that traffic after the stop, `--after-days`, default 180), `cost_per_day` (expected revenue lost by one more test day, because part of the traffic sees the worse variant), `loss_if_ship_leader_now` (expected loss of stopping now and shipping the leader), `cost_until_come_back` (`cost_per_day` until `come_back_on`, only for `keep_running`) and `chance_leader_is_wrong` (1 − `p2bb_expected`) |
-| `next_action` | `ship_leader`, `ship_either` (for `tie`, or a test past its horizon without a likely leader), `come_back`, or `fix_test` when the test is unhealthy |
-| `health` | `srm_p` (chi-square p-value of the variants' users against their weights, `null` without weights), `srm` (`true` when `srm_p` is below 0.001 and the test has at least 1,000 users, the thresholds Eppo and Optimizely use) and `dead_arm` (a variant with 0 users after 3 days). An unhealthy test gets `next_action` `fix_test` with basis `health`: a winner from a broken split cannot be trusted. Adapty's docs leave this check to the user |
-| `next_action_basis` | `verdict`; `money` when the verdict is `keep_running`, `p2bb_expected` is at least 0.80 and `loss_if_ship_leader_now` is below `cost_until_come_back` (the leader is not proven, yet waiting is expected to cost more than shipping it); `horizon` when the test has passed its horizon, so there is nothing left to wait for (`ship_leader` from 0.80, `ship_either` below). Below 0.80 the tool never advises shipping the leader on money |
-
-Revenue fields and `expected_gap_per_user` are USD per user, rounded to cents from unrounded values. USD values in `money` are totals for the test's traffic, rounded to cents.
-
-### Money at stake on the synthetic test
-
-At day 14 of the synthetic test (100 users per day per variant), raw P2BB is 0.0 for `weekly_trial`, so a dashboard reader would ship `annual_upfront`. With 200 users a day for 180 days and a gap of $1.49 per user, that mistake costs about $53,640. The verdict confirms `weekly_trial` and prices both choices: each more day of the test costs $148.98, and shipping `weekly_trial` now has an expected loss of $2.35, with a 0.06% chance that it is wrong.
-
-```bash
-.venv/bin/python -m verdict_agent.cli 50e46448-6692-54c6-b1e0-1b2e2fa62cdd --replay tests/fixtures/synthetic/day14 | python3 -c "import json,sys; o=json.load(sys.stdin); print(o['leader'], o['money'], o['next_action'], o['next_action_basis'])"
-```
-
-How often a money-based ship picks the wrong variant: [eval/RESULTS.md](eval/RESULTS.md), section "Деньги на кону и `next_action`" (in Russian; the English summary at the top of the file lists the key numbers). It ships the right variant earlier on the synthetic test (65% instead of 41% at day 14, 30 users per day) with 0–1% wrong ships, but on Settings at day 7 with 100 users per day 5% of ships are wrong.
-
-## Architecture
-
-```
-verdict_agent/
-  model.py        Group, Arm, TestData, Calibration
-  stats.py        P2BB, confidence interval of a difference in means, sample size
-  calibration.py  Calibration from Adapty conversion and LTV responses
-  estimator.py    Expected revenue and pseudo-users from groups
-  verdict.py      Horizon, verdict rules, dates, JSON
-  adapty_cli.py   Read-only Adapty CLI wrapper and replay runner
-  live.py         Test ID to TestData and Calibration through the wrapper
-  service.py      verdict(ab_test_id, horizon, replay, app_id, as_of, after_days) and safe_verdict
-  cli.py          python -m verdict_agent.cli
-  mcp_server.py   stdio MCP tool
-  card.py         Decision card: the verdict as a few lines for a person
-  guard.py        PreToolUse hook: verdict before any A/B test stop
-  schema.json     Output contract
-eval/             Spike, replay generator, verdict eval, synthetic test, agent text check (check_agent_text.py), recorded agent runs (agent_runs/)
-scripts/          setup.sh (one-command setup and check), install_guard.sh, record_fixtures.sh
-tests/            Unit tests and recorded fixtures
-```
-
-Data flow: test ID, then `live.py` reads the test, per-variant metrics, funnel, conversion and LTV through `adapty_cli.py` (or reads the same files from a replay bundle). It builds groups of users by status, product and age. `estimator.py` adds expected revenue to each group using the calibration. `verdict.py` applies the rules and returns JSON. CLI, MCP and eval all call the same `service.py`. Design: [openspec/changes/archive/2026-11-08-add-verdict-agent/design.md](openspec/changes/archive/2026-11-08-add-verdict-agent/design.md).
+| | Predicted P2BB (Adapty) | Verdict Agent |
+|---|---|---|
+| Counts pending trials | Yes | Yes |
+| Horizon | Fixed, one year | Parameter, default 60 days |
+| When it shows up | When 2 of 3 criteria hold (narrow interval, enough subscriptions and revenue, 2 weeks since start) | From day 1, as `not_enough_data` with a reason until there is enough data |
+| Where | Dashboard. `ab-tests metrics total` in the CLI and MCP returns only the raw `probability` (checked on Lumen) | CLI and MCP tool, JSON output |
+| Output | A probability | Verdict, reason, leader, date to come back |
+| Breakdown | Black box | Received, expected from trials, expected from renewals, per variant |
+| Calibration | Adapty's model | Conversion and LTV of the app's own products |
+| Stated accuracy | MAPE slightly below 10% across apps | Shown only on synthetic and offline data |
 
 ## Evaluation
 
@@ -294,15 +241,6 @@ Limits:
 - The horizon is 60 days. Adapty's goal is 12 months, and the LTV curve has no points after day 92.
 - Live reads and eval bundles both assume users arrive uniformly over the test. Uneven traffic makes the age estimate worse.
 - No real customer A/B test has been used to measure accuracy.
-
-## Rules we follow
-
-- Read-only: only `auth whoami`, `get`, `list`, `ab-tests metrics` and `analytics` commands. The tool never starts, stops or changes a test.
-- At most 10 Adapty calls per verdict (8 for a two-variant test), with a pause between calls. Tests with more than 3 variants are rejected.
-- Never `apps get`, because it returns the secret key.
-- No secrets in git: they live in `.env`, which is ignored. The repo has only `.env.example`.
-- Works for any app: no product names or flow maps in code. Lumen appears only in fixtures.
-- Only demo and synthetic data.
 
 ## Next steps
 
@@ -333,7 +271,76 @@ Nothing was written before the start on Saturday 7 Nov at 10:45: the repository 
 
 Requirements: [openspec/specs/](openspec/specs/). The plan, design and tasks of the one OpenSpec change, archived: [openspec/changes/archive/2026-11-08-add-verdict-agent/](openspec/changes/archive/2026-11-08-add-verdict-agent/). Design: [docs/2026-11-07-verdict-agent-design.md](docs/2026-11-07-verdict-agent-design.md). How we build and change it: `CLAUDE.md`.
 
-## Live data
+## Reference
+
+### Output
+
+JSON that validates against [verdict_agent/schema.json](verdict_agent/schema.json). On any error the CLI prints `{"error": ...}` and exits 1.
+
+| Field | Meaning |
+|---|---|
+| `verdict` | `not_enough_data`, `keep_running`, `confirmed` or `tie` |
+| `reason` | `min_events`, `no_calibration` (for `not_enough_data`); `pending_revenue`, `underpowered` (for `keep_running`); `null` otherwise |
+| `leader` | Title of the variant with the higher expected revenue |
+| `p2bb_expected` | Probability that the leader is better, counting expected revenue to the horizon |
+| `p2bb_raw` | The same on received revenue only |
+| `maturity` | Share of expected revenue that has been received already, 0 to 1, floored to 4 decimals |
+| `horizon_days` | Horizon of the estimate |
+| `come_back_on` | Date to look again for `keep_running` and `min_events`, else `null` |
+| `arms[]` | Per variant: `users`, `revenue_received`, `revenue_expected_trials`, `revenue_expected_renewals`, `revenue_expected_total` (the sum of the three) |
+| `calibration_source` | `product` (some product has its own history; products without it use app-wide rates), `app` or `none` |
+| `expected_gap_per_user` | Leader's `revenue_expected_total` minus the best other variant's, never below 0 |
+| `money` | `null` for `not_enough_data`. Otherwise the leader against the best other variant, in USD for the test's whole traffic: `traffic_per_day`, `after_days` (how long the shipped variant serves that traffic after the stop, `--after-days`, default 180), `cost_per_day` (expected revenue lost by one more test day, because part of the traffic sees the worse variant), `loss_if_ship_leader_now` (expected loss of stopping now and shipping the leader), `cost_until_come_back` (`cost_per_day` until `come_back_on`, only for `keep_running`) and `chance_leader_is_wrong` (1 − `p2bb_expected`) |
+| `next_action` | `ship_leader`, `ship_either` (for `tie`, or a test past its horizon without a likely leader), `come_back`, or `fix_test` when the test is unhealthy |
+| `health` | `srm_p` (chi-square p-value of the variants' users against their weights, `null` without weights), `srm` (`true` when `srm_p` is below 0.001 and the test has at least 1,000 users, the thresholds Eppo and Optimizely use) and `dead_arm` (a variant with 0 users after 3 days). An unhealthy test gets `next_action` `fix_test` with basis `health`: a winner from a broken split cannot be trusted. Adapty's docs leave this check to the user |
+| `next_action_basis` | `verdict`; `money` when the verdict is `keep_running`, `p2bb_expected` is at least 0.80 and `loss_if_ship_leader_now` is below `cost_until_come_back` (the leader is not proven, yet waiting is expected to cost more than shipping it); `horizon` when the test has passed its horizon, so there is nothing left to wait for (`ship_leader` from 0.80, `ship_either` below). Below 0.80 the tool never advises shipping the leader on money |
+
+Revenue fields and `expected_gap_per_user` are USD per user, rounded to cents from unrounded values. USD values in `money` are totals for the test's traffic, rounded to cents.
+
+#### Money at stake on the synthetic test
+
+At day 14 of the synthetic test (100 users per day per variant), raw P2BB is 0.0 for `weekly_trial`, so a dashboard reader would ship `annual_upfront`. With 200 users a day for 180 days and a gap of $1.49 per user, that mistake costs about $53,640. The verdict confirms `weekly_trial` and prices both choices: each more day of the test costs $148.98, and shipping `weekly_trial` now has an expected loss of $2.35, with a 0.06% chance that it is wrong.
+
+```bash
+.venv/bin/python -m verdict_agent.cli 50e46448-6692-54c6-b1e0-1b2e2fa62cdd --replay tests/fixtures/synthetic/day14 | python3 -c "import json,sys; o=json.load(sys.stdin); print(o['leader'], o['money'], o['next_action'], o['next_action_basis'])"
+```
+
+How often a money-based ship picks the wrong variant: [eval/RESULTS.md](eval/RESULTS.md), section "Деньги на кону и `next_action`" (in Russian; the English summary at the top of the file lists the key numbers). It ships the right variant earlier on the synthetic test (65% instead of 41% at day 14, 30 users per day) with 0–1% wrong ships, but on Settings at day 7 with 100 users per day 5% of ships are wrong.
+
+### Architecture
+
+```
+verdict_agent/
+  model.py        Group, Arm, TestData, Calibration
+  stats.py        P2BB, confidence interval of a difference in means, sample size
+  calibration.py  Calibration from Adapty conversion and LTV responses
+  estimator.py    Expected revenue and pseudo-users from groups
+  verdict.py      Horizon, verdict rules, dates, JSON
+  adapty_cli.py   Read-only Adapty CLI wrapper and replay runner
+  live.py         Test ID to TestData and Calibration through the wrapper
+  service.py      verdict(ab_test_id, horizon, replay, app_id, as_of, after_days) and safe_verdict
+  cli.py          python -m verdict_agent.cli
+  mcp_server.py   stdio MCP tool
+  card.py         Decision card: the verdict as a few lines for a person
+  guard.py        PreToolUse hook: verdict before any A/B test stop
+  schema.json     Output contract
+eval/             Spike, replay generator, verdict eval, synthetic test, agent text check (check_agent_text.py), recorded agent runs (agent_runs/)
+scripts/          setup.sh (one-command setup and check), install_guard.sh, record_fixtures.sh
+tests/            Unit tests and recorded fixtures
+```
+
+Data flow: test ID, then `live.py` reads the test, per-variant metrics, funnel, conversion and LTV through `adapty_cli.py` (or reads the same files from a replay bundle). It builds groups of users by status, product and age. `estimator.py` adds expected revenue to each group using the calibration. `verdict.py` applies the rules and returns JSON. CLI, MCP and eval all call the same `service.py`. Design: [openspec/changes/archive/2026-11-08-add-verdict-agent/design.md](openspec/changes/archive/2026-11-08-add-verdict-agent/design.md).
+
+### Rules we follow
+
+- Read-only: only `auth whoami`, `get`, `list`, `ab-tests metrics` and `analytics` commands. The tool never starts, stops or changes a test.
+- At most 10 Adapty calls per verdict (8 for a two-variant test), with a pause between calls. Tests with more than 3 variants are rejected.
+- Never `apps get`, because it returns the secret key.
+- No secrets in git: they live in `.env`, which is ignored. The repo has only `.env.example`.
+- Works for any app: no product names or flow maps in code. Lumen appears only in fixtures.
+- Only demo and synthetic data.
+
+### Live data
 
 `scripts/record_fixtures.sh <ab_test_id>` records read-only Adapty responses into `tests/fixtures/live/<test_id>/` (7 calls plus `auth whoami`, under the 10-call budget) and writes `as_of.json` with the recording day. It refuses an empty `ADAPTY_EXPECTED_COMPANY` and exits 3 without recording when `adapty auth whoami` does not match it. Recorded on 2026-11-07; history window 2026-07-01 to 2026-11-06. The committed bundle is the Onboarding test.
 
