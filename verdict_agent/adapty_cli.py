@@ -136,8 +136,8 @@ def _replay_file(args: list[str]) -> str | None:
         conversion = _option(args, "--conversion")
         return f"analytics_conversion_{conversion}.json" if conversion else None
     if key == ("analytics", "funnel"):
-        flow_id = _option(args, "--filter", prefix="flow_id=")
-        return f"analytics_funnel_{flow_id}.json" if flow_id else None
+        arm_id = _option(args, "--filter", prefix="flow_id=") or _option(args, "--filter", prefix="paywall_id=")
+        return f"analytics_funnel_{arm_id}.json" if arm_id else None
     return None
 
 
@@ -162,7 +162,7 @@ def replay_runner(directory: Path):
         name = _replay_file(args)
         shown = " ".join(args)
         if name is None:
-            raise CliError(1, "", context=f"replay cannot serve `adapty {shown}`: no recorded file for this command (funnel needs --filter flow_id=<id>, conversion needs --conversion <name>)")
+            raise CliError(1, "", context=f"replay cannot serve `adapty {shown}`: no recorded file for this command (funnel needs --filter flow_id=<id> or paywall_id=<id>, conversion needs --conversion <name>)")
         path = directory / name
         if not path.is_file():
             raise CliError(1, "", context=f"replay has no recording for `adapty {shown}`: expected {name}")

@@ -24,7 +24,7 @@ Every task starts with a failing test (openspec/config.yaml). Thresholds are not
 - [x] 4.1 Failing tests, then: catalog periods in the calibration, no renewals for annual (horizon under 365) and lifetime actives
 - [x] 4.2 Failing tests, then: trials without any rate give `no_calibration`; trial length 0 with trials in the funnel uses 7 days and warns
 - [x] 4.3 Failing tests, then: converted trial users at least `t` days old; pending share from all trial starts
-- [ ] 4.4 Failing tests, then: replay of paywall funnels; inline comments in `.env`; `record_fixtures.sh` history window and exact company check
+- [x] 4.4 Failing tests, then: replay of paywall funnels; inline comments in `.env`; `record_fixtures.sh` history window and exact company check
 
 ## 5. Interfaces and setup
 

@@ -202,3 +202,10 @@ def test_default_env_path_falls_back_to_the_repo_root(monkeypatch, tmp_path):
     assert live.default_env_path() == live.REPO_ENV
     (tmp_path / ".env").write_text("ADAPTY_APP_ID=x\n")
     assert live.default_env_path() == Path(".env")
+
+
+def test_env_values_may_carry_inline_comments(tmp_path):
+    env = tmp_path / ".env"
+    env.write_text('ADAPTY_APP_ID=app-1  # my app\nADAPTY_EXPECTED_COMPANY="Acme # Ltd"  # quoted keeps the hash\n'
+                   "X=a#b\n")
+    assert live.read_env(env) == {"ADAPTY_APP_ID": "app-1", "ADAPTY_EXPECTED_COMPANY": "Acme # Ltd", "X": "a#b"}

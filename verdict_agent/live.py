@@ -2,6 +2,7 @@
 import json
 import logging
 import os
+import re
 from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -288,8 +289,10 @@ def read_env(path: Path) -> dict[str, str]:
             continue
         key, _, value = line.partition("=")
         value = value.strip()
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
-            value = value[1:-1]
+        if value[:1] in ("\"", "'") and value[0] in value[1:]:
+            value = value[1:value.index(value[0], 1)]
+        else:
+            value = re.split(r"\s+#", value, maxsplit=1)[0].strip()
         values[key.strip().removeprefix("export ").strip()] = value
     return values
 
