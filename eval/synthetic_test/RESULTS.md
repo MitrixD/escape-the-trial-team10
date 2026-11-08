@@ -1,5 +1,7 @@
 # Синтетический тест «AI limit: annual upfront vs weekly trial»
 
+> **English summary.** A synthetic A/B test built from 6,000 real users of the offline Lumen dataset: `annual_upfront` (10% buy a $49.99 annual plan at once) against `weekly_trial` (35% start a 3-day trial, then $6.99 a week). The 60-day truth favours `weekly_trial`, $5.88 against $4.32 per user. With 100 users per day per variant and 100 repetitions per cell, raw P2BB is at least 95% sure of the wrong variant in 100% of runs on days 7, 14 and 28 and in 95% at day 60. The verdict never confirms the wrong variant and confirms the right one in 77% (day 7), 95% (day 14) and 100% (days 28 and 60) of runs. Honest limits: the purchase shares per variant were chosen by hand (the transactions are real), calibration is ideal by construction because test users come from the same population, and repetitions resample users with replacement. The text below is in Russian; the tables speak for themselves.
+
 Тест собран 7 ноября, чтобы показать ловушку сырого P2BB в чистом виде: вариант, который платит сразу, против варианта с триалом и недельными продлениями. Прогнан Verdict Agent v2 через replay-бандлы: `make_replay` собирает ответы в формате Adapty, вердикт считает CLI (`python -m verdict_agent.cli <id> --replay <бандл>`). Калибровка строится из агрегатов `conversion` и `ltv`. Цифры первой реализации с калибровкой по пользователям CSV заменены.
 
 ## Как собран

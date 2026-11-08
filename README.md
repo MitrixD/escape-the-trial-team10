@@ -33,18 +33,55 @@ Facts about Predicted P2BB are from [Adapty docs](https://adapty.io/docs/predict
 | Counts pending trials | Yes | Yes |
 | Horizon | Fixed, one year | Parameter, default 60 days |
 | When it shows up | When 2 of 3 criteria hold (narrow interval, enough subscriptions and revenue, 2 weeks since start) | From day 1, as `not_enough_data` with a reason until there is enough data |
-| Where | Dashboard only. `ab-tests metrics total` in the CLI and MCP returns only the raw `probability` | CLI and MCP tool, JSON output |
+| Where | Dashboard. `ab-tests metrics total` in the CLI and MCP returns only the raw `probability` (checked on Lumen) | CLI and MCP tool, JSON output |
 | Output | A probability | Verdict, reason, leader, date to come back |
 | Breakdown | Black box | Received, expected from trials, expected from renewals, per variant |
 | Calibration | Adapty's model | Conversion and LTV of the app's own products |
 | Stated accuracy | MAPE slightly below 10% across apps | Shown only on synthetic and offline data |
 
-## Quick start
+## For judges
 
-From a clean clone, with no network and no Adapty account. This runs on a recorded replay bundle (tested on Python 3.14).
+Three ways to try it, from no credentials to a live Adapty account. Python 3.10 or newer (tested on 3.14). No API keys are needed anywhere, so the submission form holds no secrets.
+
+**1. No credentials, no network (2 minutes).** Run the Quick start below: the verdict on a recorded Adapty test and on the synthetic test where raw P2BB picks the wrong variant, then `.venv/bin/pytest`.
+
+**2. The stop guard, no Adapty login (5 minutes, needs [Claude Code](https://claude.com/claude-code)).** After the Quick start:
 
 ```bash
-git clone <this repo> && cd escape-the-trial-team10
+scripts/install_guard.sh /tmp/vg-demo --mode strict
+cd /tmp/vg-demo && VERDICT_GUARD_REPLAY="<this repo>/tests/fixtures/synthetic/day14" claude
+```
+
+Ask the agent: *Run `adapty ab-tests stop 50e46448-6692-54c6-b1e0-1b2e2fa62cdd --app 00000000-0000-0000-0000-000000000000 --winner annual_upfront --yes`.* The hook denies the command before it runs, so neither the Adapty CLI nor a login is needed. The reason names the verdict leader `weekly_trial`, p2bb_expected 0.9994 and raw P2BB 0.0.
+
+**3. Live, with your own Adapty account (5 minutes).** The tool only reads.
+
+```bash
+npm install -g adapty@latest
+adapty auth login
+adapty auth whoami
+cp .env.example .env
+```
+
+In `.env`: `ADAPTY_APP_ID` = any of your apps with purchase history (for example your seeded Lumen), `ADAPTY_EXPECTED_COMPANY` = the company name from `adapty auth whoami`. Then pick a test with `adapty ab-tests list --app <app id> --type flow --json` and run `.venv/bin/python -m verdict_agent.cli <test id>` (about 8 read-only calls). On a seeded Lumen, on 8 Nov: Onboarding gives `confirmed` for B, in line with the dashboard; Main gives `not_enough_data` with a come-back date while the dashboard already shows a leader. Money values are inflated there: all test users of the seed arrived on one day.
+
+## What is real, what is mocked
+
+| Real | Synthetic or assumed |
+|---|---|
+| The code reads a live Adapty account through the Developer CLI (checked on 8 Nov on our Lumen: Onboarding `confirmed`, Main `not_enough_data`) | Lumen itself is the organisers' demo data |
+| `tests/fixtures/live/995b124f-…` holds recorded Adapty responses from 7 Nov | The test "AI limit: annual upfront vs weekly trial" (`50e46448-…`) does not exist in Adapty: it is built from the offline dataset as Adapty-shaped JSON, like every eval bundle |
+| Claude Sonnet runs through our MCP tool and against the stop guard are real recordings (`eval/agent_runs/`) | The 60-day truth comes from the offline dataset |
+| The hook really blocks the call before Adapty | Uniform user arrival, 180 days after the stop and the test's own traffic are assumptions, not measurements |
+
+Not built: no dashboard UI; nothing is ever written to Adapty.
+
+## Quick start
+
+From a clean clone, with no network and no Adapty account. This runs on a recorded replay bundle. Python 3.10 or newer (tested on 3.14).
+
+```bash
+git clone https://github.com/MitrixD/escape-the-trial-team10.git && cd escape-the-trial-team10
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 .venv/bin/python -m verdict_agent.cli 995b124f-9075-440d-83bb-20dbdf7d7fbb --replay tests/fixtures/live/995b124f-9075-440d-83bb-20dbdf7d7fbb
@@ -126,7 +163,7 @@ Install into the project where your agent works:
 scripts/install_guard.sh <your agent's project> --mode ask
 ```
 
-This repo registers the guard in `.claude/settings.json` in `strict` mode. Other Bash commands pass through in about 0.06 s.
+This repo registers the guard in `.claude/settings.json` in `strict` mode. Until `.venv` exists (see Quick start) the hook does nothing, so opening the repo in Claude Code before setup shows no hook errors. Other Bash commands pass through in about 0.06 s.
 
 Demo without touching a live test: point `VERDICT_GUARD_REPLAY` at recorded bundles (paths separated by `:`). A stop on a replayed test is decided before any Adapty call.
 
@@ -177,7 +214,7 @@ At day 14 of the synthetic test (100 users per day per variant), raw P2BB is 0.0
 .venv/bin/python -m verdict_agent.cli 50e46448-6692-54c6-b1e0-1b2e2fa62cdd --replay tests/fixtures/synthetic/day14 | python3 -c "import json,sys; o=json.load(sys.stdin); print(o['leader'], o['money'], o['next_action'], o['next_action_basis'])"
 ```
 
-How often a money-based ship picks the wrong variant: [eval/RESULTS.md](eval/RESULTS.md), section "Деньги на кону и `next_action`". It ships the right variant earlier on the synthetic test (65% instead of 41% at day 14, 30 users per day) with 0–1% wrong ships, but on Settings at day 7 with 100 users per day 5% of ships are wrong.
+How often a money-based ship picks the wrong variant: [eval/RESULTS.md](eval/RESULTS.md), section "Деньги на кону и `next_action`" (in Russian; the English summary at the top of the file lists the key numbers). It ships the right variant earlier on the synthetic test (65% instead of 41% at day 14, 30 users per day) with 0–1% wrong ships, but on Settings at day 7 with 100 users per day 5% of ships are wrong.
 
 ## Architecture
 
@@ -204,9 +241,9 @@ Data flow: test ID, then `live.py` reads the test, per-variant metrics, funnel, 
 
 ## Evaluation
 
-Full tables: [eval/RESULTS.md](eval/RESULTS.md) (spike and Verdict Agent v2) and [eval/synthetic_test/RESULTS.md](eval/synthetic_test/RESULTS.md). Run: `eval/verdict_eval.py`. Each run builds an Adapty-shaped replay bundle with `eval/make_replay.py` and calls the product through `--replay`.
+Full tables: [eval/RESULTS.md](eval/RESULTS.md) (spike and Verdict Agent v2) and [eval/synthetic_test/RESULTS.md](eval/synthetic_test/RESULTS.md); both are in Russian with an English summary at the top. Run: `eval/verdict_eval.py`. Each run builds an Adapty-shaped replay bundle with `eval/make_replay.py` and calls the product through `--replay`.
 
-How AI was used to build the tool, and three Claude answers through MCP checked number by number against the verdict JSON: [AI_LOG.md](AI_LOG.md).
+How AI was used to build the tool: [AI_LOG.md](AI_LOG.md), one page. The full log, with three Claude answers checked number by number against the verdict JSON: [docs/ai-log-full.md](docs/ai-log-full.md).
 
 Key results (60-day truth, 150 repetitions, seed 7, days 1 to 28, 30 and 100 users per day per variant):
 
@@ -239,9 +276,9 @@ Limits:
 - Test validity checks (SRM, dead arm).
 - Guardrails (refunds, trial cancels) and segments.
 - A new UI for the A/B test screen with our estimates.
+- A PR to `adapty-skills`: the `ab-tests` skill calls `ab_test_verdict` before a stop.
 - Per-arm updating of calibration from the arm's own finished trials; Adapty's lognormal P2BB model.
 - Starting, stopping or changing tests.
-- A demo script.
 - A `doctor` command that checks a clean machine (CLI installed and logged in, `.env`, dependencies) and says what is missing.
 - A per-user estimator instead of group counts. Reading profiles one by one is forbidden by the hackathon rules; see [docs/per-user-data.md](docs/per-user-data.md).
 - Spread inside a group: live P2BB is approximate because every user of a group gets the same value.
@@ -256,7 +293,7 @@ Limits:
 
 ## Made before the hackathon core
 
-Made on 7 Nov 2026 before the core work: the spike eval in [eval/](eval/) (`ab_verdict_eval.py`, `money_at_stake.py`, `RESULTS.md`) and a first implementation on branch `feature/verdict-agent`. Both were used as references. The core in `verdict_agent/` was rewritten on the hackathon.
+Nothing was written before the start on Saturday 7 Nov at 10:45: the repository held only the initial commit and a README. Made during the hackathon, before the core work: the spike eval in [eval/](eval/) (`ab_verdict_eval.py`, `money_at_stake.py`, `RESULTS.md`) and a first implementation on branch `feature/verdict-agent`. Both were used as references. The core in `verdict_agent/` was rewritten on the hackathon.
 
 Plan and specs: [openspec/changes/add-verdict-agent/](openspec/changes/add-verdict-agent/). Design: [docs/2026-11-07-verdict-agent-design.md](docs/2026-11-07-verdict-agent-design.md). How we build and change it: `CLAUDE.md`.
 
@@ -271,8 +308,8 @@ Plan and specs: [openspec/changes/add-verdict-agent/](openspec/changes/add-verdi
 - Products with no sales in the window are still listed in `conversion` with zeros; some products (for example lifetime on Play) have no `play_store:` row in `ltv`.
 - The Main test is segment-limited (North America); the funnel filters do not include the segment.
 
-## Research
+## Research (in Russian)
 
-- [Adapty: отчёт о продукте, сценариях и API](research/01-adapty-product-report.md) — каталог фич, сценарии по ролям, карта API/CLI/MCP и их пробелов, снимок хакатонного аккаунта, шероховатости CLI.
-- [A/B-платформа Adapty](research/05-ab-platform.md) — модель сущностей, какие эксперименты реально запускать, слабые места A/B-метрик (сырой P2BB, Predicted P2BB только в дашборде), кому это больно.
-- [Реальные боли пользователей](research/04-user-pains.md) — GitHub issues Adapty, G2/Capterra (через Wayback), Canny, отзывы на мобильное приложение Adapty, Reddit, форум RevenueCat; карта болей и проверка наших идей на голосах пользователей.
+- [Adapty product report](research/01-adapty-product-report.md): features, scenarios by role, map of the API, CLI and MCP and their gaps, the hackathon account, CLI rough edges.
+- [Adapty's A/B platform](research/05-ab-platform.md): the entity model, which experiments can really run, weak spots of A/B metrics (raw P2BB, Predicted P2BB only in the dashboard), who suffers from them.
+- [Real user pains](research/04-user-pains.md): Adapty GitHub issues, G2 and Capterra, Canny, app reviews, Reddit, the RevenueCat forum; a pain map and a check of our ideas against users' words.

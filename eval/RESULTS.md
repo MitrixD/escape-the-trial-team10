@@ -1,5 +1,13 @@
 # Eval K1 и K2: итоги
 
+> **English summary.** All numbers come from the offline Lumen dataset (synthetic data from the organisers) replayed as Adapty-shaped responses and scored against 60-day net revenue per user. The text below is in Russian.
+>
+> - **The trap is a bias, not noise.** Raw P2BB counts only received revenue, so it favours the variant that is paid up front. With a small gap and monthly renewals (the Settings test, 90-day truth, 100 users per day) raw P2BB makes 29% wrong confident decisions by day 28, against 1% for an estimate that counts revenue still to come. More traffic makes it worse, not better.
+> - **Verdict Agent v2 (150 repetitions, days 1–28, 30 and 100 users per day per variant).** No wrong confirmations on Main, Onboarding and the synthetic test, at most 1% on Settings. The first safe day (right confirmed at least 50%, wrong at most 5%) is day 3 to 7 on Main and Onboarding, 7 to 11 days before a fixed 14-day rule.
+> - **Money at stake (spike, 10× Lumen traffic, 180 days after the stop).** On Onboarding, waiting a fixed 14 days costs $65,582 against $4,684 when stopping on the verdict; on Main $52,781 against $5,184. On Settings, where the gap is small, the verdict is not better than waiting: $14,505 against $13,218.
+> - **Next action (section "Деньги на кону и `next_action`").** The money rule ships the right variant earlier: on the synthetic test at day 14 with 30 users per day, 65% right ships against 41% confirmed, 1% wrong. Its weak spot is Settings at day 7 with 100 users per day: 5% wrong ships (7% before the 0.80 confidence floor).
+> - **Limits.** Synthetic data, four tests, repetitions with replacement, calibration from the same population, a 60-day horizon instead of Adapty's 12 months, uniform user arrival.
+
 Проверяли, насколько сильна ловушка ранней остановки A/B-теста и можно ли решать лучше. Короткий ответ: идея держится, но не в той форме, в какой мы её питчили. Дашборд редко уверенно выбирает проигравшего, когда разница между вариантами большая. Опасный случай — небольшая разница и вариант с отложенной выручкой: там сырой P2BB становится уверенно неправым и чем дольше идёт тест, тем сильнее ошибается. Наш оценщик убирает этот перекос и в части тестов принимает верное решение раньше.
 
 Это быстрый эксперимент для проверки идеи, а не код продукта: `eval/ab_verdict_eval.py`, результаты в `eval/result_h60.txt` и `eval/result_h90.txt`.
