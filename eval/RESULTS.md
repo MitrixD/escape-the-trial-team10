@@ -6,6 +6,7 @@
 > - **Verdict Agent v2 (150 repetitions, days 1–28, 30 and 100 users per day per variant).** No wrong confirmations on Main, Onboarding and the synthetic test, at most 1% on Settings. The first safe day (right confirmed at least 50%, wrong at most 5%) is day 3 to 7 on Main and Onboarding, 7 to 11 days before a fixed 14-day rule.
 > - **Money at stake (spike, 10× Lumen traffic, 180 days after the stop).** On Onboarding, waiting a fixed 14 days costs $65,582 against $4,684 when stopping on the verdict; on Main $52,781 against $5,184. On Settings, where the gap is small, the verdict is not better than waiting: $14,505 against $13,218.
 > - **Next action (section "Деньги на кону и `next_action`").** The money rule ships the right variant earlier: on the synthetic test at day 14 with 30 users per day, 65% right ships against 41% confirmed, 1% wrong. Its weak spot is Settings at day 7 with 100 users per day: 5% wrong ships (7% before the 0.80 confidence floor).
+> - **Calibration robustness (section "Устойчивость к ошибке калибровки").** With trial conversion and renewal value each off by ±20%, no corner adds a wrong confirmation (0% on the synthetic test, Settings stays at its 1% baseline on day 7). A wrong calibration makes the verdict slower, not wrong: with renewals 20% low the synthetic test is confirmed in 40–53% of runs at day 14 instead of 95%.
 > - **Limits.** Synthetic data, four tests, repetitions with replacement, calibration from the same population, a 60-day horizon instead of Adapty's 12 months, uniform user arrival.
 
 Проверяли, насколько сильна ловушка ранней остановки A/B-теста и можно ли решать лучше. Короткий ответ: идея держится, но не в той форме, в какой мы её питчили. Дашборд редко уверенно выбирает проигравшего, когда разница между вариантами большая. Опасный случай — небольшая разница и вариант с отложенной выручкой: там сырой P2BB становится уверенно неправым и чем дольше идёт тест, тем сильнее ошибается. Наш оценщик убирает этот перекос и в части тестов принимает верное решение раньше.
@@ -399,3 +400,53 @@ First day with right_confirmed ≥ 50% and wrong_confirmed ≤ 5%.
 - Те же, что у вердикта: синтетические данные, повторы с возвращением, калибровка из того же датасета.
 - Ожидаемая потеря учитывает только разброс выборки, а ошибку калибровки не учитывает. Поэтому уверенность правила денег завышена ровно так же, как у `p2bb_expected`.
 - `after_days` = 180 — предположение. Чем оно больше, тем дороже ошибка и тем реже правило денег советует раскатку.
+
+# Устойчивость к ошибке калибровки (задача 13.1)
+
+Главное возражение к eval: калибровка идеальна по построению, потому что пользователи теста и пользователи вне теста из одной популяции. Проверка из стратегии валидации Максима (§4.4): умножаем конверсию триалов в оплату и кривые выручки от продлений на 0,8 и 1,2 независимо, в четырёх углах и в центре. Код продукта не меняется: калибровку масштабирует только `eval/calibration_robustness.py`. Тот же прогон, что выше: 150 повторов, seed 7, 100 пользователей в день на вариант.
+
+| Test | Day | Conversion × | Renewals × | wrong_confirmed | right_confirmed | keep_running | wrong_ship |
+|---|---|---|---|---|---|---|---|
+| Settings: upgrade vs lifetime anchor | 7 | 1.0 | 1.0 | 1% | 22% | 77% | 5% |
+| Settings: upgrade vs lifetime anchor | 7 | 0.8 | 0.8 | 1% | 19% | 80% | 6% |
+| Settings: upgrade vs lifetime anchor | 7 | 0.8 | 1.2 | 1% | 25% | 74% | 3% |
+| Settings: upgrade vs lifetime anchor | 7 | 1.2 | 0.8 | 1% | 19% | 80% | 6% |
+| Settings: upgrade vs lifetime anchor | 7 | 1.2 | 1.2 | 1% | 25% | 74% | 3% |
+| Settings: upgrade vs lifetime anchor | 14 | 1.0 | 1.0 | 0% | 61% | 39% | 0% |
+| Settings: upgrade vs lifetime anchor | 14 | 0.8 | 0.8 | 0% | 57% | 43% | 1% |
+| Settings: upgrade vs lifetime anchor | 14 | 0.8 | 1.2 | 0% | 69% | 31% | 0% |
+| Settings: upgrade vs lifetime anchor | 14 | 1.2 | 0.8 | 0% | 57% | 43% | 1% |
+| Settings: upgrade vs lifetime anchor | 14 | 1.2 | 1.2 | 0% | 69% | 31% | 0% |
+| Settings: upgrade vs lifetime anchor | 28 | 1.0 | 1.0 | 0% | 93% | 7% | 0% |
+| Settings: upgrade vs lifetime anchor | 28 | 0.8 | 0.8 | 0% | 89% | 11% | 0% |
+| Settings: upgrade vs lifetime anchor | 28 | 0.8 | 1.2 | 0% | 96% | 4% | 0% |
+| Settings: upgrade vs lifetime anchor | 28 | 1.2 | 0.8 | 0% | 89% | 11% | 0% |
+| Settings: upgrade vs lifetime anchor | 28 | 1.2 | 1.2 | 0% | 96% | 4% | 0% |
+| AI limit: annual upfront vs weekly trial | 7 | 1.0 | 1.0 | 0% | 76% | 23% | 0% |
+| AI limit: annual upfront vs weekly trial | 7 | 0.8 | 0.8 | 0% | 17% | 83% | 7% |
+| AI limit: annual upfront vs weekly trial | 7 | 0.8 | 1.2 | 0% | 91% | 8% | 0% |
+| AI limit: annual upfront vs weekly trial | 7 | 1.2 | 0.8 | 0% | 49% | 50% | 0% |
+| AI limit: annual upfront vs weekly trial | 7 | 1.2 | 1.2 | 0% | 99% | 0% | 0% |
+| AI limit: annual upfront vs weekly trial | 14 | 1.0 | 1.0 | 0% | 95% | 5% | 0% |
+| AI limit: annual upfront vs weekly trial | 14 | 0.8 | 0.8 | 0% | 40% | 60% | 2% |
+| AI limit: annual upfront vs weekly trial | 14 | 0.8 | 1.2 | 0% | 99% | 1% | 0% |
+| AI limit: annual upfront vs weekly trial | 14 | 1.2 | 0.8 | 0% | 53% | 47% | 1% |
+| AI limit: annual upfront vs weekly trial | 14 | 1.2 | 1.2 | 0% | 100% | 0% | 0% |
+| AI limit: annual upfront vs weekly trial | 28 | 1.0 | 1.0 | 0% | 100% | 0% | 0% |
+| AI limit: annual upfront vs weekly trial | 28 | 0.8 | 0.8 | 0% | 85% | 15% | 0% |
+| AI limit: annual upfront vs weekly trial | 28 | 0.8 | 1.2 | 0% | 100% | 0% | 0% |
+| AI limit: annual upfront vs weekly trial | 28 | 1.2 | 0.8 | 0% | 92% | 8% | 0% |
+| AI limit: annual upfront vs weekly trial | 28 | 1.2 | 1.2 | 0% | 100% | 0% | 0% |
+
+## Что видно
+
+- **Неверных подтверждений не добавилось ни в одном углу.** На синтетике их 0% везде. В Settings 1% на 7-й день, ровно как без возмущения, и 0% дальше.
+- **Ошибка калибровки делает вердикт осторожнее, а не смелее.** Когда продления занижены на 20%, синтетика на 14-й день подтверждает верный вариант в 40–53% прогонов вместо 95%, остальное уходит в `keep_running`. Завышенные продления ускоряют подтверждение (99–100%), но верный вариант от этого не меняется.
+- **Граница применимости.** Синтетика сильнее всего чувствительна к продлениям: при занижении конверсии и продлений на 20% одновременно на 7-й день подтверждено верно 17% и 7% раскаток неверны (`wrong_ship`, правило денег). К 28-му дню во всех углах подтверждено верно 85–100%.
+- **В Settings множитель конверсии ни на что не влияет:** в этом тесте нет триалов, поэтому строки с 0,8 и 1,2 по конверсии совпадают. Это свойство теста, а не проверки.
+
+## Ограничения
+
+- Ошибка калибровки здесь равномерная: все продукты сдвинуты одинаково. Если ошибка разная у разных продуктов, она может сместить вердикт в пользу одного варианта сильнее.
+- Два теста, три дня, один уровень трафика.
+
