@@ -352,9 +352,12 @@ def _write(out_dir: Path, name: str, body: dict) -> None:
 
 
 def make_replay(dataset_dir: Path, test_name: str, day: int, traffic: int, out_dir: Path,
-                seed: int = 7, start: date | None = None) -> Path:
+                seed: int = 7, start: date | None = None, arrival: str = "uniform") -> Path:
+    """`arrival` "uniform": `traffic` users a day; "front": the same users all arrive in the first 3 days."""
     if day < 1 or traffic < 1:
         raise ValueError(f"day and traffic must be at least 1, got day {day} and traffic {traffic}")
+    if arrival not in ("uniform", "front"):
+        raise ValueError(f"arrival must be uniform or front, got {arrival!r}")
     start = start or (DATA_END.date() - timedelta(days=day))
     as_of = start + timedelta(days=day)
     users = _load(str(dataset_dir))
@@ -364,7 +367,10 @@ def make_replay(dataset_dir: Path, test_name: str, day: int, traffic: int, out_d
     for arm, members in pop.items():
         n = traffic * day
         sample = [rng.choice(members) for _ in range(n)]
-        ages = [day - (i // traffic) - rng.random() for i in range(n)]
+        if arrival == "front":
+            ages = [day - min(3, day) * rng.random() for _ in range(n)]
+        else:
+            ages = [day - (i // traffic) - rng.random() for i in range(n)]
         observed[arm] = [_observe(u, a) for u, a in zip(sample, ages)]
 
     test_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"verdict-eval:{test_name}"))
