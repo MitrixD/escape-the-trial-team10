@@ -40,6 +40,14 @@ def users_needed(delta, sd, level=0.95, power=0.8):
     return math.ceil(2 * (z * sd / delta) ** 2)
 
 
+def srm_p(users, weights):
+    if any(w is None or w <= 0 for w in weights) or sum(users) == 0 or len(users) not in (2, 3):
+        return None
+    total, wsum = sum(users), sum(weights)
+    x = sum((u - total * w / wsum) ** 2 / (total * w / wsum) for u, w in zip(users, weights))
+    return math.erfc(math.sqrt(x / 2)) if len(users) == 2 else math.exp(-x / 2)
+
+
 def diff_mean_se(xa, xb):
     na, nb = len(xa), len(xb)
     if na < 2 or nb < 2:

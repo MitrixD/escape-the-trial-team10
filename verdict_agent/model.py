@@ -25,6 +25,7 @@ class Arm:
     trials: int
     paid_users: int
     revenue_received: float
+    weight: int | None = None
 
     @property
     def users(self) -> int:

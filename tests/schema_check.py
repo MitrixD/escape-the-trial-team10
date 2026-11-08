@@ -11,6 +11,7 @@ _TYPES = {
     "integer": lambda v: isinstance(v, int) and not isinstance(v, bool),
     "number": lambda v: isinstance(v, (int, float)) and not isinstance(v, bool),
     "null": lambda v: v is None,
+    "boolean": lambda v: isinstance(v, bool),
 }
 
 
