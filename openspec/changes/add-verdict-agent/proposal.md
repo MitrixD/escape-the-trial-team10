@@ -2,7 +2,7 @@
 
 ## Why
 
-Adapty's raw P2BB (dashboard, CLI, MCP) counts only revenue already received. When one arm earns up front (annual, lifetime) and the other earns later (trial, then weekly or monthly renewals), raw P2BB confidently picks the up-front arm, and the error grows with traffic instead of fading: every day brings new users whose renewals have not started. On a synthetic Lumen test built from real dataset transactions, raw P2BB is ≥ 99.9% sure of the wrong arm on every day from 3 to 60, while the 60-day truth favours the trial arm $5.88 to $4.32 per user (`eval/synthetic_test/RESULTS.md`). AI agents are most exposed: Predicted P2BB is not available in CLI or MCP, so the `ab-tests` skill stops tests on raw P2BB. Full reasoning: `docs/2026-11-07-verdict-agent-design.md`.
+Adapty's raw P2BB (dashboard, CLI, MCP) counts only revenue already received. When one arm earns up front (annual, lifetime) and the other earns later (trial, then weekly or monthly renewals), raw P2BB confidently picks the up-front arm, and the error grows with traffic instead of fading: every day brings new users whose renewals have not started. On a synthetic Lumen test built from real dataset transactions, raw P2BB is ≥ 99.9% sure of the wrong arm on every day from 3 to 60, while the 60-day truth favours the trial arm $5.88 to $4.32 per user (`eval/synthetic_test/RESULTS.md`). AI agents are most exposed: Predicted P2BB is not available in CLI or MCP, and the `ab-tests` skill does not read results, so an agent asked whether a test can be stopped sees only the raw `probability` from `ab-tests metrics total`. Full reasoning: `docs/2026-11-07-verdict-agent-design.md`.
 
 ## What Changes
 
