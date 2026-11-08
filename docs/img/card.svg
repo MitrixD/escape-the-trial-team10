@@ -4,8 +4,8 @@
 <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14">
 <text x="24" y="52" fill="#64748b">$ python -m verdict_agent.cli 50e46448-… --replay tests/fixtures/synthetic/day14 --format card</text>
 <text x="24" y="76" fill="#e2e8f0"><tspan fill="#4ade80" font-weight="700">SHIP weekly_trial</tspan><tspan fill="#94a3b8"> · confirmed · basis verdict</tspan></text>
-<text x="24" y="100" fill="#e2e8f0">p2bb_expected 0.9994 <tspan fill="#f87171" font-weight="700">(raw 0.0)</tspan> · maturity 0.5286 (53% of expected revenue received)</text>
-<text x="24" y="124" fill="#e2e8f0">weekly_trial per user: received $1.01, from trials $0.71, from renewals $3.55, expected $5.27</text>
-<text x="24" y="148" fill="#e2e8f0">each more test day costs <tspan fill="#facc15" font-weight="700">$148.98</tspan> · shipping weekly_trial now: expected loss <tspan fill="#4ade80" font-weight="700">$2.35</tspan> · chance the leader is wrong 0.0006</text>
+<text x="24" y="100" fill="#e2e8f0">p2bb_expected 0.9999 <tspan fill="#f87171" font-weight="700">(raw 0.0)</tspan> at a 60-day horizon · maturity 0.5174 (52% of expected revenue received)</text>
+<text x="24" y="124" fill="#e2e8f0">weekly_trial per user: received $1.01, from trials $1.13, from renewals $3.35, expected $5.49</text>
+<text x="24" y="148" fill="#e2e8f0">each more test day costs <tspan fill="#facc15" font-weight="700">$173.86</tspan> · shipping weekly_trial now: expected loss <tspan fill="#4ade80" font-weight="700">$0.3</tspan> · chance the leader is wrong 0.0001</text>
 </g>
 </svg>

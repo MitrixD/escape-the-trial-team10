@@ -40,6 +40,6 @@ Every task starts with a failing test (openspec/config.yaml). Thresholds are not
 
 ## 7. Documents and review
 
-- [ ] 7.1 README: glossary fixed (`p2bb_expected` is a normal approximation, not Adapty's model), guard described as a guard against mistakes with a recommendation for permission rules, "Known limitations" under a spoiler with what remains and why; README.ru; AI_LOG and the full log
+- [x] 7.1 README: glossary fixed (`p2bb_expected` is a normal approximation, not Adapty's model), guard described as a guard against mistakes with a recommendation for permission rules, "Known limitations" under a spoiler with what remains and why; README.ru; AI_LOG and the full log
 - [ ] 7.2 Independent review on Fable 5.1 of the whole branch; fix what it confirms
 - [ ] 7.3 Full suite with `VERDICT_DATASET`, `openspec validate --all --strict`, archive the change

@@ -88,3 +88,11 @@ def test_cli_card_error_exits_non_zero(capsys):
 def test_cli_default_is_json(capsys):
     main([SYNTH_ID, "--replay", str(SYNTH)])
     assert json.loads(capsys.readouterr().out)["leader"] == "weekly_trial"
+
+
+def test_readme_card_picture_matches_the_cli():
+    import re
+    from pathlib import Path
+    svg = (Path(__file__).resolve().parent.parent / "docs" / "img" / "card.svg").read_text()
+    lines = [re.sub(r"<[^>]+>", "", m) for m in re.findall(r"<text[^>]*>(.*?)</text>", svg)][1:]
+    assert lines == render_card(synth_verdict()).splitlines()
