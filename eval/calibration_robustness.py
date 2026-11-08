@@ -74,7 +74,8 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"done {test} day {day} x{conversion}/{renewals}", file=sys.stderr, flush=True)
     print(f"reps={args.reps} seed={verdict_eval.SEED} traffic={TRAFFIC}/day per variant "
           f"runtime={(time.monotonic() - started) / 60:.1f} min\n")
-    print("| Test | Day | Conversion × | Renewals × | wrong_confirmed | right_confirmed | keep_running | wrong_ship |")
+    print("| Test | Day | Conversion × | Renewals × "
+          "| wrong_confirmed | right_confirmed | keep_running | wrong_ship |")
     print("|---|---|---|---|---|---|---|---|")
     for r in rows:
         print(f"| {r['test']} | {r['day']} | {r['conversion']} | {r['renewals']} | {r['wrong_confirmed']:.0%} "
