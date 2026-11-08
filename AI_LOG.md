@@ -7,7 +7,7 @@ The full log, with every AI mistake we found and the recorded agent runs, is in 
 - **Claude Code (Opus 5.5)**: design, implementation, docs, git and PRs.
 - **Claude Fable 5.1**: independent reviewers of the design, the code and the whole project against the hackathon guide.
 - **Claude Sonnet**: the agent that calls our MCP tool in the recorded runs and that our stop guard blocked.
-- **OpenSpec CLI and skills**: the plan (one change, now archived in `openspec/changes/archive/2026-11-08-add-verdict-agent/`, requirements in `openspec/specs/`); every behaviour change went through it.
+- **OpenSpec CLI and skills**: the plan (two changes, archived in `openspec/changes/archive/`: the build and the hardening after the product review; requirements in `openspec/specs/`); every behaviour change went through it.
 - **Superpowers skills**: brainstorming, TDD, subagent-driven development.
 - **Adapty Developer CLI, MCP server and agent skills**: reading the account; docs at adapty.io/docs as the source of truth.
 - **Web search**: Adapty docs, competitors (Statsig, GrowthBook, Eppo, LaunchDarkly), judging advice.
@@ -28,6 +28,7 @@ The full log, with every AI mistake we found and the recorded agent runs, is in 
 ## What AI got wrong and how we caught it
 
 - **User ages.** The first live reader gave every user the age "days since test start". The eval on a synthetic test caught it: 95–100% wrong confirmations at day 60. With uniform arrival: 0%.
+- **Our own claims about the product.** Ten reviewers and a judge found that the README overpromised: the guard failed open and could be bypassed, `p2bb_expected` ignored the spread of trial outcomes, and "calibration off by ±20% makes the verdict slower, not wrong" held only for an error shared by all products. We fixed what the data allows and measured the rest: one product off by 30% gives 42% wrong confirmations on a close test. It is now under "Known limitations".
 - **Money rule.** Our first next-action rule advised shipping the leader at 70% confidence, because a far come-back date made waiting look expensive. A Fable reviewer found it, a test reproduced it, and a 0.80 floor fixed it (wrong ships on Settings, day 7: 7% → 5%).
 
 ## What we would never delegate to AI

@@ -156,4 +156,4 @@ def test_save_load_roundtrip(cal, tmp_path):
 
 def test_build_from_adapty_takes_no_cohort():
     import inspect
-    assert list(inspect.signature(build_from_adapty).parameters) == ["conversion", "ltv", "horizon", "product_map"]
+    assert list(inspect.signature(build_from_adapty).parameters) == ["conversion", "ltv", "horizon", "product_map", "periods"]

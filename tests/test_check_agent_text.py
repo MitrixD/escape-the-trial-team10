@@ -109,3 +109,62 @@ def test_recorded_agent_answers_pass(name):
     result = _load().check_files(RUNS / f"{name}.json", RUNS / f"{name}.txt", RUNS / f"{name}.request.json")
     assert result["unmatched"] == []
     assert result["verdict_ok"]
+
+
+CONFIRMED = {**VERDICT, "verdict": "confirmed", "reason": None, "come_back_on": None}
+
+
+@pytest.mark.parametrize("text", [
+    "The lead of B is not confirmed.",
+    "B leads, but it isn't confirmed yet.",
+    "B is unconfirmed.",
+    "B leads; this is not yet confirmed.",
+])
+def test_negated_confirmed_is_not_confirmed(text):
+    result = _load().check(CONFIRMED, text)
+    assert result["verdict_stated"] != "confirmed"
+    assert not result["passed"]
+
+
+@pytest.mark.parametrize("text, stated", [
+    ("**Confirmed**: ship B.", "B"),
+    ("**Confirmed**: B leads.", "B"),
+    ("**Confirmed**: the winner is A.", "A"),
+    ("**Confirmed**. Ship A now.", "A"),
+    ("**Confirmed**, 1,400 users.", None),
+])
+def test_stated_leader(text, stated):
+    assert _load().check(CONFIRMED, text)["leader_stated"] == stated
+
+
+def test_wrong_leader_fails():
+    result = _load().check(CONFIRMED, "**Confirmed**: ship A.")
+    assert result["leader_expected"] == "B"
+    assert not result["leader_ok"]
+    assert not result["passed"]
+
+
+def test_leader_with_a_long_title_is_found():
+    verdict = {**CONFIRMED, "leader": "weekly_trial",
+               "arms": [{"title": "annual_upfront"}, {"title": "weekly_trial"}]}
+    result = _load().check(verdict, "**Confirmed**: weekly_trial leads annual_upfront.")
+    assert result["leader_stated"] == "weekly_trial"
+    assert result["passed"]
+
+
+@pytest.mark.parametrize("text, stated", [
+    ("annual_upfront leads on received revenue, but weekly_trial wins over 60 days. **Confirmed**: ship weekly_trial.",
+     "weekly_trial"),
+    ("**Confirmed**: do not ship annual_upfront; ship weekly_trial.", "weekly_trial"),
+])
+def test_ship_phrase_wins_over_raw_lead_and_negated_ship(text, stated):
+    verdict = {**CONFIRMED, "leader": "weekly_trial", "arms": [{"title": "annual_upfront"}, {"title": "weekly_trial"}]}
+    result = _load().check(verdict, text)
+    assert result["leader_stated"] == stated
+    assert result["passed"]
+
+
+@pytest.mark.parametrize("text", ["There is no confirmed winner yet; keep the test running.",
+                                  "The lead cannot be confirmed yet."])
+def test_more_negations_are_not_confirmed(text):
+    assert _load().check(CONFIRMED, text)["verdict_stated"] != "confirmed"

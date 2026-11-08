@@ -3,14 +3,13 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 TEST_ID="${1:?usage: scripts/record_fixtures.sh <ab_test_id>}"
-HISTORY_FROM="${HISTORY_FROM:-2026-07-01}"
 ENV_FILE="${ENV_FILE:-.env}"
+PY="python3"
+[ -x .venv/bin/python ] && PY=".venv/bin/python"
 
 env_val() {
-  local val
-  val="$(grep -E "^$1=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2-)"
-  val="${val%\"}"; val="${val#\"}"
-  printf '%s' "$val"
+  "$PY" -c 'import sys; from verdict_agent.live import read_env; print(read_env(sys.argv[1]).get(sys.argv[2], ""), end="")' \
+    "$ENV_FILE" "$1"
 }
 APP="$(env_val ADAPTY_APP_ID)"
 EXPECTED="$(env_val ADAPTY_EXPECTED_COMPANY)"
@@ -23,11 +22,12 @@ trap 'rm -rf "$RAW"' EXIT
 
 adapty auth whoami --json >"$RAW/whoami.json"
 sleep 1
-if ! python3 - "$RAW/whoami.json" "$RAW/auth_whoami.json" "$EXPECTED" <<'PY'
+if ! "$PY" - "$RAW/whoami.json" "$RAW/auth_whoami.json" "$EXPECTED" <<'PY'
 import json, sys
-raw = open(sys.argv[1]).read()
+from verdict_agent.adapty_cli import _strings
+
 expected = sys.argv[3]
-matched = bool(expected) and expected.lower() in raw.lower()
+matched = bool(expected) and expected in set(_strings(json.load(open(sys.argv[1]))))
 json.dump({"company": "<redacted>", "matched_expected_company": matched}, open(sys.argv[2], "w"), indent=2)
 sys.exit(0 if matched else 3)
 PY
@@ -78,7 +78,10 @@ PY
 PLACEMENT="$(sed -n 1p "$RAW/ids.txt")"
 START="$(sed -n 2p "$RAW/ids.txt")"
 TODAY="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['as_of'])" "$OUT/as_of.json")"
-HISTORY_TO="$(python3 -c "import datetime,sys; print(datetime.date.fromisoformat(sys.argv[1]) - datetime.timedelta(days=1))" "$START")"
+read -r HISTORY_FROM HISTORY_TO < <("$PY" -c 'import datetime, sys
+from verdict_agent.live import HISTORY_DAYS
+start = datetime.date.fromisoformat(sys.argv[1])
+print(start - datetime.timedelta(days=HISTORY_DAYS), start - datetime.timedelta(days=1))' "$START")
 
 sed -n '3,$p' "$RAW/ids.txt" | while read -r DIM ID; do
   call "analytics_funnel_$ID" analytics funnel --app "$APP" --date-from "$START" --date-to "$TODAY" \

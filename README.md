@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/img/card.svg" alt="Verdict Agent decision card: SHIP weekly_trial, raw P2BB 0.0 against expected 0.9994, one more test day costs $148.98" width="100%">
+  <img src="docs/img/card.svg" alt="Verdict Agent decision card: SHIP weekly_trial, raw P2BB 0.0 against expected 0.9999 at a 60-day horizon, one more test day costs $173.86" width="100%">
 </p>
 
 <h1 align="center">Verdict Agent</h1>
@@ -18,6 +18,7 @@
   <a href="#how-it-works">How it works</a> ·
   <a href="#for-judges">For judges</a> ·
   <a href="#evaluation">Evaluation</a> ·
+  <a href="#known-limitations">Limitations</a> ·
   <a href="#reference">Reference</a> ·
   <a href="README.ru.md">По-русски</a>
 </p>
@@ -27,7 +28,7 @@
 
 ## The problem
 
-Adapty's A/B test dashboard can confidently pick the wrong winner when the other variant's money is still on its way: free trials that have not converted yet, renewals that have not been charged yet. In the test shown above, the dashboard's number (raw P2BB 0.0) points to the annual plan, while the weekly plan with trials wins over 60 days. Shipping the dashboard's choice would cost about **$53,640** over 180 days at 200 users a day.
+Adapty's A/B test dashboard can confidently pick the wrong winner when the other variant's money is still on its way: free trials that have not converted yet, renewals that have not been charged yet. In the test shown above, the dashboard's number (raw P2BB 0.0) points to the annual plan, while the weekly plan with trials wins over 60 days. Shipping the dashboard's choice would cost about **$62,640** over 180 days at 200 users a day.
 
 Verdict Agent counts the money still to come and tells you what to do: ship the leader, wait until a date, or fix the test first. It also tells you what each choice costs.
 
@@ -83,8 +84,8 @@ It creates `.venv`, installs the dependencies, runs the tests and prints the car
 
 | Term | Meaning |
 |---|---|
-| P2BB | Adapty's "probability to be best": the chance a variant is the best one. Adapty counts only money already received (`p2bb_raw`) |
-| `p2bb_expected` | The same chance, counting the money still to come from trials and renewals |
+| P2BB | Adapty's "probability to be best": the chance a variant is the best one. The dashboard counts only money already received. `p2bb_raw` is our own estimate on the same received money, not the dashboard's number |
+| `p2bb_expected` | The chance the leader is the best variant over the horizon (60 days by default), counting the money still to come from trials and renewals. Our own normal approximation, not Adapty's model. It counts only sampling noise: an error in calibration or in user ages is not in it |
 | Maturity | The share of the expected money that has already arrived |
 | Calibration | Trial conversion and renewal revenue per product, taken from the app's own Adapty history |
 | SRM | Sample ratio mismatch: users split between variants in a different ratio than the test's weights, so the comparison is broken |
@@ -103,7 +104,7 @@ scripts/install_guard.sh /tmp/vg-demo --mode strict
 cd /tmp/vg-demo && VERDICT_GUARD_REPLAY="<this repo>/tests/fixtures/synthetic/day14" claude
 ```
 
-Ask the agent: *Run `adapty ab-tests stop 50e46448-6692-54c6-b1e0-1b2e2fa62cdd --app 00000000-0000-0000-0000-000000000000 --winner annual_upfront --yes`.* The hook denies the command before it runs, so neither the Adapty CLI nor a login is needed. Claude Code shows the denial as `PreToolUse:Bash hook error: …`, followed by the reason. The reason names the verdict leader `weekly_trial`, p2bb_expected 0.9994 and raw P2BB 0.0.
+Ask the agent: *Run `adapty ab-tests stop 50e46448-6692-54c6-b1e0-1b2e2fa62cdd --app 00000000-0000-0000-0000-000000000000 --winner annual_upfront --yes`.* The hook denies the command before it runs, so neither the Adapty CLI nor a login is needed. Claude Code shows the denial as `PreToolUse:Bash hook error: …`, followed by the reason. The reason names the verdict leader `weekly_trial`, p2bb_expected 0.9999 and raw P2BB 0.0.
 
 **3. Live, with your own Adapty account (5 minutes).** The tool only reads.
 
@@ -123,7 +124,7 @@ Set `ADAPTY_APP_ID` and `ADAPTY_EXPECTED_COMPANY` in your shell or in `.env`: `A
 | The code reads a live Adapty account through the Developer CLI (checked on 8 Nov on our Lumen: Onboarding `confirmed`, Main `not_enough_data`) | Lumen itself is the organisers' demo data |
 | `tests/fixtures/live/995b124f-…` holds recorded Adapty responses from 7 Nov | The test "AI limit: annual upfront vs weekly trial" (`50e46448-…`) does not exist in Adapty: it is built from the offline dataset as Adapty-shaped JSON, like every eval bundle |
 | Claude Sonnet runs through our MCP tool and against the stop guard are real recordings (`eval/agent_runs/`) | The 60-day truth comes from the offline dataset |
-| The hook really blocks the call before Adapty | Uniform user arrival, 180 days after the stop and the test's own traffic are assumptions, not measurements |
+| The hook really blocks the call before Adapty | Uniform user arrival, 180 days after the stop and the test's own traffic are assumptions, not measurements (see Known limitations) |
 
 Not built: no dashboard UI; nothing is ever written to Adapty.
 
@@ -138,7 +139,7 @@ python3 -m venv .venv
 .venv/bin/python -m verdict_agent.cli 995b124f-9075-440d-83bb-20dbdf7d7fbb --replay tests/fixtures/live/995b124f-9075-440d-83bb-20dbdf7d7fbb
 ```
 
-The command prints one JSON object. Options: `--horizon N` (days, default 60), `--after-days N` (days the shipped variant serves traffic after the stop, for money at stake, default 180), `--replay DIR`, `--app APP_ID` (wins over `ADAPTY_APP_ID`), `--as-of YYYY-MM-DD` (the day to judge the test on) and `--format json|card` (JSON by default, or the decision card). Every replay bundle records its day in `as_of.json`, so the replay prints the same JSON on any day. Replay never reads `.env`.
+The command prints one JSON object. Options: `--horizon N` (days, default 60), `--after-days N` (days the shipped variant serves traffic after the stop, for money at stake, default 180), `--replay DIR`, `--app APP_ID` (wins over `ADAPTY_APP_ID`), `--as-of YYYY-MM-DD` (only with `--replay`, for a bundle without `as_of.json`; it must equal the recording day) and `--format json|card` (JSON by default, or the decision card). Every replay bundle records its day in `as_of.json`, so the replay prints the same JSON on any day. Replay never reads `.env`.
 
 The synthetic test "annual upfront vs weekly trial" (100 users per day per variant, seed 7) is committed as a replay bundle for day 14. The command prints raw P2BB next to expected P2BB:
 
@@ -146,7 +147,7 @@ The synthetic test "annual upfront vs weekly trial" (100 users per day per varia
 .venv/bin/python -m verdict_agent.cli 50e46448-6692-54c6-b1e0-1b2e2fa62cdd --replay tests/fixtures/synthetic/day14 | python3 -c "import json,sys; o=json.load(sys.stdin); print(o['verdict'], o['leader'], 'raw', o['p2bb_raw'], 'expected', o['p2bb_expected'])"
 ```
 
-Output: `confirmed weekly_trial raw 0.0 expected 0.9994`. The same verdict as a decision card for a person, with `--format card`:
+Output: `confirmed weekly_trial raw 0.0 expected 0.9999`. The same verdict as a decision card for a person, with `--format card`:
 
 ```bash
 .venv/bin/python -m verdict_agent.cli 50e46448-6692-54c6-b1e0-1b2e2fa62cdd --replay tests/fixtures/synthetic/day14 --format card
@@ -154,17 +155,17 @@ Output: `confirmed weekly_trial raw 0.0 expected 0.9994`. The same verdict as a 
 
 ```
 SHIP weekly_trial · confirmed · basis verdict
-p2bb_expected 0.9994 (raw 0.0) · maturity 0.5286 (53% of expected revenue received)
-weekly_trial per user: received $1.01, from trials $0.71, from renewals $3.55, expected $5.27
-each more test day costs $148.98 · shipping weekly_trial now: expected loss $2.35 · chance the leader is wrong 0.0006
+p2bb_expected 0.9999 (raw 0.0) at a 60-day horizon · maturity 0.5174 (52% of expected revenue received)
+weekly_trial per user: received $1.01, from trials $1.13, from renewals $3.35, expected $5.49
+each more test day costs $173.86 · shipping weekly_trial now: expected loss $0.3 · chance the leader is wrong 0.0001
 ```
 
-The card adds no numbers of its own: a test checks every number in it against the JSON with `eval/check_agent_text.py`. The stop guard starts its reason with the same card. Days 7 and 28 from the same run ([eval/synthetic_test/RESULTS.md](eval/synthetic_test/RESULTS.md)):
+The card adds no numbers of its own: a test checks every number in it against the JSON with `eval/check_agent_text.py`. The stop guard starts its reason with the same card. Days 7 and 28 come from bundles built the same way as the committed one (start 3 Nov minus N days, the command below); `eval/synthetic_test/run_synth.py` starts its bundles N days before today, so its numbers in [eval/synthetic_test/RESULTS.md](eval/synthetic_test/RESULTS.md) differ in the third or fourth decimal:
 
 | Day | Verdict | Leader | `p2bb_raw` | `p2bb_expected` |
 |---|---|---|---|---|
-| 7 | `confirmed` | `weekly_trial` | 0.0000 | 0.9774 |
-| 14 | `confirmed` | `weekly_trial` | 0.0000 | 0.9994 |
+| 7 | `confirmed` | `weekly_trial` | 0.0000 | 0.9948 |
+| 14 | `confirmed` | `weekly_trial` | 0.0000 | 0.9999 |
 | 28 | `confirmed` | `weekly_trial` | 0.0000 | 0.9999 |
 
 Raw P2BB of `weekly_trial` is 0.0, so the dashboard picks `annual_upfront`; expected P2BB confirms `weekly_trial`, the 60-day winner.
@@ -200,17 +201,31 @@ Copy `.mcp.json.example` to `.mcp.json` in your agent's project and replace `<ab
     "verdict-agent": {
       "command": "/Users/you/escape-the-trial-team10/.venv/bin/python",
       "args": ["-m", "verdict_agent.mcp_server"],
-      "cwd": "/Users/you/escape-the-trial-team10"
+      "cwd": "/Users/you/escape-the-trial-team10",
+      "env": {"PYTHONPATH": "/Users/you/escape-the-trial-team10"}
     }
   }
 }
 ```
 
-Use absolute paths: the agent's project is usually another directory. The server starts `python -m verdict_agent.mcp_server` over stdio and exposes one tool, `ab_test_verdict(ab_test_id, horizon, replay, app_id, after_days)`. If the server's working directory has no `.env`, it reads the `.env` in this repo's root. The tool description tells agents to call it before stopping a test, to quote only numbers from the JSON, to pass `horizon` as the number of days the test goal names (omit it otherwise), that USD values in `money` are totals for the test's traffic, and what `next_action_basis` `money` means.
+Use absolute paths: the agent's project is usually another directory. `PYTHONPATH` lets the server start even when the client ignores `cwd`. `scripts/setup.sh --mcp DIR` writes this file for you. The server starts `python -m verdict_agent.mcp_server` over stdio and exposes one tool, `ab_test_verdict(ab_test_id, horizon, replay, app_id, after_days)`. If the server's working directory has no `.env`, it reads the `.env` in this repo's root. The tool description tells agents to call it before stopping a test, to quote only numbers from the JSON, to pass `horizon` as the number of days the test goal names (omit it otherwise) and to say which horizon it used, since another horizon can name another leader, that USD values in `money` are totals for the test's traffic, and what `next_action_basis` `money` means.
 
 ### Stop guard
 
-An agent may skip the MCP tool and stop a test on raw P2BB. The stop guard closes that path: a Claude Code `PreToolUse` hook runs the verdict before every A/B test stop, through the Adapty MCP tool `ab_tests_stop` or `adapty ab-tests stop` in Bash. It is optional: a project gets it only when someone installs it. It never stops anything and never lets a stop through without a human: it either asks the human or blocks the call.
+An agent may skip the MCP tool and stop a test on raw P2BB. The stop guard catches that mistake: a Claude Code `PreToolUse` hook runs the verdict before an agent ends an A/B test. It is optional: a project gets it only when someone installs it. It never stops anything itself.
+
+What it checks:
+- Adapty MCP tools `ab_tests_stop`, `ab_tests_replace` and `placements_update` on any MCP server name;
+- Bash commands with `adapty ab-tests stop`, `replace` or `archive` in any letter case, including `ab-tests:stop`, `npx -y adapty@<version>`, every call in a chained command and calls inside `bash -c` or `eval`;
+- a stop that ships other content (`--other`, `--no-content`, `another_*_id_to_run`, `replace`) counts as not shipping the leader; `placements_update` can end a test by replacing audiences, so it always goes to the human.
+
+A command that mentions an A/B test and a test-ending word but that the guard cannot read (for example `c=stop; adapty ab-tests $c …` or `--winner $W`) goes to the human in `ask` mode and is denied in `strict` mode. A search or a commit message that quotes such a command is denied too; the reason tells the agent to ask the user to run it. If the hook itself fails (broken input, a crash, a missing `.venv`), the call is blocked. A timeout blocks too through `onFailure: "block"`, which needs a recent Claude Code (checked on 2.1.319); older versions let the call through on a timeout.
+
+The guard protects against an honest mistake by an agent, not against an agent that tries to get around it: a script file, a renamed binary or another tool that runs shell commands outside the `Bash` tool (for example a terminal MCP server) can still end a test. On a real account also add Claude Code permission rules, for example in `.claude/settings.json`:
+
+```json
+{"permissions": {"ask": ["mcp__adapty__ab_tests_stop", "mcp__adapty__ab_tests_replace", "mcp__adapty__placements_update", "Bash(adapty ab-tests stop:*)", "Bash(adapty ab-tests replace:*)", "Bash(adapty ab-tests archive:*)"]}}
+```
 
 | Verdict | `ask` mode (default) | `strict` mode |
 |---|---|---|
@@ -219,6 +234,8 @@ An agent may skip the MCP tool and stop a test on raw P2BB. The stop guard close
 | `next_action` is `come_back` | Asks, with a warning, `come_back_on` and the money at stake | Denies |
 | The test is unhealthy (`fix_test`) | Asks, with a warning and the mismatch or the dead arm | Denies |
 | No verdict (error) | Asks, with a warning that there is no verdict | Denies |
+| A test-ending command the guard cannot read | Asks, with a warning | Denies |
+| `placements_update` | Asks: it may replace the audience that runs the test | Asks |
 
 Who sets the mode: the team picks it at install time, and the person who starts the session can override it with `VERDICT_GUARD_MODE=ask` or `VERDICT_GUARD_MODE=strict`. The agent cannot: it does not control the environment of the hook process, so unlike `git push --force` there is no flag it could add to the stop call. A strict deny tells the agent that the user can restart with `VERDICT_GUARD_MODE=ask` and confirm the stop themselves. An unknown value means `strict`. This follows how experiment platforms gate decisions: Statsig can require a review when a ship decision goes against its decision framework, and LaunchDarkly grants approval bypass as a role permission rather than per request.
 
@@ -228,7 +245,7 @@ Install into the project where your agent works:
 scripts/install_guard.sh <your agent's project> --mode ask
 ```
 
-This repo registers the guard in `.claude/settings.json` in `strict` mode. Until `.venv` exists (see Quick start) the hook does nothing, so opening the repo in Claude Code before setup shows no hook errors. Other Bash commands pass through in about 0.06 s.
+This repo registers the guard in `.claude/settings.json` in `strict` mode. Until `.venv` exists (see Quick start) the hook blocks every test-ending command and lets other commands through. Other Bash commands pass through in about 0.06 s.
 
 Demo without touching a live test: point `VERDICT_GUARD_REPLAY` at recorded bundles (paths separated by `:`). A stop on a replayed test is decided before any Adapty call.
 
@@ -237,7 +254,7 @@ scripts/install_guard.sh /tmp/vg-demo --mode strict
 cd /tmp/vg-demo && VERDICT_GUARD_REPLAY="<this repo>/tests/fixtures/synthetic/day14" claude
 ```
 
-Then ask the agent to stop test `50e46448-6692-54c6-b1e0-1b2e2fa62cdd` with winner `annual_upfront`, the raw-P2BB favourite. A recorded run with Claude Sonnet in `strict` mode: [eval/agent_runs/guard_synthetic_day14.txt](eval/agent_runs/guard_synthetic_day14.txt). The hook denied the call, named `weekly_trial` (p2bb_expected 0.9994, raw P2BB 0.0) and the agent went back to the user. Start the same session with `VERDICT_GUARD_MODE=ask` to see the human's side: a permission prompt with the warning and the money at stake.
+Then ask the agent to stop test `50e46448-6692-54c6-b1e0-1b2e2fa62cdd` with winner `annual_upfront`, the raw-P2BB favourite. A recorded run with Claude Sonnet in `strict` mode: [eval/agent_runs/guard_synthetic_day14.txt](eval/agent_runs/guard_synthetic_day14.txt). The hook denied the call, named `weekly_trial` (p2bb_expected 0.9994 at the time of the recording, raw P2BB 0.0) and the agent went back to the user. Start the same session with `VERDICT_GUARD_MODE=ask` to see the human's side: a permission prompt with the warning and the money at stake.
 
 ### Tests
 
@@ -269,38 +286,56 @@ Full tables: [eval/RESULTS.md](eval/RESULTS.md) (spike and Verdict Agent v2) and
 
 How AI was used to build the tool: [AI_LOG.md](AI_LOG.md), one page. The full log, with three Claude answers checked number by number against the verdict JSON: [docs/ai-log-full.md](docs/ai-log-full.md).
 
-Key results (60-day truth, 150 repetitions, seed 7, days 1 to 28, 30 and 100 users per day per variant):
+Key results (60-day truth, 150 repetitions, seed 7, days 1 to 28, 30 and 100 users per day per variant), after the hardening of 8 Nov:
 
 - Wrong confirmations: none in Main and Onboarding. At most 1% in Settings (days 7 and 14). None in any cell of the synthetic test.
-- Synthetic test at day 14: raw P2BB is wrong in 100% of runs. The verdict confirms the right variant in 41% (30 per day) and 95% (100 per day) of runs.
+- Synthetic test at day 14: raw P2BB is wrong in 100% of runs. The verdict confirms the right variant in 53% (30 per day) and 98% (100 per day) of runs.
 - First safe day (right confirmed at least 50%, wrong at most 5%): day 3 to 7 on Main and Onboarding, 7 to 11 days before a fixed 14-day rule.
 - Settings is harder: day 14 at 100 per day, day 28 at 30 per day.
-- Calibration off by ±20% (trial conversion and renewal value, independently): no extra wrong confirmations in any corner; the verdict gets slower, not wrong. Run: `eval/calibration_robustness.py`.
+- Calibration off by ±20% for every product alike: no extra wrong confirmations; the verdict gets slower. Run: `eval/calibration_robustness.py`.
+- **Where it breaks.** On a close synthetic test where the up-front variant truly wins by 19%, renewals of one product overstated by 30% give 42% wrong confirmations at day 14; users arriving in the first 3 days instead of evenly give 58% at day 28; both together 97–99%. The 95% threshold does not protect against these errors, because `p2bb_expected` counts only sampling noise.
 
-Limits:
+Limits of the eval:
 
-- The data is synthetic. There are four tests, three from the offline dataset and one built by hand from the same users.
+- The data is synthetic. There are five tests: three from the offline dataset and two built by hand from the same users.
 - Repetitions resample users with replacement, so confidence is overstated when the sample passes the population.
-- Calibration is built from the same dataset's other users, so it is better than it would be for a new real app. The ±20% check above bounds this for a uniform error, not for an error that differs by product.
+- Calibration is built from the same dataset's other users, so it is better than it would be for a new real app.
 - The horizon is 60 days. Adapty's goal is 12 months, and the LTV curve has no points after day 92.
-- Live reads and eval bundles both assume users arrive uniformly over the test. Uneven traffic makes the age estimate worse.
 - No real customer A/B test has been used to measure accuracy.
+
+## Known limitations
+
+Ten reviewers checked the product on 8 Nov 2026 ([summary](docs/ai-log-full.md)). Everything that the data of a hackathon account allows to fix is fixed; what is left is below.
+
+<details>
+<summary><b>What still needs work, and why it is not fixed</b></summary>
+
+| Limitation | What happens | Why it is not fixed | What would fix it |
+|---|---|---|---|
+| Calibration is the app's average per product | A variant whose users convert or renew differently from the app's average is judged by the average. With one product's renewals 30% too high, wrong confirmations reach 42% (eval) | Before the test matures there is no renewal data per variant | Update the calibration with the variant's own finished trials and renewals (a Bayesian model) and add calibration uncertainty to `p2bb_expected` |
+| Users are assumed to arrive evenly | When most users arrive in the first days, the tool thinks they are younger and waits for more money than will come. Wrong confirmations reach 58% at day 28 (eval). Live Lumen tests got all users on one day | Per-day users of each variant cost extra calls; the CLI has no cheap way to get them | User ages from daily A/B metrics |
+| LTV is counted from the install date, the tool reads it as subscription age | In a real app purchases come days after install, so an annual plan gets "renewals" from the rising curve and the verdict leans towards the up-front variant. On Lumen install equals purchase, so the size of the error is unknown | Adapty's LTV report groups users by install date; the CLI has no report by purchase date | A cohort by first purchase, checked on an app with real install-to-purchase lag |
+| One revenue value for all payers of a variant | A variant that mixes $50 and $5 buyers looks less spread than it is; in a reviewer's example P2BB came out 0.92 instead of 0.88 | Test metrics give revenue per variant, not per product | Revenue per product within the variant |
+| Trial length from the LTV grid (0, 3, 7, 14 … days) | A 5-day trial is read as 7 days; a product with direct buyers can read as 0, and then 7 is used with a warning | The CLI catalog has no trial length, Lumen products have no offers | Trial length from product offers |
+| Young LTV cohorts | Late points of the curve come from cohorts that have not lived that long and can be low | Adapty returns these points without a flag | Weight curve points by cohort age |
+| Audiences | A test on one segment is read with the funnel of the whole placement and calibrated on all users | Segment filters were not checked on a live test | Funnel and calibration filtered by `segment_id` |
+| The stop guard is not a sandbox | A script file, another tool or a renamed binary can still end a test | A hook sees one tool call at a time | Claude Code permission rules (see Stop guard) and an Adapty login without write rights |
+| No real test behind the eval | Accuracy on a real customer's test is unknown | No finished real test with a known outcome | Back-test on finished tests of a real app |
+| Horizon | The verdict holds only for the horizon it names; 14 and 60 days can give different leaders. The card and the MCP description say this, but the tool cannot pick the horizon for you. A test older than its horizon is judged on all revenue received so far, which covers more days than the horizon (the tool logs a warning) | The right horizon is a business choice; Adapty reports have no revenue cut at a user's N-th day | Revenue at the horizon per user from an LTV report filtered to the test |
+
+</details>
 
 ## Next steps
 
-Not in the minimal MVP; what we would do with another week:
-
+Not in the minimal MVP; what we would do with another week, on top of Known limitations:
 
 - Money at stake for tests with more than two variants beyond the leader and the best other one.
-- More validity checks: a flow shown in several placements, uneven traffic over days.
-- Guardrails (refunds, trial cancels) and segments.
+- More validity checks: a flow shown in several placements.
+- Guardrails (refunds, trial cancels).
 - A new UI for the A/B test screen with our estimates.
 - A PR to `adapty-skills`: the `ab-tests` skill calls `ab_test_verdict` before a stop.
-- Per-arm updating of calibration from the arm's own finished trials; Adapty's lognormal P2BB model.
-- Starting, stopping or changing tests.
+- Adapty's lognormal P2BB model next to our normal approximation.
 - A per-user estimator instead of group counts. Reading profiles one by one is forbidden by the hackathon rules; see [docs/per-user-data.md](docs/per-user-data.md).
-- Spread inside a group: live P2BB is approximate because every user of a group gets the same value.
-- User ages from daily metrics instead of the uniform arrival assumption.
 - A call budget for tests with more than 3 arms.
 - Other Adapty APIs (Export Analytics, Server-side) next to the Developer CLI.
 
@@ -313,7 +348,7 @@ Not in the minimal MVP; what we would do with another week:
 
 Nothing was written before the start on Saturday 7 Nov at 10:45: the repository held only the initial commit and a README. Made during the hackathon, before the core work: the spike eval in [eval/](eval/) (`ab_verdict_eval.py`, `money_at_stake.py`, `RESULTS.md`) and a first implementation in [PR #9](https://github.com/MitrixD/escape-the-trial-team10/pull/9) (its branch was deleted after the hackathon). Both were used as references. The core in `verdict_agent/` was rewritten on the hackathon.
 
-Requirements: [openspec/specs/](openspec/specs/). The plan, design and tasks of the one OpenSpec change, archived: [openspec/changes/archive/2026-11-08-add-verdict-agent/](openspec/changes/archive/2026-11-08-add-verdict-agent/). Design: [docs/2026-11-07-verdict-agent-design.md](docs/2026-11-07-verdict-agent-design.md). How we build and change it: `CLAUDE.md`.
+Requirements: [openspec/specs/](openspec/specs/). The plan, design and tasks of the two OpenSpec changes, archived: the build in [openspec/changes/archive/2026-11-08-add-verdict-agent/](openspec/changes/archive/2026-11-08-add-verdict-agent/) and the hardening after the product review in [openspec/changes/archive/2026-11-08-harden-verdict-agent/](openspec/changes/archive/2026-11-08-harden-verdict-agent/). Design: [docs/2026-11-07-verdict-agent-design.md](docs/2026-11-07-verdict-agent-design.md). How we build and change it: `CLAUDE.md`.
 
 ## Reference
 
@@ -344,7 +379,7 @@ Revenue fields and `expected_gap_per_user` are USD per user, rounded to cents fr
 
 **Money at stake on the synthetic test**
 
-At day 14 of the synthetic test (100 users per day per variant), raw P2BB is 0.0 for `weekly_trial`, so a dashboard reader would ship `annual_upfront`. With 200 users a day for 180 days and a gap of $1.49 per user, that mistake costs about $53,640. The verdict confirms `weekly_trial` and prices both choices: each more day of the test costs $148.98, and shipping `weekly_trial` now has an expected loss of $2.35, with a 0.06% chance that it is wrong.
+At day 14 of the synthetic test (100 users per day per variant), raw P2BB is 0.0 for `weekly_trial`, so a dashboard reader would ship `annual_upfront`. With 200 users a day for 180 days and an expected gap of $1.74 per user, that mistake costs about $62,640. The verdict confirms `weekly_trial` and prices both choices at a 60-day horizon: each more day of the test costs $173.86, and shipping `weekly_trial` now has an expected loss of $0.3, with a 0.01% chance that it is wrong. These figures count only sampling noise; see Known limitations.
 
 ```bash
 .venv/bin/python -m verdict_agent.cli 50e46448-6692-54c6-b1e0-1b2e2fa62cdd --replay tests/fixtures/synthetic/day14 | python3 -c "import json,sys; o=json.load(sys.stdin); print(o['leader'], o['money'], o['next_action'], o['next_action_basis'])"

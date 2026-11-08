@@ -242,3 +242,11 @@ def test_replay_check_account_follows_matched_flag(tmp_path):
 @pytest.mark.parametrize("bundle", BUNDLES, ids=lambda p: p.name[:8])
 def test_replay_check_account_passes_on_recorded_bundle(bundle):
     replay_cli(bundle).check_account("whatever")
+
+
+def test_replay_serves_paywall_test_funnels(tmp_path):
+    (tmp_path / "analytics_funnel_pw-1.json").write_text('{"data": "paywall"}')
+    run = replay_runner(tmp_path)
+    out = run(["adapty", "analytics", "funnel", "--app", "a", "--filter", "paywall_id=pw-1", "--filter",
+               "placement_id=p", "--json"])
+    assert json.loads(out.stdout) == {"data": "paywall"}

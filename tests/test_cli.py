@@ -137,14 +137,6 @@ def test_readme_replay_command_matches_the_snapshot(capsys, monkeypatch):
     assert out == json.loads(SNAPSHOT.read_text())
 
 
-def test_as_of_flag_overrides_the_bundle_date(capsys):
-    _, default, _ = run(capsys, [ONBOARDING.name, "--replay", str(ONBOARDING)])
-    code, later, _ = run(capsys, [ONBOARDING.name, "--replay", str(ONBOARDING), "--as-of", "2026-11-20"])
-    assert code == 0
-    assert_valid(later)
-    assert later != default
-
-
 def test_bad_as_of_is_json_error(capsys):
     code, out, _ = run(capsys, [ONBOARDING.name, "--replay", str(ONBOARDING), "--as-of", "20 Nov"])
     assert code == 1 and list(out) == ["error"]
@@ -227,3 +219,25 @@ def test_only_our_own_value_errors_are_public(monkeypatch, exc, public):
 
     monkeypatch.setattr(service, "verdict", fail)
     assert service.safe_verdict(ab_test_id="x") == {"error": public}
+
+
+# --- hardening (change harden-verdict-agent, group 2) ---
+
+def test_as_of_needs_replay(capsys):
+    code, out, _ = run(capsys, [ONBOARDING.name, "--as-of", "2026-11-07"])
+    assert code == 1 and "--replay" in out["error"]
+
+
+def test_as_of_other_than_the_recording_day_is_an_error(capsys):
+    code, out, _ = run(capsys, [ONBOARDING.name, "--replay", str(ONBOARDING), "--as-of", "2026-11-20"])
+    assert code == 1 and "2026-11-20" in out["error"] and "2026-11-07" in out["error"]
+
+
+def test_as_of_equal_to_the_recording_day_works(capsys):
+    code, out, _ = run(capsys, [ONBOARDING.name, "--replay", str(ONBOARDING), "--as-of", "2026-11-07"])
+    assert code == 0 and out["verdict"]
+
+
+def test_usage_error_in_card_format_prints_error(capsys):
+    code = main([ONBOARDING.name, "--horizon", "abc", "--format", "card"])
+    assert code == 1 and capsys.readouterr().out.startswith("ERROR: ")

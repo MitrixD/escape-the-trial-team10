@@ -5,7 +5,7 @@
   "leader": "weekly_trial",
   "p2bb_expected": 0.9999,
   "p2bb_raw": 0.0,
-  "maturity": 0.6192,
+  "maturity": 0.6177,
   "horizon_days": 60,
   "come_back_on": null,
   "arms": [
@@ -14,15 +14,33 @@
       "users": 2800,
       "revenue_received": 4.31,
       "revenue_expected_trials": 0.0,
-      "revenue_expected_renewals": 0.02
+      "revenue_expected_renewals": -0.01,
+      "revenue_expected_total": 4.3
     },
     {
       "title": "weekly_trial",
       "users": 2800,
       "revenue_received": 2.01,
-      "revenue_expected_trials": 0.3,
-      "revenue_expected_renewals": 3.56
+      "revenue_expected_trials": 0.56,
+      "revenue_expected_renewals": 3.36,
+      "revenue_expected_total": 5.93
     }
   ],
-  "calibration_source": "product"
+  "calibration_source": "product",
+  "expected_gap_per_user": 1.63,
+  "money": {
+    "traffic_per_day": 200.0,
+    "after_days": 180,
+    "cost_per_day": 163.36,
+    "loss_if_ship_leader_now": 0.0,
+    "cost_until_come_back": null,
+    "chance_leader_is_wrong": 0.0001
+  },
+  "next_action": "ship_leader",
+  "next_action_basis": "verdict",
+  "health": {
+    "srm_p": 1.0,
+    "srm": false,
+    "dead_arm": null
+  }
 }

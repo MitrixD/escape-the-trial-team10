@@ -6,7 +6,7 @@ def _health_issue(v: dict) -> str:
     if h.get("dead_arm"):
         return f"dead arm {h['dead_arm']}"
     if h.get("srm"):
-        return f"sample ratio mismatch, srm_p {h['srm_p']}"
+        return f"sample ratio mismatch, srm_p {h.get('srm_p')}"
     return "test is unhealthy"
 
 
@@ -18,7 +18,7 @@ def _status(v: dict) -> str:
         return f"SHIP {v.get('leader')}"
     if action == "ship_either":
         return "SHIP EITHER"
-    return f"WAIT until {v['come_back_on']}" if v.get("come_back_on") else "WAIT"
+    return f"WAIT until {v.get('come_back_on')}" if v.get("come_back_on") else "WAIT"
 
 
 def _headline(v: dict) -> str:
@@ -36,6 +36,8 @@ def _confidence(v: dict) -> str | None:
     line = f"p2bb_expected {v['p2bb_expected']}"
     if v.get("p2bb_raw") is not None:
         line += f" (raw {v['p2bb_raw']})"
+    if v.get("horizon_days") is not None:
+        line += f" at a {v['horizon_days']}-day horizon"
     if v.get("maturity") is not None:
         line += f" · maturity {v['maturity']} ({round(v['maturity'] * 100)}% of expected revenue received)"
     return line
@@ -45,9 +47,9 @@ def _leader_revenue(v: dict) -> str | None:
     arm = next((a for a in v.get("arms") or [] if a.get("title") == v.get("leader")), None)
     if arm is None:
         return None
-    return (f"{arm['title']} per user: received ${arm['revenue_received']}, "
-            f"from trials ${arm['revenue_expected_trials']}, from renewals ${arm['revenue_expected_renewals']}, "
-            f"expected ${arm['revenue_expected_total']}")
+    return (f"{arm.get('title')} per user: received ${arm.get('revenue_received')}, "
+            f"from trials ${arm.get('revenue_expected_trials')}, from renewals ${arm.get('revenue_expected_renewals')}, "
+            f"expected ${arm.get('revenue_expected_total')}")
 
 
 def _money(v: dict) -> str | None:
@@ -68,6 +70,6 @@ def _money(v: dict) -> str | None:
 
 def render_card(v: dict) -> str:
     if "error" in v:
-        return f"ERROR: {v['error']}"
+        return f"ERROR: {v.get('error')}"
     lines = [_headline(v), _confidence(v), _leader_revenue(v), _money(v)]
     return "\n".join(line for line in lines if line)

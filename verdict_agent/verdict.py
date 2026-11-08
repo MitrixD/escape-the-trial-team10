@@ -1,9 +1,12 @@
+import logging
 import math
 from datetime import date, timedelta
 
 from verdict_agent.estimator import estimate, pseudo_values
 from verdict_agent.model import DEFAULT_TRIAL_DAYS, Arm, Calibration, TestData, VerdictError
-from verdict_agent.stats import diff_ci, diff_mean_se, expected_positive, p2bb, srm_p, users_needed
+from verdict_agent.stats import diff_ci, diff_mean_se, expected_positive, p2bb, p_best, srm_p, users_needed
+
+log = logging.getLogger(__name__)
 
 MIN_EVENTS = 30
 P_CONFIRM = 0.95
@@ -16,6 +19,7 @@ MDE_SHARE = 0.05
 DEFAULT_HORIZON = 60
 DEFAULT_AFTER_DAYS = 180
 RENEWAL_DAYS = 30
+RECHECK_DAYS = 7
 FLOOR_EPS = 1e-9
 
 
@@ -58,6 +62,10 @@ def build_verdict(test: TestData, cal: Calibration, horizon: int | None = None,
                   after_days: int | None = None) -> dict:
     horizon = check_horizon(horizon)
     after_days = check_after_days(after_days)
+    age = (test.as_of - test.started_on).days
+    if horizon < age:
+        log.warning("horizon of %d days is shorter than the test's age of %d days: the test has passed its horizon, "
+                    "and received revenue covers all %d days", horizon, age, age)
     if len(test.arms) < 2:
         raise VerdictError("an A/B test needs at least two arms")
     estimates = [estimate(arm, cal, horizon) for arm in test.arms]
@@ -67,8 +75,12 @@ def build_verdict(test: TestData, cal: Calibration, horizon: int | None = None,
     leader, other = test.arms[leader_i], test.arms[other_i]
 
     leader_values, other_values = pseudo_values(leader, cal, horizon), pseudo_values(other, cal, horizon)
-    p_expected = _floor4(p2bb(other_values, leader_values))
-    p_raw = _floor4(p2bb(_received_values(other), _received_values(leader)))
+    if len(test.arms) > 2:
+        p_expected = _floor4(p_best([pseudo_values(a, cal, horizon) for a in test.arms], leader_i))
+        p_raw = _floor4(p_best([_received_values(a) for a in test.arms], leader_i))
+    else:
+        p_expected = _floor4(p2bb(other_values, leader_values))
+        p_raw = _floor4(p2bb(_received_values(other), _received_values(leader)))
 
     received_sum = sum(arm.users * e.received for arm, e in zip(test.arms, estimates))
     total_sum = sum(arm.users * e.total for arm, e in zip(test.arms, estimates))
@@ -77,7 +89,7 @@ def build_verdict(test: TestData, cal: Calibration, horizon: int | None = None,
     min_events = min(_events(arm) for arm in test.arms)
     if min_events < MIN_EVENTS:
         verdict, reason = "not_enough_data", "min_events"
-    elif cal.source == "none":
+    elif cal.source == "none" or _trials_without_rate(test, cal):
         verdict, reason = "not_enough_data", "no_calibration"
     elif p_expected >= P_CONFIRM:
         verdict, reason = "confirmed", None
@@ -90,14 +102,15 @@ def build_verdict(test: TestData, cal: Calibration, horizon: int | None = None,
     if reason == "min_events":
         come_back_on = _min_events_date(test, min_events)
     elif verdict == "keep_running":
-        come_back_on = _keep_running_date(test, cal, horizon, other_values, leader_values)
+        come_back_on = _keep_running_date(test, cal, horizon, other_values, leader_values, leader, other)
 
     money = None
     if verdict != "not_enough_data":
         money = money_at_stake(test, leader, other, leader_values, other_values, p_expected, after_days,
                                come_back_on if verdict == "keep_running" else None)
     health = test_health(test)
-    action, basis = next_action(verdict, money, p_expected, come_back_on == test.as_of)
+    horizon_reached = test.as_of >= test.started_on + timedelta(days=horizon)
+    action, basis = next_action(verdict, money, p_expected, horizon_reached)
     if health["srm"] or health["dead_arm"]:
         action, basis = "fix_test", "health"
 
@@ -143,7 +156,7 @@ def test_health(test: TestData) -> dict:
 
 
 def _days_running(test: TestData) -> int:
-    return max(1, (test.as_of - test.started_on).days)
+    return test.running_days or max(1, (test.as_of - test.started_on).days)
 
 
 def money_at_stake(test, leader, other, leader_values, other_values, p_expected, after_days, come_back_on):
@@ -203,16 +216,25 @@ def _pooled_sd(xa: list[float], xb: list[float]) -> float:
     return math.sqrt(ss / dof)
 
 
-def _keep_running_date(test, cal, horizon, other_values, leader_values) -> date:
+def _trials_without_rate(test: TestData, cal: Calibration) -> bool:
+    return any(g.status == "trial" and g.n and not cal.has_trial_rate(g.product) for arm in test.arms for g in arm.groups)
+
+
+def _keep_running_date(test, cal, horizon, other_values, leader_values, leader, other) -> date:
     cap = test.started_on + timedelta(days=horizon)
     products = {g.product for arm in test.arms for g in arm.groups if g.status == "trial"}
-    longest_trial = max((cal.trial_days.get(p, DEFAULT_TRIAL_DAYS) for p in products), default=0)
+    longest_trial = max((cal.trial_days.get(p, DEFAULT_TRIAL_DAYS) or DEFAULT_TRIAL_DAYS for p in products), default=0)
     target = test.started_on + timedelta(days=longest_trial + RENEWAL_DAYS)
     delta = abs(_mean(leader_values) - _mean(other_values))
-    if delta > 0:
+    if delta > 0 and not test.stopped:
         missing = users_needed(delta, _pooled_sd(other_values, leader_values)) - min(len(other_values), len(leader_values))
-        per_day = test.users_per_day / len(test.arms)
+        lagging = min((leader, other), key=lambda a: a.users)
+        total_users = sum(a.users for a in test.arms)
+        per_day = test.users_per_day * lagging.users / total_users if total_users else 0.0
         if missing > 0:
             days = math.ceil(missing / per_day) if per_day > 0 else math.inf
             target = max(target, test.as_of + timedelta(days=min(days, max((cap - test.as_of).days, 0))))
-    return max(min(target, cap), test.as_of)
+    result = max(min(target, cap), test.as_of)
+    if result == test.as_of and test.as_of < cap:
+        result = min(test.as_of + timedelta(days=RECHECK_DAYS), cap)
+    return result

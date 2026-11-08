@@ -1,6 +1,6 @@
 # Синтетический тест «AI limit: annual upfront vs weekly trial»
 
-> **English summary.** A synthetic A/B test built from 6,000 real users of the offline Lumen dataset: `annual_upfront` (10% buy a $49.99 annual plan at once) against `weekly_trial` (35% start a 3-day trial, then $6.99 a week). The 60-day truth favours `weekly_trial`, $5.88 against $4.32 per user. With 100 users per day per variant and 100 repetitions per cell, raw P2BB is at least 95% sure of the wrong variant in 100% of runs on days 7, 14 and 28 and in 95% at day 60. The verdict never confirms the wrong variant and confirms the right one in 77% (day 7), 95% (day 14) and 100% (days 28 and 60) of runs. Honest limits: the purchase shares per variant were chosen by hand (the transactions are real), calibration is ideal by construction because test users come from the same population, and repetitions resample users with replacement. The text below is in Russian; the tables speak for themselves.
+> **English summary.** A synthetic A/B test built from 6,000 real users of the offline Lumen dataset: `annual_upfront` (10% buy a $49.99 annual plan at once) against `weekly_trial` (35% start a 3-day trial, then $6.99 a week). The 60-day truth favours `weekly_trial`, $5.88 against $4.32 per user. After the hardening of 8 Nov, with 100 users per day per variant and 100 repetitions per cell, raw P2BB is at least 95% sure of the wrong variant in 100% of runs on days 7, 14 and 28 and in 95% at day 60. The verdict never confirms the wrong variant and confirms the right one in 93% (day 7), 99% (day 14), 100% (day 28) and 50% (day 60) of runs. At day 60 the test starts on 4 Sep, when the app had 56 days of history, so the renewal curve stops at day 31 and the rest of the runs stay `keep_running`. Honest limits: the purchase shares per variant were chosen by hand (the transactions are real), calibration comes from the same population, and repetitions resample users with replacement. The text below is in Russian.
 
 Тест собран 7 ноября, чтобы показать ловушку сырого P2BB в чистом виде: вариант, который платит сразу, против варианта с триалом и недельными продлениями. Прогнан Verdict Agent v2 через replay-бандлы: `make_replay` собирает ответы в формате Adapty, вердикт считает CLI (`python -m verdict_agent.cli <id> --replay <бандл>`). Калибровка строится из агрегатов `conversion` и `ltv`. Цифры первой реализации с калибровкой по пользователям CSV заменены.
 
@@ -25,7 +25,52 @@
 | **60 дней** | $4,32 | **$5,88** |
 | 90 дней | $4,32 | $6,61 |
 
-## Один прогон через CLI, 100 пользователей в день на руку, seed 7
+## После доработки 8 ноября
+
+Что поменялось в расчёте: исход триала имеет разброс (конвертировался или нет), конвертировавшиеся триалы не моложе длины триала, доля ещё идущих триалов считается от всех стартов, калибровка replay берётся только из истории до старта теста. Пороги не меняли.
+
+### Один прогон через CLI, 100 пользователей в день на руку, seed 7
+
+`run_synth.py`, горизонт 60 дней, прогон 8 ноября 2026 года. Бандл начинается за N дней до даты запуска, поэтому `come_back_on` зависит от этой даты.
+
+| День | Вердикт | Причина | Лидер | `p2bb_raw` | `p2bb_expected` | Зрелость | Вернуться |
+|---|---|---|---|---|---|---|---|
+| 3 | `not_enough_data` | min_events | weekly_trial | 0,0000 | 0,9994 | 0,30 | 12 ноя |
+| 7 | `confirmed` | — | weekly_trial | 0,0000 | 0,9951 | 0,47 | |
+| **14** | **`confirmed`** | — | **weekly_trial** | 0,0000 | 0,9999 | 0,52 | |
+| 21 | `confirmed` | — | weekly_trial | 0,0000 | 0,9999 | 0,56 | |
+| 28 | `confirmed` | — | weekly_trial | 0,0000 | 0,9999 | 0,62 | |
+| 45 | `confirmed` | — | weekly_trial | 0,0000 | 0,9999 | 0,68 | |
+| 60 | `confirmed` | — | **weekly_trial** | 0,0003 | 1,0000 | 0,77 | |
+
+Разложение выручки на пользователя на 14-й день:
+- `annual_upfront`: $3,77 получено, −$0,02 от продлений (ожидаемые рефанды);
+- `weekly_trial`: $1,01 получено, $1,13 от триалов, $3,36 от продлений, итого $5,50.
+
+На 60-й день `weekly_trial`: $3,55 получено, $0,26 от триалов, $2,10 от продлений, итого $5,91 при правде $5,88. JSON: `synth_day7.json`, `synth_day14.json`, `synth_day28.json`.
+
+### Сетка, 100 повторов на ячейку
+
+| Трафик/день | День | raw_wrong | wrong_conf | right_conf | not_enough_data | keep_running | tie |
+|---|---|---|---|---|---|---|---|
+| 100 | 7 | **100%** | 0% | 93% | 1% | 6% | 0% |
+| 100 | 14 | **100%** | **0%** | 99% | 0% | 1% | 0% |
+| 100 | 28 | 100% | 0% | 100% | 0% | 0% | 0% |
+| 100 | 60 | 95% | **0%** | 50% | 0% | 50% | 0% |
+| 300 | 7 | 100% | 0% | 100% | 0% | 0% | 0% |
+| 300 | 14 | 100% | 0% | 100% | 0% | 0% | 0% |
+| 300 | 28 | 100% | 0% | 100% | 0% | 0% | 0% |
+| 300 | 60 | 100% | **0%** | 80% | 0% | 20% | 0% |
+
+**Почему на 60-й день половина повторов `keep_running`.** Сетка считает тест с 4 сентября по 3 ноября. Калибровка теперь видит только историю до старта: у приложения тогда было 56 дней истории, поэтому в кривой LTV нет точки 61-го дня, кривая обрывается на 31-м дне, и продления `weekly_trial` недооценены. В одном таком прогоне `weekly_trial` получил $4,63 ожидаемой выручки против правды $5,88, разрыв сжался, и вердикт ответил `keep_running` с причиной `underpowered`. Неверных подтверждений нет. Одиночный прогон выше стартует 9 сентября, у него точка 61-го дня уже есть. Так выглядит ограничение «короткая история приложения»: на живом приложении младше горизонта будет то же самое.
+
+Сетка с 150 повторами при 30 и 100 в день на дни 1–28 и неблагоприятные ячейки — в `eval/RESULTS.md`, раздел «После доработки 8 ноября».
+
+---
+
+## До доработки 8 ноября
+
+### Один прогон через CLI, 100 пользователей в день на руку, seed 7
 
 `run_synth.py`, горизонт 60 дней, прогон 7 ноября 2026 года, после исправления возраста пользователей (`fix: spread live user ages over the test period`). Бандл начинается за N дней до даты запуска, поэтому `come_back_on` зависит от этой даты. Сырой P2BB здесь — вероятность, что лидер лучше по полученной выручке.
 
@@ -47,7 +92,7 @@
 
 На 60-й день `weekly_trial`: $3,55 получено, $0,13 от триалов, $2,30 от продлений, итого $5,98 при правде $5,88. JSON: `synth_day7.json`, `synth_day14.json`, `synth_day28.json`.
 
-## Сетка, 100 повторов на ячейку
+### Сетка, 100 повторов на ячейку
 
 `raw_wrong` — доля повторов, где сырой P2BB от 95% за `annual_upfront`. `wrong_conf` и `right_conf` — вердикт `confirmed` за неверную и верную руку.
 
@@ -64,7 +109,7 @@
 
 Сетка с 150 повторами при 30 и 100 в день на дни 1–28 — в `eval/RESULTS.md`, раздел Verdict Agent v2.
 
-## Что изменилось
+### Что изменило исправление возраста
 
 Раньше продукт давал всем пользователям руки один возраст — число дней с начала теста. Теперь он считает, что пользователи приходят равномерно с начала теста: активные распределены по возрастам `d + 0.5` за весь период, а из неконвертированных триалов длиной `t` в триале остаётся доля `min(1, t / D)`, остальные закончились. Лишних вызовов Adapty нет, пороги не меняли.
 
@@ -122,10 +167,10 @@
 
 ## Что говорить честно
 
-- Калибровка идеальна по построению: тестовые пользователи взяты из той же популяции, что и пользователи вне теста. В реальном приложении поведение нового варианта может отличаться.
+- Калибровка почти идеальна по построению: тестовые пользователи взяты из той же популяции, что и пользователи вне теста. В реальном приложении поведение нового варианта может отличаться, и ошибка одного продукта на 30% уже ломает вердикт (`eval/RESULTS.md`).
 - Доли покупателей по рукам выбраны руками, чтобы разница на 60 днях была заметной (36%). Транзакции при этом настоящие из датасета.
 - При 300 пользователях в день к 14-му дню выборка превышает популяцию руки (3 000). Повторы берут пользователей с возвращением, уверенность завышена.
-- Равномерный приход совпадает с тем, как `make_replay` строит бандл. При неравномерном трафике оценка возраста хуже.
+- Равномерный приход совпадает с тем, как `make_replay` строит бандл по умолчанию. При приходе в первые 3 дня вердикт ошибается часто, см. неблагоприятные ячейки в `eval/RESULTS.md`.
 - Горизонт 60 дней. На 90 днях разрыв в пользу триала ещё больше: $6,61 против $4,32.
 
 ## Как воспроизвести
@@ -134,8 +179,7 @@
 git clone https://github.com/kpotehin/adapty-seed-data-hack
 python eval/synthetic_test/make_test.py adapty-seed-data-hack/data/offline /tmp/synth
 python eval/synthetic_test/run_synth.py /tmp/synth 100
-# один бандл и вердикт через CLI (бандл начинается 3 ноября минус N дней, а CLI считает от сегодняшней даты:
-# run_synth.py поэтому передаёт start = сегодня минус N):
+# один бандл и вердикт через CLI; бандл хранит свой день в as_of.json:
 python eval/make_replay.py /tmp/synth "AI limit: annual upfront vs weekly trial" 14 100 /tmp/synth_d14
 python -m verdict_agent.cli <ab_test_id из /tmp/synth_d14/ab-tests_get.json> --replay /tmp/synth_d14
 ```

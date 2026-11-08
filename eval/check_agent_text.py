@@ -1,4 +1,5 @@
-"""Check an agent's explanation against the verdict JSON: every number in the text is in the JSON, and the verdict matches.
+"""Check an agent's explanation against the verdict JSON: every number in the text is in the JSON, the verdict
+matches, and the arm the text names as the leader is the verdict's leader.
 
 Usage: python eval/check_agent_text.py <verdict.json> <answer.txt> [<request.json>]
 The optional request holds the tool-call arguments; numbers from it (e.g. the horizon) also count as known.
@@ -13,7 +14,7 @@ NUMBER = re.compile(r"(?<![\w.])\d{1,3}(?:,\d{3})+(?:\.\d+)?%?|(?<![\w.,])\d+(?:
 LABELS = [
     (re.compile(r"\bnot[ _-]enough[ _-]data\b", re.I), "not_enough_data"),
     (re.compile(r"\bkeep[ _-]running\b", re.I), "keep_running"),
-    (re.compile(r"\bconfirmed\b", re.I), "confirmed"),
+    (re.compile(r"(?<!not )(?<!not yet )(?<!n't )(?<!n't yet )(?<!no )(?<!cannot be )(?<!can't be )(?<!be )\bconfirmed\b", re.I), "confirmed"),
     (re.compile(r"\btie\b", re.I), "tie"),
 ]
 
@@ -64,6 +65,23 @@ def stated_verdict(text: str) -> str | None:
     return None
 
 
+def stated_leader(text: str, titles: list[str]) -> str | None:
+    if not titles:
+        return None
+    arm = "|".join(re.escape(t) for t in sorted(titles, key=len, reverse=True))
+    arm = rf"(?<![\w])({arm})(?![\w])"
+    after = rf"(?i:\b(?:ship|shipping|pick|choose|winner is|winner:|leader is|leader:))\s+(?:(?i:the|arm|variant)\s+)*{arm}"
+    before = rf"{arm}\s+(?i:leads|wins|is ahead|is the leader|is the winner|is better)\b(?!\s+(?i:on|in)\s+(?i:received|raw))"
+    negated = re.compile(r"(?i:\b(?:do not|don't|not|never|avoid)\s+(?:ship|pick|choose)\s*)$")
+    hits = []
+    for rank, pattern in enumerate((after, before)):
+        for m in re.finditer(pattern, text):
+            if rank == 0 and negated.search(text[:m.start()] + text[m.start():m.start(1)].split()[0] + " "):
+                continue
+            hits.append((rank, m.start(), m.group(1)))
+    return min(hits)[2] if hits else None
+
+
 def check(verdict: dict, text: str, request: dict | None = None) -> dict:
     numbers, dates = _known({"verdict": verdict, "request": request or {}})
     unmatched = [d for d in DATE.findall(text) if d not in dates]
@@ -71,13 +89,18 @@ def check(verdict: dict, text: str, request: dict | None = None) -> dict:
     unmatched += [t for t in found if not _matches(t, numbers)]
     stated = stated_verdict(text)
     verdict_ok = stated == verdict.get("verdict")
+    leader = stated_leader(text, [a.get("title") for a in verdict.get("arms") or [] if a.get("title")])
+    leader_ok = leader is None or leader == verdict.get("leader")
     return {
         "numbers_checked": len(found) + len(DATE.findall(text)),
         "unmatched": unmatched,
         "verdict_expected": verdict.get("verdict"),
         "verdict_stated": stated,
         "verdict_ok": verdict_ok,
-        "passed": verdict_ok and not unmatched,
+        "leader_expected": verdict.get("leader"),
+        "leader_stated": leader,
+        "leader_ok": leader_ok,
+        "passed": verdict_ok and leader_ok and not unmatched,
     }
 
 

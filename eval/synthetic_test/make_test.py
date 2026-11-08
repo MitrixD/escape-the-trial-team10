@@ -9,7 +9,8 @@ their original flow so the calibration, which is built from users outside the te
 see them. Truth at 60 days favours weekly_trial; revenue received in the first weeks favours
 annual_upfront, so raw P2BB is confidently wrong.
 
-Usage: python make_test.py <adapty-seed-data-hack>/data/offline <output folder>
+Usage: python make_test.py <adapty-seed-data-hack>/data/offline <output folder> [P_A]
+P_A is the share of annual buyers in arm A, 0.10 by default; 0.16 gives a close test that annual_upfront wins.
 """
 import csv
 import gzip
@@ -25,7 +26,7 @@ DST = Path(sys.argv[2])
 TEST = "AI limit: annual upfront vs weekly trial"
 PLACEMENT = "ai_limit_reached"
 ARM_SIZE = 3000
-P_A = 0.10  # annual buyers in arm A
+P_A = float(sys.argv[3]) if len(sys.argv) > 3 else 0.10  # annual buyers in arm A
 P_B = 0.35  # weekly trial starters in arm B
 SEED = 2026
 

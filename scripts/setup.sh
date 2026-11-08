@@ -21,6 +21,10 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+absolute() { case "$1" in /*) printf '%s' "$1" ;; *) printf '%s/%s' "$PWD" "$1" ;; esac; }
+[ -z "$guard_dir" ] || guard_dir="$(absolute "$guard_dir")"
+[ -z "$mcp_dir" ] || mcp_dir="$(absolute "$mcp_dir")"
+
 ok() { printf '  [ok]   %s\n' "$1"; }
 no() { printf '  [fail] %s\n' "$1"; failed=1; }
 todo() { printf '  [todo] %s\n' "$1"; }
@@ -78,7 +82,7 @@ if [ -n "$mcp_dir" ]; then
     todo "$mcp_dir/.mcp.json exists: add the verdict-agent server from .mcp.json.example by hand"
   else
     mkdir -p "$mcp_dir"
-    sed "s#<absolute path to this repo>#$repo#g" .mcp.json.example > "$mcp_dir/.mcp.json"
+    .venv/bin/python scripts/mcp_config.py "$repo" "$mcp_dir/.mcp.json"
     ok "wrote $mcp_dir/.mcp.json (server verdict-agent, tool ab_test_verdict)"
   fi
 fi

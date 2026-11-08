@@ -110,7 +110,7 @@ def test_unsure_leader_is_not_shipped_on_money():
 
 def test_horizon_reached_without_a_winner_ships_either():
     cal = make_cal({"p": step_curve(10.0)})
-    test = make_test([make_arm("A", 200, 67), make_arm("B", 200, 72)], days_running=70)
+    test = make_test([make_arm("A", 200, 67), make_arm("B", 200, 72)], days_running=60)
     out = build_verdict(test, cal)
     assert out["verdict"] == "keep_running"
     assert out["come_back_on"] == test.as_of.isoformat()
@@ -120,7 +120,7 @@ def test_horizon_reached_without_a_winner_ships_either():
 def test_horizon_reached_with_a_likely_leader_ships_it(monkeypatch):
     monkeypatch.setattr(verdict_module, "p2bb", lambda xa, xb: 0.9)
     cal = make_cal({"p": step_curve(10.0)})
-    test = make_test([make_arm("A", 200, 67), make_arm("B", 200, 72)], days_running=70)
+    test = make_test([make_arm("A", 200, 67), make_arm("B", 200, 72)], days_running=60)
     out = build_verdict(test, cal)
     assert out["verdict"] == "keep_running"
     assert (out["next_action"], out["next_action_basis"]) == ("ship_leader", "horizon")

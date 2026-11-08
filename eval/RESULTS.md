@@ -3,15 +3,15 @@
 > **English summary.** All numbers come from the offline Lumen dataset (synthetic data from the organisers) replayed as Adapty-shaped responses and scored against 60-day net revenue per user. The text below is in Russian.
 >
 > - **The trap is a bias, not noise.** Raw P2BB counts only received revenue, so it favours the variant that is paid up front. With a small gap and monthly renewals (the Settings test, 90-day truth, 100 users per day) raw P2BB makes 29% wrong confident decisions by day 28, against 1% for an estimate that counts revenue still to come. More traffic makes it worse, not better.
-> - **Verdict Agent v2 (150 repetitions, days 1–28, 30 and 100 users per day per variant).** No wrong confirmations on Main, Onboarding and the synthetic test, at most 1% on Settings. The first safe day (right confirmed at least 50%, wrong at most 5%) is day 3 to 7 on Main and Onboarding, 7 to 11 days before a fixed 14-day rule.
+> - **Verdict Agent after the 8 Nov hardening (150 repetitions, days 1–28, 30 and 100 users per day per variant).** No wrong confirmations on Main, Onboarding and the synthetic test, at most 1% on Settings. The first safe day (right confirmed at least 50%, wrong at most 5%) is day 3 to 7 on Main and Onboarding, 7 to 11 days before a fixed 14-day rule.
 > - **Money at stake (spike, 10× Lumen traffic, 180 days after the stop).** On Onboarding, waiting a fixed 14 days costs $65,582 against $4,684 when stopping on the verdict; on Main $52,781 against $5,184. On Settings, where the gap is small, the verdict is not better than waiting: $14,505 against $13,218.
-> - **Next action (section "Деньги на кону и `next_action`").** The money rule ships the right variant earlier: on the synthetic test at day 14 with 30 users per day, 65% right ships against 41% confirmed, 1% wrong. Its weak spot is Settings at day 7 with 100 users per day: 5% wrong ships (7% before the 0.80 confidence floor).
-> - **Calibration robustness (section "Устойчивость к ошибке калибровки").** With trial conversion and renewal value each off by ±20%, no corner adds a wrong confirmation (0% on the synthetic test, Settings stays at its 1% baseline on day 7). A wrong calibration makes the verdict slower, not wrong: with renewals 20% low the synthetic test is confirmed in 40–53% of runs at day 14 instead of 95%.
-> - **Limits.** Synthetic data, four tests, repetitions with replacement, calibration from the same population, a 60-day horizon instead of Adapty's 12 months, uniform user arrival.
+> - **Calibration off by ±20% for every product alike** adds no wrong confirmation; it makes the verdict slower.
+> - **Adverse cells break it.** On a close synthetic test where the up-front variant truly wins by 19%, renewals of one product overstated by 30% give 42% wrong confirmations at day 14 and 23% at day 28; users arriving in the first 3 days instead of evenly give 26% and 58%; both together 97–99%. `p2bb_expected` counts only sampling noise, not calibration or age errors (section "После доработки 8 ноября").
+> - **Limits.** Synthetic data, five tests, repetitions with replacement, calibration from the same population, a 60-day horizon instead of Adapty's 12 months; the verdict assumes uniform arrival and a correct per-product calibration.
 
 Проверяли, насколько сильна ловушка ранней остановки A/B-теста и можно ли решать лучше. Короткий ответ: идея держится, но не в той форме, в какой мы её питчили. Дашборд редко уверенно выбирает проигравшего, когда разница между вариантами большая. Опасный случай — небольшая разница и вариант с отложенной выручкой: там сырой P2BB становится уверенно неправым и чем дольше идёт тест, тем сильнее ошибается. Наш оценщик убирает этот перекос и в части тестов принимает верное решение раньше.
 
-Это быстрый эксперимент для проверки идеи, а не код продукта: `eval/ab_verdict_eval.py`, результаты в `eval/result_h60.txt` и `eval/result_h90.txt`.
+Это быстрый эксперимент для проверки идеи, а не код продукта: `eval/ab_verdict_eval.py`. Файлы с выводом в репозиторий не попали, вывод воспроизводится командой `python eval/ab_verdict_eval.py <adapty-seed-data-hack>/data/offline 60` (и `90` для горизонта 90 дней).
 
 ## Как считали
 
@@ -90,7 +90,7 @@
 
 # Деньги на кону
 
-Скрипт: `eval/money_at_stake.py`, результаты в `eval/money_h60.txt` и `eval/money_h90.txt`.
+Скрипт: `eval/money_at_stake.py`. Вывод воспроизводится командой `python eval/money_at_stake.py <adapty-seed-data-hack>/data/offline 60` (и `90`).
 
 ## Модель потерь
 
@@ -133,7 +133,194 @@
 Ограничения те же, что выше: данные синтетические, эффекты крупные, тестов три. Кроме того, в Adapty нет подтверждения, что пользователи действительно ждут 14 дней. Это вопрос к менторам.
 
 
+# После доработки 8 ноября: честный разброс и неблагоприятные ячейки
+
+Изменение `harden-verdict-agent` после ревью продукта. Что поменялось в расчёте:
+- псевдопользователи триала конвертируются или нет (точное среднее, разброс исхода), а не получают каждый среднее значение;
+- конвертировавшиеся триалы не моложе длины триала, доля ещё идущих триалов считается от всех стартов;
+- годовые и пожизненные продукты не получают продлений до горизонта меньше года;
+- replay-бандлы строят калибровку только из истории до старта теста (раньше — до конца датасета).
+
+Пороги не меняли. Команды:
+
+```bash
+python eval/synthetic_test/make_test.py <dataset> /tmp/synth
+python eval/synthetic_test/make_test.py <dataset> /tmp/synth_close 0.16
+python eval/verdict_eval.py <dataset> --synthetic /tmp/synth
+python eval/calibration_robustness.py <dataset> --synthetic /tmp/synth --close-synthetic /tmp/synth_close
+```
+
+## Вердикт против правды за 60 дней
+
+Параметры: `horizon=60d reps=150 seed=7 days=[1, 3, 7, 14, 21, 28] traffic=[30, 100] confident>=95% runtime=0.9 min`.
+
+### Main: 3 plans vs lifetime anchor (NA)
+
+Truth, 60-day net revenue per user: `main` $9.24, `main_lifetime` $15.99; winner `main_lifetime`.
+
+| Traffic/day | Day | wrong_confirmed | right_confirmed | raw_wrong | not_enough_data | keep_running | confirmed | tie | wrong_ship | right_ship | money_ship | money_wrong_ship |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 30 | 1 | 0% | 0% | 1% | 100% | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
+| 30 | 3 | 0% | 0% | 0% | 100% | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
+| 30 | 7 | 0% | 74% | 0% | 19% | 7% | 74% | 0% | 0% | 79% | 5% | 0% |
+| 30 | 14 | 0% | 100% | 0% | 0% | 0% | 100% | 0% | 0% | 100% | 0% | 0% |
+| 30 | 21 | 0% | 100% | 0% | 0% | 0% | 100% | 0% | 0% | 100% | 0% | 0% |
+| 30 | 28 | 0% | 100% | 0% | 0% | 0% | 100% | 0% | 0% | 100% | 0% | 0% |
+| 100 | 1 | 0% | 0% | 1% | 100% | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
+| 100 | 3 | 0% | 0% | 0% | 100% | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
+| 100 | 7 | 0% | 100% | 0% | 0% | 0% | 100% | 0% | 0% | 100% | 0% | 0% |
+| 100 | 14 | 0% | 100% | 0% | 0% | 0% | 100% | 0% | 0% | 100% | 0% | 0% |
+| 100 | 21 | 0% | 100% | 0% | 0% | 0% | 100% | 0% | 0% | 100% | 0% | 0% |
+| 100 | 28 | 0% | 100% | 0% | 0% | 0% | 100% | 0% | 0% | 100% | 0% | 0% |
+
+#### Onboarding: annual trial vs weekly first
+
+Truth, 60-day net revenue per user: `onb_trial` $4.52, `onb_weekly` $8.56; winner `onb_weekly`.
+
+| Traffic/day | Day | wrong_confirmed | right_confirmed | raw_wrong | not_enough_data | keep_running | confirmed | tie | wrong_ship | right_ship | money_ship | money_wrong_ship |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 30 | 1 | 0% | 0% | 0% | 100% | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
+| 30 | 3 | 0% | 8% | 0% | 92% | 0% | 8% | 0% | 0% | 8% | 0% | 0% |
+| 30 | 7 | 0% | 100% | 0% | 0% | 0% | 100% | 0% | 0% | 100% | 0% | 0% |
+| 30 | 14 | 0% | 100% | 0% | 0% | 0% | 100% | 0% | 0% | 100% | 0% | 0% |
+| 30 | 21 | 0% | 100% | 0% | 0% | 0% | 100% | 0% | 0% | 100% | 0% | 0% |
+| 30 | 28 | 0% | 100% | 0% | 0% | 0% | 100% | 0% | 0% | 100% | 0% | 0% |
+| 100 | 1 | 0% | 33% | 0% | 67% | 0% | 33% | 0% | 0% | 33% | 0% | 0% |
+| 100 | 3 | 0% | 100% | 0% | 0% | 0% | 100% | 0% | 0% | 100% | 0% | 0% |
+| 100 | 7 | 0% | 100% | 0% | 0% | 0% | 100% | 0% | 0% | 100% | 0% | 0% |
+| 100 | 14 | 0% | 100% | 0% | 0% | 0% | 100% | 0% | 0% | 100% | 0% | 0% |
+| 100 | 21 | 0% | 100% | 0% | 0% | 0% | 100% | 0% | 0% | 100% | 0% | 0% |
+| 100 | 28 | 0% | 100% | 0% | 0% | 0% | 100% | 0% | 0% | 100% | 0% | 0% |
+
+#### Settings: upgrade vs lifetime anchor
+
+Truth, 60-day net revenue per user: `main_lifetime` $12.60, `settings` $10.80; winner `main_lifetime`.
+
+| Traffic/day | Day | wrong_confirmed | right_confirmed | raw_wrong | not_enough_data | keep_running | confirmed | tie | wrong_ship | right_ship | money_ship | money_wrong_ship |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 30 | 1 | 0% | 0% | 0% | 100% | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
+| 30 | 3 | 0% | 0% | 8% | 100% | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
+| 30 | 7 | 0% | 0% | 5% | 99% | 1% | 0% | 0% | 0% | 0% | 0% | 0% |
+| 30 | 14 | 1% | 32% | 1% | 0% | 67% | 33% | 0% | 1% | 59% | 27% | 1% |
+| 30 | 21 | 0% | 43% | 1% | 0% | 57% | 43% | 0% | 1% | 69% | 28% | 1% |
+| 30 | 28 | 0% | 55% | 1% | 0% | 45% | 55% | 0% | 1% | 79% | 25% | 1% |
+| 100 | 1 | 0% | 0% | 4% | 100% | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
+| 100 | 3 | 0% | 0% | 5% | 100% | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
+| 100 | 7 | 1% | 22% | 3% | 0% | 77% | 23% | 0% | 5% | 53% | 35% | 4% |
+| 100 | 14 | 0% | 60% | 1% | 0% | 40% | 60% | 0% | 0% | 88% | 28% | 0% |
+| 100 | 21 | 0% | 82% | 0% | 0% | 18% | 82% | 0% | 0% | 94% | 12% | 0% |
+| 100 | 28 | 0% | 91% | 0% | 0% | 9% | 91% | 0% | 0% | 98% | 7% | 0% |
+
+#### AI limit: annual upfront vs weekly trial
+
+Truth, 60-day net revenue per user: `annual_upfront` $4.32, `weekly_trial` $5.88; winner `weekly_trial`.
+
+| Traffic/day | Day | wrong_confirmed | right_confirmed | raw_wrong | not_enough_data | keep_running | confirmed | tie | wrong_ship | right_ship | money_ship | money_wrong_ship |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 30 | 1 | 0% | 0% | 15% | 100% | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
+| 30 | 3 | 0% | 0% | 85% | 100% | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
+| 30 | 7 | 0% | 0% | 99% | 100% | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
+| 30 | 14 | 0% | 53% | 100% | 5% | 42% | 53% | 0% | 1% | 76% | 24% | 1% |
+| 30 | 21 | 0% | 78% | 100% | 0% | 22% | 78% | 0% | 0% | 94% | 16% | 0% |
+| 30 | 28 | 0% | 83% | 100% | 0% | 17% | 83% | 0% | 0% | 96% | 13% | 0% |
+| 100 | 1 | 0% | 0% | 79% | 100% | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
+| 100 | 3 | 0% | 0% | 100% | 100% | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
+| 100 | 7 | 0% | 91% | 100% | 1% | 9% | 91% | 0% | 0% | 99% | 8% | 0% |
+| 100 | 14 | 0% | 98% | 100% | 0% | 2% | 98% | 0% | 0% | 99% | 1% | 0% |
+| 100 | 21 | 0% | 100% | 100% | 0% | 0% | 100% | 0% | 0% | 100% | 0% | 0% |
+| 100 | 28 | 0% | 100% | 100% | 0% | 0% | 100% | 0% | 0% | 100% | 0% | 0% |
+
+#### First safe day vs the 14-day rule
+
+First day with right_confirmed ≥ 50% and wrong_confirmed ≤ 5%.
+
+| Test | Traffic/day | First safe day | vs day 14 |
+|---|---|---|---|
+| Main: 3 plans vs lifetime anchor (NA) | 30 | 7 | 7 days earlier |
+| Main: 3 plans vs lifetime anchor (NA) | 100 | 7 | 7 days earlier |
+| Onboarding: annual trial vs weekly first | 30 | 7 | 7 days earlier |
+| Onboarding: annual trial vs weekly first | 100 | 3 | 11 days earlier |
+| Settings: upgrade vs lifetime anchor | 30 | 28 | 14 days later |
+| Settings: upgrade vs lifetime anchor | 100 | 14 | same day |
+| AI limit: annual upfront vs weekly trial | 30 | 14 | same day |
+| AI limit: annual upfront vs weekly trial | 100 | 7 | 7 days earlier |
+
+### Что изменилось
+
+- **Main и Onboarding.** Неверных подтверждений по-прежнему нет. Main при 30 в день на 7-й день: 74% верных (было 75%).
+- **Settings.** Неверных подтверждений не больше 1%, как и раньше. При 100 в день на 7-й день 5% неверных раскаток (`wrong_ship`), как до доработки.
+- **Синтетический тест.** Неверных подтверждений нет. На 14-й день при 30 в день верных подтверждений 53% (было 41%), первый безопасный день — 14-й вместо 21-го. Разброс исхода триала снижает уверенность, но калибровка до старта теста и возраст конвертировавшихся триалов её поднимают; итог честнее, а не осторожнее.
+
+## Калибровка с ошибкой ±20% (равномерно по продуктам)
+
+| Test | Day | Conversion × | Renewals × | wrong_confirmed | right_confirmed | keep_running | wrong_ship |
+|---|---|---|---|---|---|---|---|
+| Settings: upgrade vs lifetime anchor | 7 | 1.0 | 1.0 | 1% | 22% | 77% | 5% |
+| Settings: upgrade vs lifetime anchor | 7 | 0.8 | 0.8 | 1% | 19% | 80% | 6% |
+| Settings: upgrade vs lifetime anchor | 7 | 0.8 | 1.2 | 1% | 25% | 74% | 3% |
+| Settings: upgrade vs lifetime anchor | 7 | 1.2 | 0.8 | 1% | 19% | 80% | 6% |
+| Settings: upgrade vs lifetime anchor | 7 | 1.2 | 1.2 | 1% | 25% | 74% | 3% |
+| Settings: upgrade vs lifetime anchor | 14 | 1.0 | 1.0 | 0% | 60% | 40% | 0% |
+| Settings: upgrade vs lifetime anchor | 14 | 0.8 | 0.8 | 0% | 57% | 43% | 1% |
+| Settings: upgrade vs lifetime anchor | 14 | 0.8 | 1.2 | 0% | 68% | 32% | 0% |
+| Settings: upgrade vs lifetime anchor | 14 | 1.2 | 0.8 | 0% | 57% | 43% | 1% |
+| Settings: upgrade vs lifetime anchor | 14 | 1.2 | 1.2 | 0% | 68% | 32% | 0% |
+| Settings: upgrade vs lifetime anchor | 28 | 1.0 | 1.0 | 0% | 91% | 9% | 0% |
+| Settings: upgrade vs lifetime anchor | 28 | 0.8 | 0.8 | 0% | 89% | 11% | 0% |
+| Settings: upgrade vs lifetime anchor | 28 | 0.8 | 1.2 | 0% | 95% | 5% | 0% |
+| Settings: upgrade vs lifetime anchor | 28 | 1.2 | 0.8 | 0% | 89% | 11% | 0% |
+| Settings: upgrade vs lifetime anchor | 28 | 1.2 | 1.2 | 0% | 95% | 5% | 0% |
+| AI limit: annual upfront vs weekly trial | 7 | 1.0 | 1.0 | 0% | 91% | 9% | 0% |
+| AI limit: annual upfront vs weekly trial | 7 | 0.8 | 0.8 | 0% | 28% | 71% | 1% |
+| AI limit: annual upfront vs weekly trial | 7 | 0.8 | 1.2 | 0% | 97% | 2% | 0% |
+| AI limit: annual upfront vs weekly trial | 7 | 1.2 | 0.8 | 0% | 70% | 29% | 0% |
+| AI limit: annual upfront vs weekly trial | 7 | 1.2 | 1.2 | 0% | 99% | 0% | 0% |
+| AI limit: annual upfront vs weekly trial | 14 | 1.0 | 1.0 | 0% | 98% | 2% | 0% |
+| AI limit: annual upfront vs weekly trial | 14 | 0.8 | 0.8 | 0% | 44% | 56% | 1% |
+| AI limit: annual upfront vs weekly trial | 14 | 0.8 | 1.2 | 0% | 100% | 0% | 0% |
+| AI limit: annual upfront vs weekly trial | 14 | 1.2 | 0.8 | 0% | 74% | 26% | 0% |
+| AI limit: annual upfront vs weekly trial | 14 | 1.2 | 1.2 | 0% | 100% | 0% | 0% |
+| AI limit: annual upfront vs weekly trial | 28 | 1.0 | 1.0 | 0% | 100% | 0% | 0% |
+| AI limit: annual upfront vs weekly trial | 28 | 0.8 | 0.8 | 0% | 89% | 11% | 0% |
+| AI limit: annual upfront vs weekly trial | 28 | 0.8 | 1.2 | 0% | 100% | 0% | 0% |
+| AI limit: annual upfront vs weekly trial | 28 | 1.2 | 0.8 | 0% | 95% | 5% | 0% |
+| AI limit: annual upfront vs weekly trial | 28 | 1.2 | 1.2 | 0% | 100% | 0% | 0% |
+
+Ошибка, одинаковая для всех продуктов, по-прежнему не добавляет неверных подтверждений: 0% на синтетике, 1% в Settings на 7-й день. Она замедляет вердикт: при занижении конверсии и продлений на 20% синтетика на 14-й день подтверждена верно в 44% прогонов вместо 98%.
+
+## Неблагоприятные ячейки: ошибка одного продукта и неравномерный приход
+
+Равномерная ошибка сдвигает обе руки одинаково, поэтому почти ничего не ломает. Ревьюеры показали два допущения, которые не компенсируются. Проверяем их на близком синтетическом тесте, где правда за вариантом с оплатой сразу: `make_test.py` с долей годовых покупателей 0,16, правда за 60 дней `annual_upfront` $6,98 против `weekly_trial` $5,88 (+19%). 150 повторов, 100 пользователей в день на руку.
+
+- **Продления одного продукта завышены на 30%:** калибровка продукта `weekly` (проигравшей руки) умножена на 1,3, остальные продукты как есть.
+- **Неравномерный приход:** все пользователи теста приходят в первые 3 дня, а продукт считает, что трафик шёл равномерно.
+
+| Cell | Day | wrong_confirmed | right_confirmed | keep_running | wrong_ship |
+|---|---|---|---|---|---|
+| none (uniform arrival, calibration as read) | 14 | 1% | 22% | 77% | 2% |
+| none (uniform arrival, calibration as read) | 28 | 0% | 61% | 39% | 0% |
+| weekly renewals x1.3 | 14 | 42% | 0% | 58% | 77% |
+| weekly renewals x1.3 | 28 | 23% | 1% | 75% | 51% |
+| front-loaded arrival | 14 | 26% | 1% | 73% | 55% |
+| front-loaded arrival | 28 | 58% | 0% | 42% | 85% |
+| weekly renewals x1.3 and front-loaded arrival | 14 | 97% | 0% | 3% | 99% |
+| weekly renewals x1.3 and front-loaded arrival | 28 | 99% | 0% | 1% | 100% |
+
+### Что видно
+
+- **Без возмущений близкий тест решается осторожно:** 1% неверных подтверждений на 14-й день, 0% на 28-й, остальное `keep_running`.
+- **Ошибка калибровки одного продукта ломает вердикт.** Если продления `weekly` завышены на 30%, вердикт уверенно подтверждает проигравший `weekly_trial` в 42% прогонов на 14-й день и в 23% на 28-й. Неверных раскаток 77% и 51%.
+- **Неравномерный приход ломает вердикт сильнее со временем:** 26% неверных подтверждений на 14-й день и 58% на 28-й. Продукт считает пользователей моложе, чем они есть, и ждёт от триалов и продлений больше выручки.
+- **Вместе два допущения дают 97–99% неверных подтверждений.**
+- Порог 95% и `p2bb_expected` учитывают только разброс выборки. Ошибку калибровки и возраста они не видят, поэтому в этих ячейках уверенность ложная. Это главное ограничение продукта, оно описано в README в разделе «Known limitations».
+
+На живом Lumen все пользователи тестов пришли в один день, то есть живая демонстрация идёт как раз в режиме неравномерного прихода.
+
+---
+
 # Verdict Agent v2 eval (calibration from Adapty aggregates via replay)
+
+*Прогон до доработки 8 ноября: калибровка replay из всего датасета, триалы без разброса исхода.*
 
 Скрипт: `eval/verdict_eval.py`. Каждый прогон: `eval/make_replay.py` собирает бандл в формате ответов Adapty, продукт считает вердикт через `run_live(..., replay=bundle)`, как на живых данных. Калибровка берётся из агрегатов `conversion` и `ltv`, а не из пользователей CSV.
 
@@ -364,6 +551,8 @@ First day with right_confirmed ≥ 50% and wrong_confirmed ≤ 5%.
 
 # Деньги на кону и `next_action` (задача 9.4)
 
+*Прогон до доработки 8 ноября; новые числа — в разделе «После доработки 8 ноября».*
+
 Тот же прогон, что и выше: `horizon=60d reps=150 seed=7`, дни 1–28, трафик 30 и 100 пользователей в день на руку. Вердикты не изменились, добавились четыре доли:
 
 - `right_ship` и `wrong_ship` — доля прогонов, где `next_action` = `ship_leader`, а лидер верный или неверный;
@@ -402,6 +591,8 @@ First day with right_confirmed ≥ 50% and wrong_confirmed ≤ 5%.
 - `after_days` = 180 — предположение. Чем оно больше, тем дороже ошибка и тем реже правило денег советует раскатку.
 
 # Устойчивость к ошибке калибровки (задача 13.1)
+
+*Прогон до доработки 8 ноября; новые числа — в разделе «После доработки 8 ноября».*
 
 Главное возражение к eval: калибровка идеальна по построению, потому что пользователи теста и пользователи вне теста из одной популяции. Проверка из стратегии валидации Максима (§4.4): умножаем конверсию триалов в оплату и кривые выручки от продлений на 0,8 и 1,2 независимо, в четырёх углах и в центре. Код продукта не меняется: калибровку масштабирует только `eval/calibration_robustness.py`. Тот же прогон, что выше: 150 повторов, seed 7, 100 пользователей в день на вариант.
 

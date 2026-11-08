@@ -35,7 +35,8 @@ SHIPS = ["wrong_ship", "right_ship", "money_ship", "money_wrong_ship"]
 SHARES = ["wrong_confirmed", "right_confirmed", "raw_wrong", *VERDICTS, *SHIPS]
 
 
-def score_cell(dataset: Path, test: str, day: int, traffic: int, reps: int = REPS, seed: int = SEED) -> dict:
+def score_cell(dataset: Path, test: str, day: int, traffic: int, reps: int = REPS, seed: int = SEED,
+               arrival: str = "uniform") -> dict:
     values = truth(dataset, test, HORIZON)
     winner = max(values, key=values.get)
     rng = random.Random(f"{seed}|{test}|{day}|{traffic}")
@@ -44,7 +45,8 @@ def score_cell(dataset: Path, test: str, day: int, traffic: int, reps: int = REP
         no_env = Path(scratch) / "no.env"
         for _ in range(reps):
             with tempfile.TemporaryDirectory(dir=scratch) as tmp:
-                bundle = make_replay(dataset, test, day, traffic, Path(tmp), seed=rng.randrange(2**31))
+                bundle = make_replay(dataset, test, day, traffic, Path(tmp), seed=rng.randrange(2**31),
+                                     arrival=arrival)
                 test_id = json.loads((bundle / "ab-tests_get.json").read_text())["ab_test_id"]
                 r = run_live(test_id, today=DATA_END.date(), horizon=HORIZON, replay=bundle, env_path=no_env)
             right = r["leader"] == winner

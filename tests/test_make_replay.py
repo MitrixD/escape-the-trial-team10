@@ -144,3 +144,24 @@ def test_truth_is_net_revenue_per_user_for_each_arm(dataset_path):
     result = truth(Path(dataset_path), SETTINGS)
     assert sorted(result) == ["main_lifetime", "settings"]
     assert all(v > 0 for v in result.values())
+
+
+def test_calibration_window_ends_the_day_before_the_test_start(bundle):
+    start = date(2026, 11, 3) - timedelta(days=DAY)
+    last = (start - timedelta(days=1)).isoformat()
+    for name in ("analytics_conversion_trial-paid.json", "analytics_ltv.json"):
+        body = json.loads((bundle / name).read_text())
+        assert body["meta"]["query"]["filters"]["date"][1] == last, name
+    conversion = json.loads((bundle / "analytics_conversion_trial-paid.json").read_text())
+    days = [v["x"][:10] for s in conversion["data"]["segments"] for v in s["values"]]
+    assert max(days) == last
+
+
+def test_calibration_sees_only_what_happened_before_the_start(dataset_path, tmp_path):
+    early = make_replay(Path(dataset_path), SETTINGS, 3, 5, tmp_path / "early", start=date(2026, 9, 1))
+    late = make_replay(Path(dataset_path), SETTINGS, 3, 5, tmp_path / "late")
+    trials = [json.loads((b / "analytics_conversion_trial-paid.json").read_text())["data"]["value_from"]
+              for b in (early, late)]
+    payers = [json.loads((b / "analytics_ltv.json").read_text())["data"]["segments"][0]["cohort_size"]
+              for b in (early, late)]
+    assert trials[0] < trials[1] and payers[0] < payers[1]

@@ -2,15 +2,25 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "mcp__.*adapty.*__ab_tests_stop",
+        "matcher": "mcp__.*__(ab_tests_stop|ab_tests_replace|placements_update)",
         "hooks": [
-          {"type": "command", "command": "cd \"$CLAUDE_PROJECT_DIR\" && if [ -x .venv/bin/python ]; then .venv/bin/python -m verdict_agent.guard --mode strict; fi", "timeout": 120}
+          {
+            "type": "command",
+            "command": "input=$(cat); if cd \"$CLAUDE_PROJECT_DIR\" 2>/dev/null && [ -x .venv/bin/python ]; then printf '%s' \"$input\" | .venv/bin/python -m verdict_agent.guard --mode strict || exit 2; else case \"$(printf '%s' \"$input\" | tr '[:upper:]' '[:lower:]')\" in *ab_tests_stop*|*ab_tests_replace*|*placements_update*|*ab-tests*stop*|*ab-tests*replace*|*ab-tests*archive*) echo \"verdict guard unavailable (repository or .venv missing): run scripts/setup.sh\" >&2; exit 2;; esac; fi",
+            "timeout": 120,
+            "onFailure": "block"
+          }
         ]
       },
       {
         "matcher": "Bash",
         "hooks": [
-          {"type": "command", "command": "cd \"$CLAUDE_PROJECT_DIR\" && if [ -x .venv/bin/python ]; then .venv/bin/python -m verdict_agent.guard --mode strict; fi", "timeout": 120}
+          {
+            "type": "command",
+            "command": "input=$(cat); if cd \"$CLAUDE_PROJECT_DIR\" 2>/dev/null && [ -x .venv/bin/python ]; then printf '%s' \"$input\" | .venv/bin/python -m verdict_agent.guard --mode strict || exit 2; else case \"$(printf '%s' \"$input\" | tr '[:upper:]' '[:lower:]')\" in *ab_tests_stop*|*ab_tests_replace*|*placements_update*|*ab-tests*stop*|*ab-tests*replace*|*ab-tests*archive*) echo \"verdict guard unavailable (repository or .venv missing): run scripts/setup.sh\" >&2; exit 2;; esac; fi",
+            "timeout": 120,
+            "onFailure": "block"
+          }
         ]
       }
     ]

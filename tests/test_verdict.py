@@ -4,7 +4,7 @@ import pytest
 
 from verdict_agent import verdict as verdict_module
 from verdict_agent.estimator import ArmEstimate, estimate, pseudo_values
-from verdict_agent.stats import diff_ci, p2bb
+from verdict_agent.stats import diff_ci, p2bb, p_best
 from tests.helpers import make_arm, make_cal, make_test, step_curve
 from tests.helpers import build_checked_verdict as build_verdict
 
@@ -78,7 +78,7 @@ def test_raw_and_expected_p2bb_disagreement_is_visible():
     out = build_verdict(make_test([a, b]), cal)
     assert out["leader"] == "B"
     assert out["p2bb_raw"] == 0.0
-    assert out["p2bb_expected"] == 0.9976
+    assert out["p2bb_expected"] == 0.9769
 
 
 def test_probability_just_under_threshold_is_floored_and_not_confirmed(monkeypatch):
@@ -96,12 +96,12 @@ def test_single_arm_is_rejected():
         build_verdict(test, cal)
 
 
-def test_leader_is_compared_with_best_other_arm():
+def test_three_arms_use_probability_that_the_leader_is_best_of_all():
     cal = make_cal({"p": step_curve(15.0)})
     arms = [make_arm("A", 200, 40), make_arm("B", 200, 55), make_arm("C", 200, 66)]
     out = build_verdict(make_test(arms), cal)
     assert out["leader"] == "C"
-    expected = p2bb(pseudo_values(arms[1], cal, 60), pseudo_values(arms[2], cal, 60))
+    expected = p_best([pseudo_values(a, cal, 60) for a in arms], 2)
     assert out["p2bb_expected"] == floor4(expected)
 
 

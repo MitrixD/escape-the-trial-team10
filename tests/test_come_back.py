@@ -128,7 +128,7 @@ def test_no_traffic_is_capped_at_horizon():
 
 
 def test_date_is_never_before_today():
-    test, cal = two_arms(10 / 0.83 - 10, 200, 53, 62, days_running=70, users_per_day=1.0)
+    test, cal = two_arms(10 / 0.83 - 10, 200, 53, 62, days_running=60, users_per_day=1.0)
     out = build_verdict(test, cal)
     assert out["verdict"] == "keep_running"
     assert out["come_back_on"] == test.as_of.isoformat()
@@ -149,3 +149,25 @@ def test_no_date_when_tie():
 def test_tiny_traffic_does_not_overflow_and_is_capped():
     test, cal = two_arms(10 / 0.83 - 10, 200, 53, 62, days_running=40, users_per_day=1e-12)
     assert build_verdict(test, cal)["come_back_on"] == (START + timedelta(days=60)).isoformat()
+
+
+# --- hardening (change harden-verdict-agent, group 2.3) ---
+
+def test_horizon_shorter_than_the_test_is_judged_as_passed(caplog):
+    from tests.helpers import make_arm, make_cal, make_test, step_curve
+    from verdict_agent.verdict import build_verdict
+    test = make_test([make_arm("A", 200, 60), make_arm("B", 200, 70)], days_running=14)
+    out = build_verdict(test, make_cal({"p": step_curve(10.0)}), horizon=7)
+    assert out["horizon_days"] == 7
+    assert all(a["revenue_expected_trials"] == 0 and a["revenue_expected_renewals"] == 0 for a in out["arms"])
+    assert any("7" in r.message and "14" in r.message for r in caplog.records)
+
+
+def test_a_test_past_its_horizon_without_a_winner_gets_basis_horizon():
+    from tests.helpers import make_arm, make_cal, make_test, step_curve
+    from verdict_agent.verdict import build_verdict
+    test = make_test([make_arm("A", 200, 67), make_arm("B", 200, 72)], days_running=82)
+    out = build_verdict(test, make_cal({"p": step_curve(10.0)}))
+    assert out["verdict"] == "keep_running"
+    assert out["next_action_basis"] == "horizon"
+    assert out["come_back_on"] == test.as_of.isoformat()

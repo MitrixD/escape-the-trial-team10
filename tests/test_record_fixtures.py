@@ -48,3 +48,15 @@ def test_wrong_company_stops_with_exit_3_and_records_nothing(tmp_path, fake_adap
     assert log.read_text().splitlines() == ["auth whoami --json"]
     assert not out
     assert "Other Co" not in done.stderr + done.stdout
+
+
+def test_part_of_the_company_name_is_not_a_match(tmp_path, fake_adapty):
+    bin_dir, log = fake_adapty
+    done, out = record(tmp_path, bin_dir, "ADAPTY_APP_ID=app-1  # comment\nADAPTY_EXPECTED_COMPANY=other co\n")
+    assert done.returncode == 3
+    assert not out
+
+
+def test_history_window_matches_live_reads():
+    text = SCRIPT.read_text()
+    assert "HISTORY_DAYS" in text and "2026-07-01" not in text

@@ -21,6 +21,23 @@ How AI was used to build Verdict Agent. Models: Claude Opus and Fable for design
 13. **Setup by an agent and a judge-style run (8 Nov).** Following how many MCP servers and CLIs ship today, the repo now sets itself up through an agent: `AGENTS.md`, a `/setup` command for Claude Code and `scripts/setup.sh`. A background agent then played the jury: a fresh `git clone` from GitHub, every README command at all three levels, a real Claude Sonnet run against the hook and two live reads. Everything matched the README; it found six small wording issues (one CLI install command, the company `Title` in `whoami`, one demo folder, an untested Python 3.10 claim), all fixed.
 14. **An independent judge and a plain-language pass (8 Nov).** A separate `claude -p` session with no access to this conversation got a fresh clone and the three environment variables a judge would set, and followed the README and AGENTS.md alone. Score 9/10: everything ran and every number matched, but `setup.sh --live` quietly created `.env`; fixed. Then every document people read was rewritten for a developer and a manager at once: the conclusion first, a glossary for P2BB, maturity, SRM and calibration, reference material moved to the end (Diátaxis), plain English with "you" and short sentences (Google developer style guide), and the information style of Maxim Ilyakhov for the Russian texts.
 15. **README layout (8 Nov).** Following how popular GitHub projects present themselves, the README got a centred header with badges and links, GitHub alerts, a feature table, a Mermaid diagram of the data flow, collapsible reference sections and a picture of the decision card. The picture is an SVG rendered from the real CLI output, not drawn by hand.
+16. **Product review by ten reviewers and a judge (8 Nov).** Five Fable 5.1 reviewers (statistics, data path, eval honesty, safety, value and docs) and five Superpowers reviewers (core, data layer, interfaces, eval and tests, specs and docs) read `main` with one goal: is the product correct and honest, not how it scores. A Fable judge re-checked every finding. The verdict: the arithmetic is honest and the eval reproduces, but the tool is statistically overconfident and can flip silently, and the stop guard failed open. Scores: statistics 5/10, generality 4/10, eval honesty 7/10, safety for agents 5/10.
+17. **Hardening (8 Nov, OpenSpec change `harden-verdict-agent`).** Everything that the hackathon data allows to fix went through one change with TDD:
+    - the guard fails closed and sees every way to end a test (chained commands, `bash -c`, `ab-tests:stop`, `replace`, `archive`, `placements_update`);
+    - pending trials get the spread of their outcome, and three arms report P(best);
+    - drafts, stopped tests, `--as-of` and a horizon shorter than the test no longer flip the verdict silently, and the card names the horizon;
+    - annual and lifetime plans get no renewals before a year, trials without a conversion rate give `no_calibration`;
+    - replays calibrate only on history before the test start;
+    - the eval gained adverse cells.
+
+    The rest is in the README under "Known limitations".
+18. **Final review of the hardening (8 Nov).** A Fable 5.1 reviewer read the branch against the change and tried to break it with 40 guard inputs. It confirmed the fixes and found four more holes, all fixed with a test first:
+    - `Adapty ab-tests stop …` in capitals passed the guard, and macOS runs it as `adapty`;
+    - `--winner $W` turned a deny into a question to the human;
+    - periods other than annual and lifetime (two months, three months, six months) still got renewals;
+    - our own rule "reject a horizon shorter than the test" made every overrun or stopped test impossible to judge.
+
+    It also caught that the agent-text check read "annual_upfront leads on received revenue, … ship weekly_trial" as naming the wrong leader.
 
 A first implementation ([PR #9](https://github.com/MitrixD/escape-the-trial-team10/pull/9), made before the hackathon core; its branch was later deleted) was used as a reference only; the core was rewritten.
 
@@ -55,9 +72,13 @@ Each line: what an AI said or built, how we found out it was wrong, and what cha
 | Implementation: every live user has age "days since start" | Eval on the synthetic test: 95–100% wrong confirmations at day 60 | Uniform arrival over the test; wrong confirmations 0% |
 | Money rule (group 9): advise shipping whenever waiting costs more than the expected loss | Fable 5.1 review, reproduced by a test: it advised `ship_leader` at `p2bb_expected` 0.70, because a far come-back date made waiting look expensive | Floor of 0.80 for money-based advice (task 9.6). Wrong ships on Settings, day 7, 100 users/day: 7% → 5% |
 | Money rule: "come back today, waiting costs $0" for a test past its horizon | Same review | A test past its horizon gets a decision with basis `horizon` |
-| Proposal text: waiting 14 days costs "10–14 times more" | `openspec-verify-change` pass against `eval/money_h60.txt`: true for Onboarding (14×), on Main 2–10× | Wording fixed |
+| Proposal text: waiting 14 days costs "10–14 times more" | `openspec-verify-change` pass against the output of `python eval/money_at_stake.py <dataset> 60`: true for Onboarding (14×), on Main 2–10× | Wording fixed |
 | `CLAUDE.md` and README after the core | Docs audit agent: stale "pick a task" flow, a forbidden `apps get` tip, the trap pointed at Onboarding, a done item in next steps | Fixed in the stop-guard PR. One suggestion rejected: re-adding the research list that Maxim had removed on purpose |
 | Claude restored the synthetic day 7 and 28 bundles after a reviewer warned the jury might ask for day 7 | The user saw ~8k diff lines; no test or code used them | Dropped again; README shows the command that builds any day. Rule: after a review, commit no data that tests do not use |
+| README: "calibration off by ±20%: the verdict gets slower, not wrong" | Product review (Fable, eval honesty): the ±20% shift moves both arms alike. With one product's renewals 30% too high, or users arriving in the first 3 days, the reviewer got up to 23% and 46% wrong confirmations | Adverse cells in `eval/calibration_robustness.py`: 42% and 58% wrong confirmations on a close test, 97–99% together. The README states it under "Known limitations" |
+| README: the stop guard "never lets a stop through without a human" | Product review (Fable, safety): `bash -c`, `eval`, a variable, `ab-tests:stop`, `npx adapty@latest`, a second stop in a chain, `replace` and a hook failure all passed | The guard parses every call and fails closed; the README calls it a guard against mistakes, not a sandbox, and recommends permission rules |
+| Glossary: `p2bb_expected` is "the same chance" as Adapty's P2BB | Product review: it is our normal approximation over pseudo-users that ignored the spread of trial outcomes (0.9726 instead of 0.9091 in an example) | Trial outcomes get their spread; the glossary says it is our approximation and counts only sampling noise |
+| Hardening plan: reject a horizon shorter than the test's age | Final Fable review: a test stopped or run past its 60-day goal could no longer be judged at all | Such a test is judged as past its horizon, with a warning; the spec was changed through the change delta |
 | Our own audit brief said PR #15 was not merged | The audit agent checked `git log` and found it merged | The audit report was read with that correction |
 
 ## Stop guard: a real agent run
@@ -125,5 +146,6 @@ Full answer: [eval/agent_runs/live_onboarding.txt](../eval/agent_runs/live_onboa
 - The three recorded answers predate the `money` and `next_action` fields, so the check does not cover them yet.
 
 - A number passes if it equals any value in the JSON or the arguments, not necessarily the right field.
-- Without bold, the verdict word is the first label in the text; a phrase like "not confirmed yet" in a `keep_running` answer would be read as `confirmed`.
+- Without bold, the verdict word is the first label in the text. "Not confirmed", "not yet confirmed" and "unconfirmed" are not read as `confirmed`.
+- The leader is checked only when the text names one with a phrase like "ship B", "the winner is B" or "B leads"; a text that names no leader passes this part.
 - It does not check claims without numbers, such as "you can pick B now".

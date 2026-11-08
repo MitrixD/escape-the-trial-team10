@@ -3,7 +3,8 @@
     "verdict-agent": {
       "command": "<absolute path to this repo>/.venv/bin/python",
       "args": ["-m", "verdict_agent.mcp_server"],
-      "cwd": "<absolute path to this repo>"
+      "cwd": "<absolute path to this repo>",
+      "env": {"PYTHONPATH": "<absolute path to this repo>"}
     }
   }
 }
