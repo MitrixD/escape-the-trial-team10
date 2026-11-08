@@ -1,5 +1,8 @@
 # Per-user data for an A/B test: what Adapty can give
 
+> **In short.** Adapty gives per-user data only one profile at a time, through daily S3 exports or through webhooks. Reading 1,000 profiles one by one is scraping, which the hackathon rules forbid, so Verdict Agent works on per-arm group counts. A per-user estimator stays a next step.
+
+
 Time-boxed investigation (task 4.5). Sources: Adapty docs (s3-exports, server-side-api-specs, webhook-event-types-and-fields), CLAUDE.md "Programmatic surfaces" and "What you CANNOT do through public APIs", `adapty analytics chart --help`. No Adapty API or CLI data call was made.
 
 ## Why it matters

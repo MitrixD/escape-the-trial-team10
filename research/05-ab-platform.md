@@ -1,5 +1,7 @@
 # A/B-платформа Adapty: что можно тестировать и где болит
 
+> **Коротко.** Сырой P2BB в Adapty считает только полученные деньги, Predicted P2BB есть только в дашборде, правила остановки и проверки сплита (SRM) нет. Из этого документа выросли три части Verdict Agent: вердикт по ожидаемой выручке с датой, проверка исправности теста (`health`) и хук перед необратимой остановкой. Документ написан 7 ноября, до кода; раздел 5 — список идей, из которых выбрали первую.
+
 Дата: 7 Nov 2026. Источники:
 
 - **[docs]** страницы `ab-tests`, `ab-test-types`, `ab-test-no-paywall-variants`, `run_stop_ab_tests`, `results-and-metrics`, `maths-behind-it`, `predictions-in-ab-tests`, `developer-cli-ab-tests`, `fallback-paywalls`, `general` (stickiness), `ads-manager-cpp-ab-tests`, `mail-ab-testing`, `autopilot*`;
