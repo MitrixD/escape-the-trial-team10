@@ -175,8 +175,27 @@ The verdict itself SHALL NOT change because of money: `keep_running` with `ship_
 - **WHEN** the verdict is `confirmed`
 - **THEN** `next_action` is `ship_leader` and `next_action_basis` is `verdict`
 
+### Requirement: Test health
+The system SHALL report `health` for every verdict: `srm_p`, the p-value of a chi-square test of the arms' users against the arms' weights from the test (`null` when a weight is missing or there are no users); `srm`, `true` when `srm_p` is below 0.001 and the test has at least 1,000 users in total (the thresholds Eppo and Optimizely use); `dead_arm`, the title of an arm with 0 users when the test has run at least 3 days and another arm has users, else `null`. When `srm` is `true` or `dead_arm` is set, the test is unhealthy: `next_action` SHALL be `fix_test` with basis `health`, whatever the verdict, because the comparison between the arms cannot be trusted. The verdict and money are still reported.
+
+#### Scenario: Sample ratio mismatch
+- **WHEN** a 50/50 test has 1,400 users in one arm and 1,150 in the other
+- **THEN** `health.srm` is `true`, `next_action` is `fix_test` and `next_action_basis` is `health`
+
+#### Scenario: Balanced test
+- **WHEN** a 50/50 test has 1,400 users in each arm
+- **THEN** `health.srm` is `false`, `health.dead_arm` is `null` and `next_action` follows the verdict
+
+#### Scenario: Too few users to call a mismatch
+- **WHEN** a 50/50 test has 254 and 285 users
+- **THEN** `health.srm_p` is reported and `health.srm` is `false`
+
+#### Scenario: Dead arm
+- **WHEN** a test has run 5 days and one arm has 0 users while the other has 300
+- **THEN** `health.dead_arm` names that arm and `next_action` is `fix_test`
+
 ### Requirement: Output contract
-The system SHALL return one JSON object with exactly these fields: `ab_test_id`, `verdict`, `reason`, `leader`, `p2bb_expected`, `p2bb_raw`, `maturity`, `horizon_days`, `come_back_on`, `arms[]`, `calibration_source`, `expected_gap_per_user`, `money`, `next_action`, `next_action_basis`. Each arm has `title`, `users`, `revenue_received`, `revenue_expected_trials`, `revenue_expected_renewals` and `revenue_expected_total` (received + trials + renewals), in USD per user, rounded to 2 decimals from unrounded values. `expected_gap_per_user` SHALL be the leader's expected total minus the best other arm's expected total, in USD per user, 2 decimals, never below 0. `money` follows "Money at stake" and is an object with exactly `traffic_per_day`, `after_days`, `cost_per_day`, `loss_if_ship_leader_now`, `cost_until_come_back`, `chance_leader_is_wrong`, or `null`. The JSON SHALL contain no free text written by a model.
+The system SHALL return one JSON object with exactly these fields: `ab_test_id`, `verdict`, `reason`, `leader`, `p2bb_expected`, `p2bb_raw`, `maturity`, `horizon_days`, `come_back_on`, `arms[]`, `calibration_source`, `expected_gap_per_user`, `money`, `next_action`, `next_action_basis`, `health`. Each arm has `title`, `users`, `revenue_received`, `revenue_expected_trials`, `revenue_expected_renewals` and `revenue_expected_total` (received + trials + renewals), in USD per user, rounded to 2 decimals from unrounded values. `expected_gap_per_user` SHALL be the leader's expected total minus the best other arm's expected total, in USD per user, 2 decimals, never below 0. `money` follows "Money at stake" and is an object with exactly `traffic_per_day`, `after_days`, `cost_per_day`, `loss_if_ship_leader_now`, `cost_until_come_back`, `chance_leader_is_wrong`, or `null`. The JSON SHALL contain no free text written by a model.
 
 #### Scenario: Valid output
 - **WHEN** a verdict is produced for any test
