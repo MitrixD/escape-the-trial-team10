@@ -1,24 +1,68 @@
-# Verdict Agent
+<p align="center">
+  <img src="docs/img/card.svg" alt="Verdict Agent decision card: SHIP weekly_trial, raw P2BB 0.0 against expected 0.9994, one more test day costs $148.98" width="100%">
+</p>
 
-**Status: minimal MVP, finished on 8 Nov 2026 and submitted as is.** In Russian: [README.ru.md](README.ru.md).
+<h1 align="center">Verdict Agent</h1>
 
-Adapty's A/B test dashboard can confidently pick the wrong winner when the other variant's money is still on its way: free trials that have not converted yet, renewals that have not been charged yet. Verdict Agent counts that money too and tells you what to do: ship the leader, wait until a date, or fix the test first. It also tells you what each choice costs.
+<p align="center"><b>Know when an Adapty A/B test winner is real, and what waiting costs.</b></p>
 
+<p align="center">
+  <img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-3776AB">
+  <img alt="Tests: pytest" src="https://img.shields.io/badge/tests-pytest-0A9EDC">
+  <img alt="Adapty: read-only" src="https://img.shields.io/badge/Adapty-read--only-6720FF">
+  <img alt="Status: minimal MVP" src="https://img.shields.io/badge/status-minimal%20MVP-brightgreen">
+</p>
+
+<p align="center">
+  <a href="#try-it-in-one-minute">Try it</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#for-judges">For judges</a> ·
+  <a href="#evaluation">Evaluation</a> ·
+  <a href="#reference">Reference</a> ·
+  <a href="README.ru.md">По-русски</a>
+</p>
+
+> [!NOTE]
+> Minimal MVP, finished on 8 Nov 2026 at the Adapty First Commit hackathon and kept open as is. It reads Adapty and never changes anything there.
+
+## The problem
+
+Adapty's A/B test dashboard can confidently pick the wrong winner when the other variant's money is still on its way: free trials that have not converted yet, renewals that have not been charged yet. In the test shown above, the dashboard's number (raw P2BB 0.0) points to the annual plan, while the weekly plan with trials wins over 60 days. Shipping the dashboard's choice would cost about **$53,640** over 180 days at 200 users a day.
+
+Verdict Agent counts the money still to come and tells you what to do: ship the leader, wait until a date, or fix the test first. It also tells you what each choice costs.
+
+## What you get
+
+| | Feature | What it gives you |
+|---|---|---|
+| ✅ | **Verdict** | `confirmed`, `keep_running`, `tie` or `not_enough_data`, with a reason and a date to come back |
+| 💵 | **Money at stake** | What one more test day costs, the expected loss of shipping the leader now, the chance the leader is wrong |
+| ➡️ | **Next action** | `ship_leader`, `ship_either`, `come_back` or `fix_test` |
+| 🩺 | **Test health** | Flags a broken split (sample ratio mismatch) or a dead variant before you trust any winner |
+| 🛡️ | **Stop guard for AI agents** | A Claude Code hook that runs the verdict before an agent stops a test, and hands the decision to a human |
+| 🔌 | **CLI and MCP tool** | The same JSON for people, scripts and agents (Claude, Cursor, Codex) |
+
+## How it works
+
+```mermaid
+flowchart LR
+    A[Adapty account] -->|read-only CLI| B[Test metrics<br/>funnel by product]
+    A -->|read-only CLI| C[App history:<br/>trial conversion, LTV]
+    C --> D[Calibration]
+    B --> E[Expected revenue per variant:<br/>received + trials + renewals]
+    D --> E
+    E --> F[Verdict, money at stake,<br/>next action, health]
+    F --> G[Decision card]
+    F --> H[MCP tool for agents]
+    F --> I[Stop guard hook]
 ```
-SHIP weekly_trial · confirmed · basis verdict
-p2bb_expected 0.9994 (raw 0.0) · maturity 0.5286 (53% of expected revenue received)
-weekly_trial per user: received $1.01, from trials $0.71, from renewals $3.55, expected $5.27
-each more test day costs $148.98 · shipping weekly_trial now: expected loss $2.35 · chance the leader is wrong 0.0006
-```
 
-This is a test where the dashboard's number (raw P2BB 0.0) points to the annual plan, while the weekly plan with trials wins over 60 days. Shipping the dashboard's choice would cost about $53,640 over 180 days at 200 users a day.
+Everything is computed by code, so an agent cannot invent the numbers; the agent only calls the tool and explains its JSON. It works on any Adapty app with purchase history.
 
 ## Who it is for
 
 - **Growth and product managers** who A/B test paywalls with different billing: paid up front against free trial, annual against weekly.
 - **AI agents** asked "can I stop this test?". They get one MCP tool with JSON they can quote, and an optional hook stops them from ending a test against the verdict without a human.
-
-It reads Adapty and never changes anything there. It works on any Adapty app with purchase history.
 
 ## Try it in one minute
 
@@ -273,7 +317,8 @@ Requirements: [openspec/specs/](openspec/specs/). The plan, design and tasks of 
 
 ## Reference
 
-### Output
+<details>
+<summary><b>Output</b></summary>
 
 JSON that validates against [verdict_agent/schema.json](verdict_agent/schema.json). On any error the CLI prints `{"error": ...}` and exits 1.
 
@@ -297,7 +342,7 @@ JSON that validates against [verdict_agent/schema.json](verdict_agent/schema.jso
 
 Revenue fields and `expected_gap_per_user` are USD per user, rounded to cents from unrounded values. USD values in `money` are totals for the test's traffic, rounded to cents.
 
-#### Money at stake on the synthetic test
+**Money at stake on the synthetic test**
 
 At day 14 of the synthetic test (100 users per day per variant), raw P2BB is 0.0 for `weekly_trial`, so a dashboard reader would ship `annual_upfront`. With 200 users a day for 180 days and a gap of $1.49 per user, that mistake costs about $53,640. The verdict confirms `weekly_trial` and prices both choices: each more day of the test costs $148.98, and shipping `weekly_trial` now has an expected loss of $2.35, with a 0.06% chance that it is wrong.
 
@@ -307,7 +352,10 @@ At day 14 of the synthetic test (100 users per day per variant), raw P2BB is 0.0
 
 How often a money-based ship picks the wrong variant: [eval/RESULTS.md](eval/RESULTS.md), section "Деньги на кону и `next_action`" (in Russian; the English summary at the top of the file lists the key numbers). It ships the right variant earlier on the synthetic test (65% instead of 41% at day 14, 30 users per day) with 0–1% wrong ships, but on Settings at day 7 with 100 users per day 5% of ships are wrong.
 
-### Architecture
+</details>
+
+<details>
+<summary><b>Architecture</b></summary>
 
 ```
 verdict_agent/
@@ -331,7 +379,10 @@ tests/            Unit tests and recorded fixtures
 
 Data flow: test ID, then `live.py` reads the test, per-variant metrics, funnel, conversion and LTV through `adapty_cli.py` (or reads the same files from a replay bundle). It builds groups of users by status, product and age. `estimator.py` adds expected revenue to each group using the calibration. `verdict.py` applies the rules and returns JSON. CLI, MCP and eval all call the same `service.py`. Design: [openspec/changes/archive/2026-11-08-add-verdict-agent/design.md](openspec/changes/archive/2026-11-08-add-verdict-agent/design.md).
 
-### Rules we follow
+</details>
+
+<details>
+<summary><b>Rules we follow</b></summary>
 
 - Read-only: only `auth whoami`, `get`, `list`, `ab-tests metrics` and `analytics` commands. The tool never starts, stops or changes a test.
 - At most 10 Adapty calls per verdict (8 for a two-variant test), with a pause between calls. Tests with more than 3 variants are rejected.
@@ -340,7 +391,10 @@ Data flow: test ID, then `live.py` reads the test, per-variant metrics, funnel, 
 - Works for any app: no product names or flow maps in code. Lumen appears only in fixtures.
 - Only demo and synthetic data.
 
-### Live data
+</details>
+
+<details>
+<summary><b>Live data</b></summary>
 
 `scripts/record_fixtures.sh <ab_test_id>` records read-only Adapty responses into `tests/fixtures/live/<test_id>/` (7 calls plus `auth whoami`, under the 10-call budget) and writes `as_of.json` with the recording day. It refuses an empty `ADAPTY_EXPECTED_COMPANY` and exits 3 without recording when `adapty auth whoami` does not match it. Recorded on 2026-11-07; history window 2026-07-01 to 2026-11-06. The committed bundle is the Onboarding test.
 
@@ -351,8 +405,15 @@ Data flow: test ID, then `live.py` reads the test, per-variant metrics, funnel, 
 - Products with no sales in the window are still listed in `conversion` with zeros; some products (for example lifetime on Play) have no `play_store:` row in `ltv`.
 - The Main test is segment-limited (North America); the funnel filters do not include the segment.
 
-## Research (in Russian)
+</details>
+
+## Research
+
+<details>
+<summary><b>Research notes (in Russian)</b></summary>
 
 - [Adapty product report](research/01-adapty-product-report.md): features, scenarios by role, map of the API, CLI and MCP and their gaps, the hackathon account, CLI rough edges.
 - [Adapty's A/B platform](research/05-ab-platform.md): the entity model, which experiments can really run, weak spots of A/B metrics (raw P2BB, Predicted P2BB only in the dashboard), who suffers from them.
 - [Real user pains](research/04-user-pains.md): Adapty GitHub issues, G2 and Capterra, Canny, app reviews, Reddit, the RevenueCat forum; a pain map and a check of our ideas against users' words.
+
+</details>
